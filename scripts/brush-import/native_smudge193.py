@@ -28,7 +28,10 @@ def lower_smudge193(data,name,catalog,external,impl,options):
     node=copy.deepcopy(root)
     for p in list(node):
         if p.tag=='param':node.remove(p)
-    for key,value in values.items():ET.SubElement(node,'param',name=key).text=value
+    for key,value in values.items():
+        original=next((p for p in root.findall('param') if p.get('name')==key),None)
+        attributes=dict(original.attrib) if original is not None else {'name':key}
+        ET.SubElement(node,'param',attributes).text=value
     tokens=[(COMPONENT193,COMPONENT193.set(True)),(COMPONENT190,COMPONENT190.set(True)),(COMPONENT191,COMPONENT191.set(True))]
     try:result=impl(png_preset(node),name,catalog,resources,0,**{**options,'timed_input':True,'_default_input_policy':None,'_allow_texture_material':True})
     finally:

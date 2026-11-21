@@ -12,6 +12,14 @@ import convert
 def native193(*,mode='overlay',modern=True,smudge=0,tip=None,extra=''):
     return kpp(tip or '<Brush type="auto_brush" spacing=".1" density=".8" randomness=".2"><MaskGenerator diameter="16" ratio=".7" type="rect" id="default" hfade=".5" vfade=".7" spikes="5"/></Brush>', '<param name="SmudgeRateUseNewEngine">'+str(modern).lower()+'</param><param name="SmudgeRateMode">'+str(smudge)+'</param><param name="PressureSmudgeRate">true</param><param name="SmudgeRateValue">.5</param><param name="PressureColorRate">true</param><param name="ColorRateValue">.3</param>'+extra, engine='colorsmudge',mode=mode)
 class Smudge193Tests(unittest.TestCase):
+    def test_embedded_pattern_bytearray_survives_native_bridge(self):
+        pattern=io.BytesIO();Image.new('L',(4,4),128).save(pattern,format='PNG')
+        encoded=base64.b64encode(base64.b64encode(pattern.getvalue())).decode()
+        extra='<param name="Texture/Pattern/Enabled">true</param><param name="Texture/Pattern/PatternFileName">missing.png</param><param name="Texture/Pattern/Pattern" type="bytearray">'+encoded+'</param>'
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(native193(extra=extra),'test.kpp',Catalog(Path(tmp)),{})
+            self.assertEqual(result['descriptor']['version'],193)
+            self.assertIn('texture',result['descriptor'])
     def test_existing_blends_foreground_only_both_strategies_and_dulling(self):
         with tempfile.TemporaryDirectory()as tmp:
             for modern in(False,True):

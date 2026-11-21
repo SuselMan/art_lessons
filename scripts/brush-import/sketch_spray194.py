@@ -4,7 +4,8 @@ import math
 from color_smudge193 import BLENDS,NATIVE_MODES as SMUDGE_MODES
 COMPONENT194=ContextVar('native_sketch_spray194',default=False)
 COMPOSITES=(*BLENDS,'copy','grainMerge','grainExtract','negation')
-NATIVE_MODES={**SMUDGE_MODES,'copy':'copy'}
+# Parallel is implemented only by the Smudge193 path, not Sketch/Spray194.
+NATIVE_MODES={**{key:value for key,value in SMUDGE_MODES.items() if value!='parallel'},'copy':'copy'}
 def scope194(d,*,clock195=False):
  obj=lambda v:isinstance(v,dict)
  if not obj(d)or type(d.get('version'))is not int or d['version']!=(195 if clock195 else 194) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False

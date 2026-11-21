@@ -49,7 +49,10 @@ def lower_filter192(data,root,params,name,catalog,external):
         definition,warning=text_resource(definition,resources);normal['brush_definition']=ET.tostring(definition,encoding='unicode')
     for child in list(node):
         if child.tag=='param':node.remove(child)
-    for key,value in normal.items():ET.SubElement(node,'param',name=key).text=value
+    for key,value in normal.items():
+        original=next((p for p in root.findall('param') if p.get('name')==key),None)
+        attributes=dict(original.attrib) if original is not None else {'name':key}
+        ET.SubElement(node,'param',attributes).text=value
     tokens=[(FILTER192,FILTER192.set(True)),(COMPONENT190,COMPONENT190.set(True)),(COMPONENT191,COMPONENT191.set(True))]
     try:result=_preset_impl(png_preset(node),name,catalog,resources,0,stroke_input=False,timed_input=True,_allow_texture_material=True,_default_input_policy=None)
     finally:

@@ -35,7 +35,10 @@ def lower194(data,root,params,name,catalog,external,resource):
   definition,text_warning=text_resource(definition,resources);values['brush_definition']=ET.tostring(definition,encoding='unicode')
  for p in list(node):
   if p.tag=='param':node.remove(p)
- for k,v in values.items():ET.SubElement(node,'param',name=k).text=v
+ for k,v in values.items():
+  original=next((p for p in root.findall('param') if p.get('name')==k),None)
+  attrs=dict(original.attrib) if original is not None else {'name':k}
+  ET.SubElement(node,'param',attrs).text=v
  private=png_preset(node)
  def resolve(key):
   if key in resources:return resources[key]
