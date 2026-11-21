@@ -126,7 +126,7 @@
 }
 
 .on .thumb {
-  background: var(--color-switch-knob);
+  background: var(--color-switch-knob-on);
 }
 
 .on {
@@ -156,7 +156,7 @@
     background: var(--color-accent-hover);
   }
   .switch.on:not(:disabled):hover .thumb {
-    background: var(--color-switch-knob);
+    background: var(--color-switch-knob-on);
   }
 }
 
