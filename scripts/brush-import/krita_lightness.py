@@ -49,9 +49,9 @@ def compile_lightness_planes(image, *, max_pixels=MAX_PIXELS, **settings):
     """Return (adjustedGray:L, sourceAlpha:L), both native dimensions.
 
     Auto midpoint uses alpha-weighted, per-pixel rounded Qt gray. Completely
-    transparent or endpoint-midpoint inputs with active nonsaturated transfer
-    can hit native division-by-zero: reject explicitly instead of fabricating
-    an endpoint convention. Contrast1 has a defined step and is supported.
+    A zero midpoint uses only the finite upper branch for all pixels. A 255
+    midpoint with active nonsaturated transfer still reaches an undefined native
+    division, so it remains rejected. Contrast1 has a defined step.
     """
     if not isinstance(image,Image.Image):raise ValueError('Expected decoded PIL image')
     if type(max_pixels) is not int or not 0<max_pixels<=MAX_PIXELS:
@@ -68,7 +68,7 @@ def compile_lightness_planes(image, *, max_pixels=MAX_PIXELS, **settings):
         total_alpha=sum(alphas)
         midpoint=255*sum(_round(gray*alpha/255) for gray,alpha in zip(grays,alphas))/total_alpha if total_alpha else 0
     active=abs(midpoint-127)>.1 or abs(brightness)>1e-12 or abs(contrast)>1e-12
-    if active and contrast!=1 and midpoint in (0,255):
+    if active and contrast!=1 and midpoint==255:
         raise ValueError('Singular native lightness midpoint transfer')
     if active:
         mid_y=127+(128*brightness if brightness>0 else 127*brightness)
@@ -76,7 +76,7 @@ def compile_lightness_planes(image, *, max_pixels=MAX_PIXELS, **settings):
             grays=bytes(255 if gray>=midpoint else 0 for gray in grays)
         else:
             factor=1/(1-contrast) if contrast>0 else 1+contrast
-            low=mid_y*factor/midpoint
+            low=mid_y*factor/midpoint if midpoint else 0
             high=(255-mid_y)*factor/(255-midpoint)
             low_intercept=mid_y-midpoint*low
             high_intercept=mid_y-midpoint*high

@@ -45,6 +45,11 @@ class LightnessTests(unittest.TestCase):
         self.assertEqual(modern['midpoint'],109);self.assertEqual(modern['brightness'],.05);self.assertEqual(modern['contrast'],-.29)
         self.assertEqual(adjustment_settings(**raw,adjustment_version=2),modern)
 
+    def test_zero_auto_midpoint_uses_defined_upper_branch(self):
+        image=Image.new('RGBA',(2,1),(0,0,0,255))
+        gray_plane,alpha=compile_lightness_planes(image,auto_midpoint=True,adjustment_version=2)
+        self.assertEqual(gray_plane.tobytes(),bytes([127,127]))
+        self.assertEqual(alpha.tobytes(),bytes([255,255]))
     def test_auto_midpoint_alpha_weighting_rounds_before_sum(self):
         source=Image.new('RGBA',(3,1));source.putdata([(64,64,64,255),(192,192,192,255),(255,255,255,0)])
         g,a=compile_lightness_planes(source,auto_midpoint=True)
