@@ -24,7 +24,24 @@ def lower_filter192(data,root,params,name,catalog,external):
     # Only filter configuration is needed; unrelated active keys cannot affect kernel parsing.
     for key,value in values.items():
         if key.startswith('Filter/')or key in('brush_definition','CompositeOp','EraserMode'):ET.SubElement(kernel,'param',name=key).text=value
-    f=_legacy_filter_preset(png_preset(kernel),kernel,values,name,catalog,external)['descriptor']['filter']
+    if params.get('Filter/id')=='colorbalance':
+        configs=root.findall('filterconfig')
+        if len(configs)>1:raise ValueError('Duplicate Filter configuration')
+        cfg=configs[0] if configs else xml(params['Filter/configuration']) if params.get('Filter/configuration') else None
+        config={p.get('name'):p.text or '' for p in cfg.iter('param')} if cfg is not None else {}
+        if cfg is not None and len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
+        keys=[axis+'_'+tone for tone in ('shadows','midtones','highlights') for axis in ('cyan_red','magenta_green','yellow_blue')]
+        if set(config)-set(keys)-{'preserve_luminosity'}:raise ValueError('Unknown Color Balance setting')
+        def channel(key):
+            try:value=int(config.get(key,'0'))
+            except (ValueError,TypeError):raise ValueError('Invalid Color Balance channel')from None
+            if not -100<=value<=100:raise ValueError('Color Balance channel outside native range')
+            return value/100
+        raw_preserve=config.get('preserve_luminosity','true').lower()
+        if raw_preserve not in ('true','false','1','0'):raise ValueError('Invalid Color Balance luminosity flag')
+        f={'version':3,'kind':'colorBalance',**{tone:[channel(axis+'_'+tone)for axis in ('cyan_red','magenta_green','yellow_blue')]for tone in ('shadows','midtones','highlights')},'preserveLuminosity':raw_preserve in ('true','1')}
+    else:
+        f=_legacy_filter_preset(png_preset(kernel),kernel,values,name,catalog,external)['descriptor']['filter']
     if f['kind']=='unsharp':
         if f['threshold']!=int(f['threshold']):raise ValueError('Filter192 Unsharp threshold must be integral')
         f['threshold']=int(f['threshold']);f['spatialPolicy']='unsharp-lab-halo-v1'

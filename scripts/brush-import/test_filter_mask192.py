@@ -5,7 +5,7 @@ from PIL import Image
 from test_krita import kpp
 from krita_import import preset,convert_krita
 from brush_contract import Catalog
-from filter_mask192 import image_coverage192,scope192
+from filter_mask192 import image_coverage192,scope192,validate_filter192_portable
 import convert
 
 def fixtures192():
@@ -65,6 +65,16 @@ class Filter192Tests(unittest.TestCase):
                 else:d['filter'][{'policy':'maskPolicy','source':'sourcePolicy','composite':'composite'}[mutation]]='wrong'
                 path.write_text(json.dumps(bad))
                 with self.subTest(mutation=mutation),self.assertRaises(ValueError):convert.portable_bundle(path,Catalog(root/mutation))
+    def test_color_balance_preserves_native_channels_and_is_bounded(self):
+        config='<filterconfig version="0"><param name="cyan_red_shadows">-60</param><param name="magenta_green_highlights">60</param><param name="preserve_luminosity">false</param></filterconfig>'
+        extra='<param name="Filter/id">colorbalance</param>'+config
+        with tempfile.TemporaryDirectory() as tmp:
+            c=Catalog(Path(tmp)/'ok');result=preset(kpp(resources=extra,engine='filter'),'authored.kpp',c,{})
+            d=result['descriptor'];self.assertTrue(scope192(d));f=d['filter']
+            self.assertEqual(f['kind'],'colorBalance');self.assertEqual(f['shadows'],[-.6,0,0]);self.assertEqual(f['highlights'],[0,.6,0]);self.assertFalse(f['preserveLuminosity'])
+            validate_filter192_portable(d,{k:v['size']for k,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
+            for bad_config in (config.replace('-60','-101'),config.replace('false','maybe')):
+                with self.assertRaises(ValueError):preset(kpp(resources='<param name="Filter/id">colorbalance</param>'+bad_config,engine='filter'),'bad.kpp',Catalog(Path(tmp)/('bad'+str(len(bad_config)))),{})
     def test_native_filterconfig_retains_authored_unsharp_parameters(self):
         definition='<Brush type="auto_brush" randomness=".6"><MaskGenerator type="circle" ratio="1" diameter="16" id="soft" softness_curve="0,1;1,0;" antialiasEdges="0"/></Brush>'
         extra='<param name="Filter/id">unsharp</param><filterconfig version="1"><param name="amount">2</param><param name="halfSize">4</param><param name="lightnessOnly">true</param><param name="threshold">0</param></filterconfig>'
