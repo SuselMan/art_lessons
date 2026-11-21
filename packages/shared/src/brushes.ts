@@ -795,7 +795,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
         const dims=animation.dimensions
         if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined&&Number(d.version)<118||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
         const product=dims.reduce((n,v)=>n*Number(v.rank),1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
-        if(product>1024||animation.frames.length>product||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
+        if(product>1024||animation.frames.length>Math.min(1024,product+dims[0].rank-1)||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
         const random=brushAnimationUsesMode(animation,'random'),sequence=random||brushAnimationUsesMode(animation,'incremental')
         if(sequence&&Number(d.version)<115||(random?animation.randomPolicy!=='grafetto-dim-stream-v1':animation.randomPolicy!==undefined))return false
       }else if(animation.dimensions!==undefined||animation.randomPolicy!==undefined)return false

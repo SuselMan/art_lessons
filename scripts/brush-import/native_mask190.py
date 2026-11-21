@@ -122,7 +122,7 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
     child_seed=data+b'\0MaskingBrush/Preset/'
     finalize_identity(child,child_seed);finalize_identity(parent,data)
     notes.append(compatibility('masking190','Native Pixel seven masking options retained with independent component cursor/state, accumulated GrayA and ten factory mask operations. Perspective uses native default1 without an external assistant scene. No font/ICC/native random or pixel identity claim.','supported'))
-    result={**components[0],'descriptor':parent,'name':root.get('name')or name,'source':Path(name).name,'compatibility':notes,'warnings':warnings}
+    result={**components[0],'descriptor':parent,'name':root.get('name')or name,'source':Path(name).name,'compatibility':notes,'warnings':list(dict.fromkeys(warnings))}
     # The author's actual PNG preview is preserved, not the bridge thumbnail.
     from krita_import import preset_preview
     result['preview']=preset_preview(image)

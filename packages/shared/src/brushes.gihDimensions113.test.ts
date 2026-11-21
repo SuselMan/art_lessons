@@ -50,3 +50,8 @@ it('accepts up to 1024 multidimensional slots while preserving the flat limit',(
  expect(isBrushLibrary(c)).toBe(true)
  d.tip.animation.dimensions=[{mode:'angular',rank:33},{mode:'incremental',rank:32}];expect(isBrushLibrary(c)).toBe(false)
 })
+
+it('admits Krita surplus cells only within the unchanged-stride bound',()=>{
+ const c=tensor(),a=c.brushes[0].descriptor.tip.animation!;a.frames=Array(17).fill(c.assets[0].id);expect(isBrushLibrary(c)).toBe(true)
+ a.frames=Array(18).fill(c.assets[0].id);expect(isBrushLibrary(c)).toBe(false)
+})

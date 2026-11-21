@@ -13,6 +13,13 @@ class Dimensions115(unittest.TestCase):
   for dims in ([('angular',18),('incremental',22)],[('angular',18),('incremental',41)]):
    parsed=gih(pipe(dims,actual=3));self.assertEqual(parsed['dimensions'],[{'mode':mode,'rank':rank} for mode,rank in dims]);self.assertEqual(len(parsed['frames']),3)
   with self.assertRaises(ValueError):gih(pipe([('angular',33),('incremental',32)],actual=1))
+ def test_surplus_frame_preserves_krita_strides(self):
+  from krita_import import gih
+  from test_gih_dimensions113 import pipe
+  dims=[('angular',18),('random',7)]
+  data=pipe(dims,actual=127).replace(b'126 ncells:126',b'127 ncells:127',1)
+  self.assertEqual(len(gih(data)['frames']),127)
+  with self.assertRaises(ValueError):gih(data.replace(b'127 ncells:127',b'144 ncells:144',1))
  def test_genuine_default_API_two_three_four_dimensions_and_policies(self):
   for dims in[[('random',4),('random',4)],[('incremental',2),('incremental',3)],[('pressure',2),('random',2),('angular',2)],[('incremental',2),('xtilt',2),('random',2),('ytilt',2)]]:
    with self.subTest(dims=dims),tempfile.TemporaryDirectory()as tmp:

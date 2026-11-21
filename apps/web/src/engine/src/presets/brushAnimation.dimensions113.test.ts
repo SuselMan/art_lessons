@@ -36,3 +36,8 @@ it('selects high indices from a 738-frame tensor without truncation',()=>{
  const b=brush([{mode:'angular',rank:18},{mode:'incremental',rank:41}]);b.tip.animation!.frames=Array.from({length:738},(_,i)=>`asset:${i.toString(16).padStart(64,'0')}` as const)
  const index=brushAnimationIndex(b.tip,1,40,0,1,0,0,0,0);expect(index).toBeGreaterThanOrEqual(0);expect(index).toBeLessThan(738)
 })
+
+it('uses the actual surplus frame count for signed index modulo',()=>{
+ const b=brush([{mode:'pressure',rank:2},{mode:'xtilt',rank:2}]);b.tip.animation!.frames=[...frames,...frames.slice(0,2)]
+ expect(brushAnimationIndex(b.tip,1,0,0,0,0,0,-1,0)).toBe(0)
+})

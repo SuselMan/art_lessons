@@ -380,7 +380,7 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
     const dims=animation.dimensions
     if(animation.rank!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(d=>['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(d.mode)&&Number.isInteger(d.rank)&&d.rank>=2&&d.rank<=256)||dims.every(d=>d.mode==='constant'))throw Error('Invalid multidimensional pipe')
     const product=dims.reduce((n,d)=>n*d.rank,1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
-    if(product>1024||animation.frames.length<1||animation.frames.length>product||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))throw Error('Invalid multidimensional product/policy')
+    if(product>1024||animation.frames.length<1||animation.frames.length>Math.min(1024,product+dims[0].rank-1)||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))throw Error('Invalid multidimensional product/policy')
     const random=brushAnimationUsesMode(animation,'random')
     if((random?animation.randomPolicy!=='grafetto-dim-stream-v1':animation.randomPolicy!==undefined)||random&&(strokeSeed===undefined||!Number.isInteger(strokeSeed)||strokeSeed<0||strokeSeed>4294967295)||!Number.isSafeInteger(ordinal)||ordinal<0)throw Error('Invalid multidimensional random policy/seed/ordinal')
     let stride=product,index=0

@@ -218,7 +218,10 @@ def gih(data, preserve_color=False):
             if any(keys.index('dim')>keys.index(key)for key in names):raise ValueError('GIH dim must precede dimension selectors')
             dimensions=[{'mode':params[f'sel{i}'],'rank':int(params[f'rank{i}'])}for i in range(dim)]
             if any(v['mode']not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental')or not 2<=v['rank']<=256 for v in dimensions)or all(v['mode']=='constant'for v in dimensions):raise ValueError('Unsupported GIH dimension selector')
-            if math.prod(v['rank']for v in dimensions)!=count:raise ValueError('GIH ncells must equal rank product')
+            product=math.prod(v['rank']for v in dimensions)
+            # Krita divides ncells by each rank using integer division. Permit
+            # surplus cells only when every resulting stride remains unchanged.
+            if count<product or count//dimensions[0]['rank']!=product//dimensions[0]['rank']:raise ValueError('Unsupported GIH ncells strides')
         elif not 1<=count<=2147483647 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
             raise ValueError('Unsupported GIH frame count or dimensions/ranks')
     except (IndexError,ValueError) as error:
