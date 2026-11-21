@@ -745,7 +745,7 @@ export const en = {
   'tool.digitalBrushTitle': 'Digital brush — round, textured, bristle, mixing and scatter brushes; the only tool here that imitates no real material  {hotkey}',
   'tool.field.brush': 'Brush',
   'tool.field.sizeFromPressure': 'Pressure changes size',
-  'tool.field.opacityFromPressure': 'Pressure changes opacity',
+  'tool.field.opacityFromPressure': 'Pressure changes α',
   'tool.brush.softRound': 'Soft round',
   'tool.brush.mediumRound': 'Medium round',
   'tool.brush.hardRound': 'Hard round',
@@ -823,7 +823,7 @@ export const en = {
   // ── tool settings (TOOL_SCHEMAS field labels and enum options) ─────────
   'tool.field.grade': 'Grade',
   'tool.field.size': 'Size',
-  'tool.field.opacity': 'Opacity',
+  'tool.field.opacity': 'α',
   'tool.field.color': 'Color',
   'tool.field.type': 'Type',
   'tool.field.nib': 'Nib',
@@ -952,7 +952,7 @@ export const en = {
   'sidePanel.openTab': 'Open {title}',
 
   // ── layers panel ───────────────────────────────────────────────────────
-  'layers.opacity': 'Opacity',
+  'layers.opacity': 'α',
   'layers.addLayer': 'Add layer',
   'layers.addFolder': 'Add folder',
   'layers.importImage': 'Import reference image',
@@ -1052,7 +1052,7 @@ export const en = {
   'editorSettings.floatingPanel': 'Floating panel',
   'editorSettings.floatingPanelHint': 'A movable cluster with undo/redo, the current tool and the eraser.',
   'editorSettings.floatingPanel.always': 'Always',
-  'editorSettings.floatingPanel.minimal': 'In minimal UI',
+  'editorSettings.floatingPanel.minimal': 'Min. UI',
   'editorSettings.floatingPanel.never': 'Never',
 
   // -- pen pressure calibration (#475) --------------------------------------

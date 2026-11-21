@@ -1,3 +1,5 @@
+.dialog[role="dialog"] { max-width: 640px; }
+
 /* Backdrop, box and header live in components/Modal now (#310). */
 
 .scrollArea {

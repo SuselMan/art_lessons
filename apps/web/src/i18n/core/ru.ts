@@ -609,7 +609,7 @@ export const ru: Dictionary = {
   'tool.digitalBrushTitle': 'Цифровая кисть — круглые, фактурные, щетина, смешивающая и разброс; единственный инструмент здесь, который не изображает настоящий материал  {hotkey}',
   'tool.field.brush': 'Кисть',
   'tool.field.sizeFromPressure': 'Нажим меняет размер',
-  'tool.field.opacityFromPressure': 'Нажим меняет непрозрачность',
+  'tool.field.opacityFromPressure': 'Нажим меняет α',
   'tool.brush.softRound': 'Мягкая круглая',
   'tool.brush.mediumRound': 'Средняя круглая',
   'tool.brush.hardRound': 'Жёсткая круглая',
@@ -691,7 +691,7 @@ export const ru: Dictionary = {
   // ── настройки инструментов ─────────────────────────────────────────────
   'tool.field.grade': 'Твёрдость',
   'tool.field.size': 'Размер',
-  'tool.field.opacity': 'Непрозрачность',
+  'tool.field.opacity': 'α',
   'tool.field.color': 'Цвет',
   'tool.field.type': 'Тип',
   'tool.field.nib': 'Наконечник',
@@ -800,7 +800,7 @@ export const ru: Dictionary = {
   'sidePanel.openTab': 'Открыть: {title}',
 
   // ── панель слоёв ───────────────────────────────────────────────────────
-  'layers.opacity': 'Непрозрачность',
+  'layers.opacity': 'α',
   'layers.addLayer': 'Добавить слой',
   'layers.addFolder': 'Добавить папку',
   'layers.importImage': 'Импортировать референс',
@@ -887,7 +887,7 @@ export const ru: Dictionary = {
   'editorSettings.floatingPanel': 'Плавающая панель',
   'editorSettings.floatingPanelHint': 'Подвижная кнопочная группа: отмена/повтор, текущий инструмент и ластик.',
   'editorSettings.floatingPanel.always': 'Всегда',
-  'editorSettings.floatingPanel.minimal': 'В минимальном интерфейсе',
+  'editorSettings.floatingPanel.minimal': 'мин. UI.',
   'editorSettings.floatingPanel.never': 'Никогда',
 
   // -- калибровка нажима пера (#475) ----------------------------------

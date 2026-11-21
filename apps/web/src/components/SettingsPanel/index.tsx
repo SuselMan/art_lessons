@@ -111,7 +111,7 @@ export function SettingsPanel({
   ]
 
   return (
-    <Modal title={t('editorSettings.title')} size={wide ? 'lg' : 'md'} onClose={onClose}>
+    <Modal title={t('editorSettings.title')} size={wide ? 'lg' : 'md'} className={styles.dialog} onClose={onClose}>
       <div className={styles.scrollArea}>
         <OptionGroup
           options={tabs}
