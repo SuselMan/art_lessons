@@ -63,11 +63,18 @@ def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     result['sourceDefaults']={'sizePx':width,'opacity':d['opacity'],'flow':1}
     ignored={'kritaEngine','standardMaskProfile','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]+notes
-    # Retire only an exact option already lowered into this195 render payload.
-    if TIMING195.get() and dynamics.get('width'):
+    # Retire a warning only when the family payload actually executes the
+    # corresponding response. Legacy fade and constant-only descriptors keep
+    # their historical qualification and immutable records.
+    handled=set()
+    for option,key in [('Line width','width'),('Curves opacity','opacity')]:
+        controls=dynamics.get(key,[])
+        if controls and (TIMING195.get() or all(c.get('control')=='pressure' for c in controls)):
+            handled.add('Pressure'+option)
+    if handled:
         for note in result['compatibility']:
             if note['feature']=='activeDynamics':
-                note['detail']=', '.join(v for v in note['detail'].split(', ')if v!='PressureLine width')
+                note['detail']=', '.join(v for v in note['detail'].split(', ') if v not in handled)
         result['compatibility']=[n for n in result['compatibility']if n['feature']!='activeDynamics' or n['detail']]
     result['compatibility'].append(compatibility('curveTrace','Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.'))
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
