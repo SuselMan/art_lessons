@@ -108,8 +108,16 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
     return () => { for (const [name, value, priority] of previous) { if (value) root.style.setProperty(name, value, priority); else root.style.removeProperty(name) } }
   }, [draft])
   const count = Object.keys(draft).length
-  const invalid = Object.values(draft).some(value => !validColor(value))
+  const invalid = Object.values(drafts).some(values => Object.values(values).some(value => !validColor(value)))
   const edit = (name: string, value: string) => { setCopied(false); setDrafts(current => ({ ...current, [theme]: { ...current[theme], [name]: value } })) }
+  const download = () => {
+    const content = exportCss({ dark: { ...palettes.dark, ...drafts.dark }, light: { ...palettes.light, ...drafts.light } })
+    const url = URL.createObjectURL(new Blob([content + '\n'], { type: 'text/css;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url; link.download = 'grafetto-palette.css'
+    document.body.append(link); link.click(); link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
   const pick = (name: string, background: string) => {
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
     const context = canvas.getContext('2d')
@@ -125,8 +133,8 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
   }
   return <main className={styles.page} data-palette-playground>
     <div className={styles.top}><div><h1>Палитра в интерфейсе</h1><p>Живые компоненты Grafetto. Наводи, переключай, открывай меню и окна.</p></div><OptionGroup variant="segmented" selection="radio" ariaLabel="Тема палитры" active={theme} onSelect={value => onThemeChange(value === 'light' ? 'light' : 'dark')} options={[{ id: 'dark', label: 'Тёмная' }, { id: 'light', label: 'Светлая' }]} /></div>
-    <div className={styles.layout}><Workspace /><aside className={styles.palette} aria-label="Редактор палитры">
-      <div className={styles.paletteHead}><h2>Цветовые переменные <Badge>{Object.keys(dark).length}</Badge></h2><p>Пробные изменения сохраняются в этом браузере отдельно для каждой темы. Код проекта не меняется.</p><TextInput icon="search" aria-label="Найти цвет" placeholder="Найти переменную…" value={filter} onChange={event => setFilter(event.target.value)} /><div className={styles.row}><Button variant="secondary" size="sm" onClick={() => setDrafts(current => ({ ...current, [theme]: {} }))}>Сбросить тему</Button><Button size="sm" disabled={invalid || !Object.values(drafts).some(value => Object.keys(value).length)} onClick={() => { void navigator.clipboard.writeText(exportCss(drafts)).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Скопировано' : 'Копировать CSS'}</Button></div><span className={styles.hint}>Изменено в этой теме: {count}</span></div>
+    <div className={styles.layout}><div className={styles.previewColumn}><Workspace /><div className={styles.colorStrip} role="img" aria-label={`Палитра: все ${Object.keys(dark).length} цвета`}>{groups.flatMap(group => group.names).map(name => <span key={name} aria-hidden="true" style={{ background: `var(--color-${name})` }} />)}</div></div><aside className={styles.palette} aria-label="Редактор палитры">
+      <div className={styles.paletteHead}><h2>Цветовые переменные <Badge>{Object.keys(dark).length}</Badge></h2><p>Пробные изменения сохраняются в этом браузере отдельно для каждой темы. Код проекта не меняется.</p><TextInput icon="search" aria-label="Найти цвет" placeholder="Найти переменную…" value={filter} onChange={event => setFilter(event.target.value)} /><div className={styles.row}><Button variant="secondary" size="sm" onClick={() => { setCopied(false); setDrafts(current => ({ ...current, [theme]: {} })) }}>Сбросить тему</Button><Button size="sm" disabled={invalid || !Object.values(drafts).some(value => Object.keys(value).length)} onClick={() => { void navigator.clipboard.writeText(exportCss(drafts)).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Скопировано' : 'Копировать CSS'}</Button></div><Button variant="secondary" size="sm" disabled={invalid} onClick={download}>Скачать CSS</Button><span className={styles.hint}>Изменено в этой теме: {count}</span></div>
       <div className={styles.tokenList}>{groups.map(group => {
         const names = group.names.filter(name => `--color-${name}`.includes(filter.toLowerCase()))
         return names.length ? <details key={group.title} open><summary>{group.title}</summary><p className={styles.hint}>{group.usage}</p>{names.map(short => {
