@@ -1,3 +1,4 @@
+import { hexToRgb } from '../lib/browser/color'
 import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ColorWell } from '../components/ColorWell'
@@ -10,24 +11,24 @@ export default meta
 export const Wells: StoryObj = {
   render: () => (
     <div className="workshop-row">
-      <ColorWell label="Single colour" fill={[85, 85, 170]} />
+      <ColorWell label="Single colour" fill={hexToRgb('#5555aa')} />
       <ColorWell
         label="Stroke and fill"
-        fill={[200, 180, 140]}
-        stroke={[85, 85, 170]}
+        fill={hexToRgb('#c8b48c')}
+        stroke={hexToRgb('#5555aa')}
       />
-      <ColorWell label="No fill" fill={null} stroke={[85, 85, 170]} />
-      <ColorWell label="No stroke" fill={[200, 180, 140]} stroke={null} />
+      <ColorWell label="No fill" fill={null} stroke={hexToRgb('#5555aa')} />
+      <ColorWell label="No stroke" fill={hexToRgb('#c8b48c')} stroke={null} />
       <ColorWell
         label="Editing stroke"
-        fill={[200, 180, 140]}
-        stroke={[85, 85, 170]}
+        fill={hexToRgb('#c8b48c')}
+        stroke={hexToRgb('#5555aa')}
         highlight="outer"
       />
       <ColorWell
         label="Editing fill"
-        fill={[200, 180, 140]}
-        stroke={[85, 85, 170]}
+        fill={hexToRgb('#c8b48c')}
+        stroke={hexToRgb('#5555aa')}
         highlight="core"
       />
     </div>
@@ -39,7 +40,7 @@ function InteractivePicker({ mode, ...props }: ComponentProps<typeof ColorPicker
 }
 export const Pickers: StoryObj = {
   render: function Example() {
-    const [value, setValue] = useState<[number, number, number]>([85, 85, 170])
+    const [value, setValue] = useState<[number, number, number]>(hexToRgb('#5555aa'))
     return (
       <div className="workshop-row" style={{ alignItems: 'flex-start' }}>
         {(['bar', 'ring', 'triangle'] as const).map((mode) => (
