@@ -35,3 +35,9 @@ class InactiveOptionsTests(unittest.TestCase):
             xml='<param name="PressureTexture/Strength/">true</param><param name="Texture/Pattern/Enabled">true</param><param name="Texture/Pattern/PatternFileName">missing.pat</param>'
             with self.assertRaisesRegex(ValueError,'Missing Krita resource'):
                 preset(kpp(resources=xml),'active-texture.kpp',Catalog(Path(directory)),{})
+
+    def test_unsuffixed_legacy_texture_strength_is_not_a_native_switch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result=preset(kpp(resources='<param name="PressureTexture/Strength">true</param>'),'legacy.kpp',Catalog(Path(directory)),{})
+            self.assertFalse(any(n['feature']=='activeDynamics' and 'PressureTexture/Strength' in n['detail'] for n in result['compatibility']))
+            self.assertTrue(any(n['feature']=='ignoredLegacyTextureStrength' and n['status']=='supported' for n in result['compatibility']))

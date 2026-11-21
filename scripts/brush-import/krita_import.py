@@ -1543,6 +1543,11 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             notes.extend(local);darken_decoded=True
             notes.append(compatibility('darken','Native darkening uses captured input and stored strength; Grafetto applies it after HSV instead of before, and ICC/U8 rounding differs.'))
     active=[k for k in params if k.startswith('Pressure') and clock_enabled(params, k) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or (d.get('texture',{}).get('application')or d.get('texture',{}).get('material')))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureDarken' and darken_decoded) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    # KisStrengthOptionData names its switch PressureTexture/Strength/ (with
+    # the final slash). The old unsuffixed property is not read by Krita.
+    if 'PressureTexture/Strength' in active:
+        active.remove('PressureTexture/Strength')
+        notes.append(compatibility('ignoredLegacyTextureStrength','The unsuffixed legacy texture-strength switch is not read by the native strength option.','supported'))
     # Pixel Brush does not construct ColorRate (a Color Smudge option), and
     # Rotation_previous is saved UI state, not a live rotation sensor switch.
     if engine=='paintbrush':
