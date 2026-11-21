@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -195,7 +196,7 @@ function PreparingRoomCard({ name, view, t }: { name: string; view: LessonsView;
   return (
     <div ref={ref} className={clsx(styles.card, styles.preparingCard, view === 'list' && styles.cardListItem)} aria-disabled="true" aria-busy="true">
       <div className={styles.cardLink}>
-        <div className={styles.cardThumbnailPlaceholder}><span className={styles.preparingSpinner} aria-hidden="true" /></div>
+        <div className={styles.cardThumbnailPlaceholder}><Spinner size={28} /></div>
         <div className={styles.cardText}>
           <span className={styles.cardName}>{name}</span>
           <span className={styles.cardMeta} role="status">{t('lessons.preparingRoom')}</span>

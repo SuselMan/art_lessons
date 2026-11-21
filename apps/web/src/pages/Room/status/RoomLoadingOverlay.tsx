@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 
+import { Spinner } from '../../../components/Spinner'
 import type { PaperLoadProgress } from '../../../engine'
 import { useT, type TranslationKey } from '../../../i18n'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -75,7 +76,7 @@ export function RoomLoadingOverlay({ paper, copying = false, fullscreen = false 
 
   return (
     <div className={clsx(styles.overlay, fullscreen && styles.fullscreen)}>
-      <div className={styles.spinner} />
+      <Spinner />
       {downloading ? (
         <>
           <div className={styles.message}>{t('room.loading.paper')}</div>
