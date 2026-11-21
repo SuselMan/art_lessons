@@ -15,6 +15,12 @@ PARAMS={**P,'PaintOpAction':'1','MaskingBrush/UseMasterSize':'false','MaskingBru
 def native(tmp,patch=None,external=None):
     params={**PARAMS,**(patch or{})};raw=authored(params);path=Path(tmp)/'Own190.kpp';path.write_bytes(raw);c=convert.Catalog(Path(tmp)/'native');convert_krita(path,c,external);return raw,c
 class IndependentMask190Tests(unittest.TestCase):
+ def test_perspective_without_assistant_is_not_private_mask_authority(self):
+  from independent_mask190 import uses_native_mask190_controls,validate_independent_mask190
+  root={'version':58,'behavior':{'modulations':{'size':[{'control':'perspective','minimum':0,'jitter':0,'curve':[[0,0],[1,1]]}]}}}
+  self.assertFalse(uses_native_mask190_controls(root['behavior']));self.assertFalse(validate_independent_mask190(root))
+  root['behavior']['modulations']['size'][0]['control']='pressureIn'
+  with self.assertRaises(ValueError):validate_independent_mask190(root)
  def test_antialiased_radial_curve_for_each_native_component(self):
   curve='<Brush type="auto_brush" spacing=".1"><MaskGenerator type="circle" ratio=".5" diameter="16" id="soft" hfade=".4" vfade=".4" spikes="2" antialiasEdges="1" softness_curve="0,1;1,0;"/></Brush>'
   for key in ('brush_definition','MaskingBrush/Preset/brush_definition'):

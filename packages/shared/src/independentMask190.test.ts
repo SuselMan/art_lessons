@@ -3,6 +3,8 @@ import{readFileSync,readdirSync}from'node:fs'
 import{dirname,join}from'node:path'
 import{isBrushLibrary,hasBrushSourceInputs,hasIndependentMask190Scope,isIndependentMask190Component,brushUsesGradient,type BrushDescriptor}from'./brushes.js'
 import{isBrushBehavior}from'./brushBehavior.js'
+import{filter147}from'./filterSmudge147.testFixture.js'
+import{library192}from'./filterMask192.testFixture.js'
 const source=()=>JSON.parse(readFileSync(process.env.NATIVE190_LIBRARY!,'utf8'))
 describe.skipIf(!process.env.NATIVE190_LIBRARY)('whole native190 mask role/schema',()=>{
  it('accepts genuine seven-option native output and actual child identity only',()=>{
@@ -49,4 +51,18 @@ it.skipIf(!process.env.NATIVE190_RADIAL_LIBRARY)('accepts a real native masking 
  const brush=all.brushes.find((entry:{name:string})=>entry.name==='rsx) Nordlys')
  expect(brush).toBeTruthy();expect(brush.descriptor.tip.profile.antialias).toBe(true)
  expect(isBrushLibrary({...all,brushes:[brush]})).toBe(true)
+})
+
+it.skipIf(!process.env.RAKURRI_PERSPECTIVE_LIBRARY)('admits the perspective sensor on an ordinary Pixel brush without a perspective assistant',()=>{
+ const root=JSON.parse(readFileSync(process.env.RAKURRI_PERSPECTIVE_LIBRARY!,'utf8'))
+ const selected=root.brushes.filter((b:{name:string;descriptor:{behavior:{modulations?:{size?:{control:string}[]}}}})=>b.name.startsWith('rfo) Grassbrush')&&b.descriptor.behavior.modulations?.size?.some((s:{control:string})=>s.control==='perspective'))
+ expect(selected).toHaveLength(3)
+ for(const brush of selected)expect(isBrushLibrary({...root,brushes:[brush]})).toBe(true)
+})
+
+it('accepts root perspective but still restricts pressure-in to masking roles',()=>{
+ const brush=filter147();delete brush.filter;delete brush.mixer;brush.model='stamp';brush.version=58
+ brush.behavior!.modulations={size:[{control:'perspective',minimum:0,jitter:0,curve:[[0,0],[1,1]]}]}
+ expect(isBrushLibrary(library192(brush))).toBe(true)
+ brush.behavior!.modulations!.size![0].control='pressureIn';expect(isBrushLibrary(library192(brush))).toBe(false)
 })

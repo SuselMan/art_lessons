@@ -4,11 +4,13 @@ const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&
 const keys=(v:Record<string,unknown>,names:readonly string[])=>Object.keys(v).every(k=>names.includes(k))
 export const INDEPENDENT_MASK190_MODES=['multiply','darken','overlay','colorDodge','colorBurn','linearBurn','add','hardMixPhotoshopAlpha','hardMixSofterPhotoshop','subtract'] as const
 const otherEngines=['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'] as const
-/** Inspect only this component's behavior; dual children have their own admission.
+/** Pressure-in requires the native masking role; perspective defaults to one
+ * without a perspective assistant and is also valid for ordinary Pixel roots.
+ * Inspect only this component's behavior; dual children have their own admission.
  * Never scan descriptor resources, numeric arrays or unrelated metadata. */
 export function usesNativeMask190Controls(value:unknown):boolean {
  const seen=new Set<object>()
- const visit=(v:unknown):boolean=>{if(!record(v)&&!Array.isArray(v)||seen.has(v as object))return false;seen.add(v as object);if(record(v)&&(v.control==='pressureIn'||v.control==='perspective'))return true;return Object.entries(v).some(([k,child])=>k!=='dual'&&visit(child))}
+ const visit=(v:unknown):boolean=>{if(!record(v)&&!Array.isArray(v)||seen.has(v as object))return false;seen.add(v as object);if(record(v)&&v.control==='pressureIn')return true;return Object.entries(v).some(([k,child])=>k!=='dual'&&visit(child))}
  return visit(value)
 }
 /** Native Pixel mask components only. Asset references/planes/profile parameters

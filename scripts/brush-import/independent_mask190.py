@@ -10,7 +10,7 @@ CLONE_RADIAL200=ContextVar('native_clone_radial_aa200',default=False)
 MODES={'multiply':'multiply','darken':'darken','overlay':'overlay','dodge':'colorDodge','burn':'colorBurn','linear_burn':'linearBurn','linear_dodge':'add','hard_mix_photoshop':'hardMixPhotoshopAlpha','hard_mix_softer_photoshop':'hardMixSofterPhotoshop','subtract':'subtract'}
 OTHER_ENGINES=('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')
 def uses_native_mask190_controls(v):
-    if isinstance(v,dict):return v.get('control')in('pressureIn','perspective')or any(uses_native_mask190_controls(x)for k,x in v.items()if k!='dual')
+    if isinstance(v,dict):return v.get('control')=='pressureIn'or any(uses_native_mask190_controls(x)for k,x in v.items()if k!='dual')
     return isinstance(v,list)and any(uses_native_mask190_controls(x)for x in v)
 def component190(d,root=False,revision=190):
     if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']!=revision or d.get('model')!='stamp'or any(k in d for k in OTHER_ENGINES):return False
