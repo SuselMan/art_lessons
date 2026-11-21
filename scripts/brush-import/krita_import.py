@@ -2,7 +2,7 @@ from native_timing195 import clock_enabled, TIMING195
 from sketch_spray194 import COMPONENT194
 from color_smudge193 import COMPONENT193
 from texture_combinations191 import COMPONENT191
-from independent_mask190 import COMPONENT190,MASK_RADIAL190
+from independent_mask190 import COMPONENT190,MASK_RADIAL190,CLONE_RADIAL200
 from legacy_color_smudge_dodge_burn176 import legacy_color_smudge_dodge_burn176_scope
 from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope
 from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope
@@ -750,7 +750,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and params.get('CompositeOp','normal')=='normal' and params.get('PaintOpAction','1')!='2'
             and not enabled(params.get('Texture/Pattern/Enabled'))
             and not clock_enabled(params,'PaintOpSettings/isAirbrushing'))
-        radial_aa199=(engine=='paintbrush' and _allow_texture_material and not COMPONENT190.get() and depth==0 and shape=='circle' and spikes==2
+        radial_aa199=(engine=='paintbrush' and (_allow_texture_material or CLONE_RADIAL200.get()) and not COMPONENT190.get() and depth==0 and shape=='circle' and spikes==2
             and enabled(generator.get('antialiasEdges')) and not noise_active
             and not enabled(params.get('MaskingBrush/Enabled'))
             and not enabled(params.get('PressureSoftness')) and not enabled(params.get('PressureSharpness'))

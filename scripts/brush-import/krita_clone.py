@@ -16,7 +16,12 @@ def clone_preset(data,root,params,name,catalog,external):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
-    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d.update(version=54,model='stamp',category='paint',paperInteraction=0)
+    from independent_mask190 import CLONE_RADIAL200
+    token=CLONE_RADIAL200.set(not healing)
+    try:result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False)
+    finally:CLONE_RADIAL200.reset(token)
+    d=result['descriptor'];radial_aa=d.get('version')==199
+    d.update(version=54,model='stamp',category='paint',paperInteraction=0)
     if healing and any(k in d for k in('mixer','scatter','texture','wet')):raise ValueError('Healing152 does not discard active source modifiers')
     for key in ('mixer','scatter','texture','wet'):d.pop(key,None)
     d['clone']={'version':1,'moveSourcePoint':enabled(params.get('Duplicateop/MoveSourcePoint','true'))}
@@ -27,6 +32,7 @@ def clone_preset(data,root,params,name,catalog,external):
             if behavior.get('erase')is True or any(k in d['tip']for k in('color','material','imageSampling','animation','autoNoise')):raise ValueError('Merged Clone149 requires ordinary static mask')
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
     if d['behavior'].get('taper'):raise ValueError('Clone tail taper unsupported')
+    if radial_aa:d['version']=200
     if healing:
         from clone_healing152 import clone_healing152_scope
         d['version']=152;d['clone'].update(sourcePolicy='canonical-begin-v1',healing='lab-ratio-v1')

@@ -17,3 +17,9 @@ it('accepts radial AA without spikes for native Pixel wash and erasing',()=>{
  expect(isBrushLibrary(library192(d))).toBe(true)
  for(const edit of [(b:BrushDescriptor)=>{b.version=196},(b:BrushDescriptor)=>{b.tip.profile!.antialias=false},(b:BrushDescriptor)=>{b.tip.autoShape={version:1,spikes:3}},(b:BrushDescriptor)=>{b.behavior!.timing={version:1,rate:1,ignoreDistanceSpacing:false}},(b:BrushDescriptor)=>{b.model='mixer'}]){const b=structuredClone(d);edit(b);expect(isBrushLibrary(library192(b))).toBe(false)}
 })
+
+it('admits antialiased Clone AA only under its own full source contract',()=>{
+ const d=brush();d.version=200;delete d.tip.autoShape;d.clone={version:1,moveSourcePoint:true,source:'projectionCanvas',sourcePolicy:'canonical-begin-v1'}
+ expect(isBrushLibrary(library192(d))).toBe(true)
+ for(const edit of [(b:BrushDescriptor)=>{b.version=149},(b:BrushDescriptor)=>{delete b.clone},(b:BrushDescriptor)=>{b.clone!.healing='lab-ratio-v1'},(b:BrushDescriptor)=>{b.tip.profile!.antialias=false},(b:BrushDescriptor)=>{b.behavior!.erase=true}]){const b=structuredClone(d);edit(b);expect(isBrushLibrary(library192(b))).toBe(false)}
+})
