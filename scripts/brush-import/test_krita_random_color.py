@@ -52,6 +52,14 @@ class RandomOptionTests(unittest.TestCase):
                 self.assertAlmostEqual(adjusted[0],.15+.49*.48)
                 self.assertAlmostEqual(adjusted[-1],.15+.49*.61)
 
+    def test_saturation_speed_preserves_strength_and_input(self):
+        result=self.brush({'Pressures':'true','sValue':'.42','sSensor':'<params id="speed"/>','sUseCurve':'true'})
+        control=result['descriptor']['behavior']['colorAdjustment']['saturation']
+        self.assertEqual(control['control'],'speed')
+        self.assertAlmostEqual(control['curve'][0][1],.29)
+        self.assertAlmostEqual(control['curve'][-1][1],.29+.42*.42)
+        self.assertFalse(any(n['feature']=='activeDynamics' and 'Pressures' in n['detail'] for n in result['compatibility']))
+
     def test_pixel_size_perspective_retains_native_no_assistant_default(self):
         sensor='<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="perspective"><curve>0,.2;1,.8;</curve></ChildSensor></params>'
         result=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeUseSameCurve':'false','SizeSensor':sensor})

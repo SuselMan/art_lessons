@@ -1150,7 +1150,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if not enabled(params.get('Pressure'+option)): continue
         node=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
         sensors=list(node.findall('ChildSensor')) if node.get('id')=='sensorslist' else [node]
-        supported_color_sensors=('fuzzy','fuzzystroke','pressure','distance')+(('time',) if timed_input else ())
+        supported_color_sensors=('fuzzy','fuzzystroke','pressure','distance')+(('speed',) if option in ('s','v') else ())+(('time',) if timed_input else ())
         strength=numeric(params.get(option+'Value'),1)
         if (enabled(params.get(option+'UseCurve','true')) and math.isfinite(strength) and 0<=strength<=1
                 and (strength==1 or option in ('s','v') and len(sensors)==1)

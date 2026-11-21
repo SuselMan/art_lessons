@@ -44,6 +44,11 @@ describe('v2 logical brush state', () => {
     expect(brushDynamicValue({control:'azimuth',minimum:0,jitter:0},input,state,0)).toBe(0)
     expect(isBrushBehavior({version:2,dynamics:{angle:{control:'tiltDirection',minimum:0,jitter:0}}})).toBe(true)
   })
+  it('uses recorded speed to drive saturation without changing stored color', () => {
+    const b:BrushDescriptor={...brush,scatter:undefined,behavior:{version:2,colorAdjustment:{saturation:{control:'speed',minimum:0,jitter:0,curve:[[0,.29],[1,.4664]]}}}}
+    const sample=(speed:number)=>{const dab={...dabs[0],normalizedSpeed:speed};return behaviorStampsForDab(b,dab,beginBrushBehavior(dab),color)[0].color}
+    expect(sample(0)).not.toEqual(sample(1));expect(color).toEqual([.8,.3,.1])
+  })
   it('maps raw-axis tilt to a common clockwise flat-tip angle', () => {
     const b:BrushDescriptor={...brush,scatter:undefined,tip:{...brush.tip,angle:-Math.PI/2,rotation:'fixed'},behavior:{version:2,dynamics:{angle:{control:'tiltDirection',minimum:0,jitter:0,curve:[[0,0],[1,1]]}}}}
     // PointerInput's fixed-tip shaping already records the base tip angle.
