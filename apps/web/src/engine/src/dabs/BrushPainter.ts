@@ -97,7 +97,7 @@ export class BrushPainter {
       const unbound = brushPreparationResources(brush.model === 'mixer' && brush.version!==195 && !usesNativeFilterMask(brush) && !usesNativeSmudgeFeatures(brush) ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = bindBrushPattern(gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut),pattern)
       const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
-      if(required)return this.acquireRecordedStampResources(required,false,undefined,false,isStreamingMaskBrush(brush))
+      if(required)return this.acquireRecordedStampResources(required,false,undefined,false,required.length<resources.length)
       if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       const plan=brushTextureLeasePlan(resources,'stamp'),release=pattern!==undefined||usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
       if(pattern!==undefined){try{if(resources.some(r=>r.painter==='stamp'&&!this.hasPreparedTexture(r)))throw Error('Canvas pattern resource was not prepared');return release}catch(error){try{release()}catch{/* Preserve preparation error. */}throw error}}
@@ -180,7 +180,8 @@ export class BrushPainter {
   prepareRecordedStampResources(brush:BrushDescriptor):void {
     const resources=this.recordedStampResources(brush)
     if(!resources)return
-    this.acquireRecordedStampResources(resources,true,brush,false,isStreamingMaskBrush(brush))()
+    const streaming=isStreamingMaskBrush(brush)&&resources.length<brushPreparationResources(brush).length
+    this.acquireRecordedStampResources(resources,true,brush,false,streaming)()
   }
   initGL():void {this.soakGather?.reset();this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {

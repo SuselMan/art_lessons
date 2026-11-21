@@ -178,6 +178,7 @@ export function useToolChoice(roomId: string | undefined, engineRef: RefObject<P
         ...(value.startsWith('digital:') ? { gradient: makeBrushGradient([...color, 1], [1, 1, 1, 1]) } : {}),
       })
       if (controller.signal.aborted || result.status === 'cancelled' || useRoomStore.getState().boardId !== board) return
+      if (result.status === 'skipped') throw new Error('Brush texture budget exceeded')
       commitGroupMember(group, value)
     } catch (error) {
       if (!controller.signal.aborted) { console.error('Brush selection preparation failed', error); notifyError(t('brushLibrary.error')) }
