@@ -20,7 +20,7 @@ import{type BrushPattern}from'@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
 
 import{planUnsharp159}from'./filterUnsharp159Plan'
-import{planGaussian153}from'./filterGaussian153Plan'
+import{planGaussian153,planSoftBlur}from'./filterGaussian153Plan'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{planCloneHealing152}from'./cloneHealing152Math'
 import{cloneSourceOffset152}from'./cloneHealing152Request'
@@ -422,7 +422,7 @@ export class BrushBehaviorPainter {
       if(!bounds){scratch.brushBehavior=probe;accepted++;continue}
       // Recovery/reentrant replay must finish before any outer request lease.
       const tiles=target.resolveForPaint(bounds)
-      const f=brush.filter,native192=usesNativeFilterMask(brush),spatial=(native192?f?.kind==='gaussian'||f?.kind==='unsharp':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush))&&f&&'radiusX'in f?{...((native192?f.kind==='unsharp':hasFilterUnsharp159Scope(brush))?planUnsharp159(bounds,f.radiusX):planGaussian153(bounds,f.radiusX,f.radiusY)),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
+      const f=brush.filter,native192=usesNativeFilterMask(brush),spatial=(native192?f?.kind==='gaussian'||f?.kind==='unsharp'||f?.kind==='softBlur':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush))&&f&&'radiusX'in f?{...((native192?f.kind==='unsharp':hasFilterUnsharp159Scope(brush))?planUnsharp159(bounds,f.radiusX):f.kind==='softBlur'?planSoftBlur(bounds,f.radiusX):planGaussian153(bounds,f.radiusX,f.radiusY)),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
       const temporaryTiles=spatial?target.resolveForPaint(spatial.needed):tiles
       if(scratch.brushBehavior!==prior)throw Error('Filter147 gesture changed during recovery')
       const existing=scratch.filterSmudge147State,state=existing??new FilterSmudge147State(scratch.canonicalSource!.retain(),(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes))

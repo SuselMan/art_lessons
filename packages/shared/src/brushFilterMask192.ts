@@ -20,6 +20,7 @@ export function isFilterComposite192(v: unknown): v is FilterComposite192 {
 export function isFilterMask192Payload(v: unknown): boolean {
   if (!obj(v) || v.maskPolicy !== 'native-dab-v1' || v.sourcePolicy !== 'canonical-begin-v1' || typeof v.smudgeMode !== 'boolean' || !isFilterComposite192(v.composite)) return false
   const common = ['version', 'kind', 'maskPolicy', 'sourcePolicy', 'smudgeMode', 'composite']
+  if (v.kind === 'softBlur') return v.version === 3 && keys(v,[...common,'radiusX','radiusY']) && Number.isInteger(v.radiusX) && number(v.radiusX,1,64) && v.radiusY===v.radiusX
   if (v.kind === 'noise') return v.version === 3 && keys(v,[...common,'level','opacity','grayscale','seeds']) && Number.isInteger(v.level) && number(v.level,0,100) && Number.isInteger(v.opacity) && number(v.opacity,0,100) && typeof v.grayscale==='boolean' && Array.isArray(v.seeds) && v.seeds.length===4 && v.seeds.every(x=>Number.isInteger(x)&&number(x,0,2147483647))
   if (v.kind === 'hsvSaturation') return v.version === 3 && keys(v,[...common,'amount']) && number(v.amount,-1,1)
   if (v.kind === 'colorBalance') return v.version === 3 && keys(v,[...common,'shadows','midtones','highlights','preserveLuminosity']) && typeof v.preserveLuminosity==='boolean' && ['shadows','midtones','highlights'].every(k=>Array.isArray(v[k]) && (v[k] as unknown[]).length===3 && (v[k] as unknown[]).every(x=>number(x,-1,1)))

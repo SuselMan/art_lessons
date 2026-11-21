@@ -43,6 +43,13 @@ it.each([false,true])('spatial request preserves oldT outside update while selec
  // Actual publish writes U over update only, then F(U) over dabRect.
  expect(stages[2].copyRegionInto).toHaveBeenCalledWith(temporary.buffer,2,2,2,2,4,4);expect(stages[0].copyRegionInto).toHaveBeenCalledWith(temporary.buffer,3,3,3,3,2,2);pass.destroy()
 })
+it('soft blur uses two scaled Gaussian passes for the full native source halo',()=>{
+ const b=filter192('gaussian',false);b.filter={version:3,kind:'softBlur',radiusX:41,radiusY:41,maskPolicy:'native-dab-v1',sourcePolicy:'canonical-begin-v1',smudgeMode:false,composite:'copy'}
+ const gl=Object.assign(new MockGL(),{uniform1fv:vi.fn()}),pass=new FilterGaussian153Pass(gl as unknown as WebGLRenderingContext);pass.prepare();Object.assign(Reflect.get(pass,'sampler'),{gather:vi.fn()})
+ const stages=[buffer(),buffer(),buffer(),buffer()],temporary={buffer:buffer(),originX:0,originY:0},request={assertCurrent:vi.fn(),stages:stages.map(buffer=>({buffer})),temporaryTiles:()=>[temporary],spatial:{side:8,needed:{minX:0,minY:0,maxX:8,maxY:8},bounds:{minX:3,minY:3,maxX:5,maxY:5},destinations:[]}},state={source:{resolveForRead:()=>[]}}
+ const step=vi.spyOn(gl,'uniform2f');pass.paint(b,state as never,request as never,true);const expected=41/(Math.sqrt(6)*5.1*8)
+ expect(step.mock.calls.some(([loc,x,y])=>loc?.name==='u_step'&&x===expected&&y===0)).toBe(true);expect(step.mock.calls.some(([loc,x,y])=>loc?.name==='u_step'&&x===0&&y===expected)).toBe(true);pass.destroy()
+})
 it('actual canonical request budgets selected unequal frame extent, not reference ellipse, before any draw',async()=>{
  const {BrushBehaviorPainter}=await import('./BrushBehaviorPainter'),b=filter192('unsharp',false)
  b.tip={kind:'bitmap',mask:FILTER192_MASK,hardness:1,aspect:1,angle:0,rotation:'fixed',maskBounds:{x:0,y:0,width:1,height:1},animation:{mode:'incremental',frames:[FILTER192_MASK,FILTER192_FRAME],geometry:{version:1,frames:[{sourceWidth:4,sourceHeight:4,maskBounds:{x:0,y:0,width:1,height:1}},{sourceWidth:2,sourceHeight:4,maskBounds:{x:0,y:0,width:1,height:1}}]}}}

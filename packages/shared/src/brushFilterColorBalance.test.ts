@@ -30,3 +30,12 @@ it('admits bounded seeded noise only inside native filter policy',()=>{
  if(bad.filter?.kind==='noise')bad.filter.seeds[0]=-1
  expect(isBrushLibrary(library192(bad))).toBe(false)
 })
+
+it('admits bounded circular soft blur only inside native filter policy',()=>{
+ const brush=filter192()
+ brush.filter={version:3,kind:'softBlur',radiusX:41,radiusY:41,maskPolicy:'native-dab-v1',sourcePolicy:'canonical-begin-v1',smudgeMode:false,composite:'copy'}
+ expect(isBrushLibrary(library192(brush))).toBe(true)
+ const bad=structuredClone(brush)
+ if(bad.filter?.kind==='softBlur')bad.filter.radiusY=40
+ expect(isBrushLibrary(library192(bad))).toBe(false)
+})

@@ -1,8 +1,10 @@
 import{it,expect}from'vitest'
-import{planGaussian153}from'./filterGaussian153Plan'
+import{planGaussian153,planSoftBlur}from'./filterGaussian153Plan'
 import{filterKernel}from'../presets/brushFilter'
 it('preserves native OVER halo at zero radius and maximum37tap Gaussian support with negative world phase',()=>{const r={minX:-513.5,minY:-.2,maxX:-500.1,maxY:9.1},zero=planGaussian153(r,0,0),max=planGaussian153(r,16,16);expect(zero.bounds).toEqual({minX:-514,minY:-1,maxX:-500,maxY:10});expect(zero.needed).toEqual({minX:-520,minY:-7,maxX:-494,maxY:16});expect(max.needed).toEqual({minX:-550,minY:-37,maxX:-464,maxY:46});expect(max.side).toBe(86);expect(filterKernel(16)).toHaveLength(37);expect(filterKernel(0)[18]).toBe(1)})
 it('keeps independent anisotropic needed domains and rejects invalid world geometry',()=>{const p=planGaussian153({minX:0,minY:0,maxX:4,maxY:4},0,16);expect(p.needed).toEqual({minX:-6,minY:-36,maxX:10,maxY:40});expect(()=>planGaussian153({minX:NaN,minY:0,maxX:4,maxY:4},1,1)).toThrow();expect(()=>planGaussian153({minX:0,minY:0,maxX:4,maxY:4},17,1)).toThrow()})
 
 it('uses exact square572 rather thanPOT1024 so four stages fit without inflating activebudget',()=>{const p=planGaussian153({minX:0,minY:0,maxX:500,maxY:500},16,16);expect(p.side).toBe(572);expect(4*p.side*p.side*4).toBe(5234944);expect(4*1024*1024*4).toBe(16777216)})
 it('153zero Gaussian blurs an impulse while archived52zero remainsidentity',()=>{const old=filterKernel(0),native=filterKernel(0,true);expect(old[18]).toBe(1);expect(old[17]).toBe(0);expect(native[18]).toBeCloseTo(.9923274819617646,7);expect(native[17]).toBeCloseTo(.003836258797468325,8);expect(Math.round(255*native[18]*native[18])).toBe(251);expect(Math.round(255*old[18]*old[18])).toBe(255);expect(native[15]).toBeGreaterThan(0)})
+
+it('covers large circular blur samples and rejects out of bounds radii',()=>{const p=planSoftBlur({minX:-5.5,minY:2,maxX:10,maxY:11},41);expect(p.needed).toEqual({minX:-90,minY:-82,maxX:94,maxY:95});expect(()=>planSoftBlur({minX:0,minY:0,maxX:1,maxY:1},65)).toThrow()})

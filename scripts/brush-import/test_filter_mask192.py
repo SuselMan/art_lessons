@@ -65,6 +65,13 @@ class Filter192Tests(unittest.TestCase):
                 else:d['filter'][{'policy':'maskPolicy','source':'sourcePolicy','composite':'composite'}[mutation]]='wrong'
                 path.write_text(json.dumps(bad))
                 with self.subTest(mutation=mutation),self.assertRaises(ValueError):convert.portable_bundle(path,Catalog(root/mutation))
+    def test_soft_blur_radius_and_scope(self):
+        config='<filterconfig><param name="halfWidth">41</param><param name="halfHeight">41</param><param name="shape">0</param><param name="strength">0</param><param name="rotate">0</param></filterconfig>'
+        with tempfile.TemporaryDirectory() as tmp:
+            def read(value):return preset(kpp(resources='<param name="Filter/id">blur</param>'+value,engine='filter'),'blur.kpp',Catalog(Path(tmp)/str(len(value))),{})
+            result=read(config);d=result['descriptor'];self.assertTrue(scope192(d));self.assertEqual(d['filter']['radiusX'],41);self.assertTrue(any(x['feature']=='softBlurFilter' and x['status']=='approximate' for x in result['compatibility']))
+            for bad in (config.replace('>41<','>65<'),config.replace('name="shape">0','name="shape">1')):
+                with self.assertRaises(ValueError):read(bad)
     def test_noise_seeds_and_bounds(self):
         config='<filterconfig><param name="level">50</param><param name="opacity">50</param><param name="seedThreshold">1</param><param name="seedRed">2</param><param name="seedGreen">3</param><param name="seedBlue">4</param></filterconfig>'
         with tempfile.TemporaryDirectory() as tmp:

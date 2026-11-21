@@ -6,11 +6,12 @@ type PointwiseBrushFilter={version:2;kind:'invert'}|{version:2;kind:'desaturate'
 export type ColorBalanceBrushFilter={version:3;kind:'colorBalance';shadows:[number,number,number];midtones:[number,number,number];highlights:[number,number,number];preserveLuminosity:boolean}
 export type HsvSaturationBrushFilter={version:3;kind:'hsvSaturation';amount:number}
 export type NoiseBrushFilter={version:3;kind:'noise';level:number;opacity:number;grayscale:boolean;seeds:[number,number,number,number]}
+export type SoftBlurBrushFilter={version:3;kind:'softBlur';radiusX:number;radiusY:number}
 export type GaussianSmudge153=SpatialBrushFilter&FilterSmudge147&{kind:'gaussian';spatialPolicy:'gaussian-halo-v1'}
 export type UnsharpSmudge159=SpatialBrushFilter&FilterSmudge147&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}
 export type BitmapFilterSmudge169={version:2;kind:'invert';smudgeMode:true;sourcePolicy:'canonical-begin-v1';maskPolicy:'bitmap-alpha-v1'}
 export type BitmapFilterSmudge179=((Exclude<PointwiseBrushFilter,{kind:'invert'}>&FilterSmudge147)|GaussianSmudge153|UnsharpSmudge159)&{maskPolicy:'bitmap-alpha-v1'}
-export type NativeFilterMask192=(PointwiseBrushFilter|ColorBalanceBrushFilter|HsvSaturationBrushFilter|NoiseBrushFilter|(SpatialBrushFilter&{kind:'gaussian';spatialPolicy:'gaussian-halo-v1'})|(SpatialBrushFilter&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}))&FilterMask192Policy
+export type NativeFilterMask192=(PointwiseBrushFilter|ColorBalanceBrushFilter|HsvSaturationBrushFilter|NoiseBrushFilter|SoftBlurBrushFilter|(SpatialBrushFilter&{kind:'gaussian';spatialPolicy:'gaussian-halo-v1'})|(SpatialBrushFilter&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}))&FilterMask192Policy
 export type BrushFilter=NativeFilterMask192|BitmapFilterSmudge179|BitmapFilterSmudge169|UnsharpSmudge159|GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
 export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilter,{kind:'posterize'}>{
  if(isFilterMask192Payload(value)&&value&&typeof value==='object'&&'kind'in value&&value.kind==='posterize')return true

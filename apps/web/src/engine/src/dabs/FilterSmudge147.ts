@@ -3,7 +3,7 @@ import{hasFilterGaussian153Scope,hasFilterSmudge147Scope,hasFilterUnsharp159Scop
 import { FILTER_COMPOSITE192_GLSL,filterComposite192Code,filterSourceOver192 } from './filterComposite192'
 import{FilterGaussian153Pass}from'./FilterGaussian153'
 
-const spatialFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='gaussian'||brush.filter?.kind==='unsharp':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)
+const spatialFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='gaussian'||brush.filter?.kind==='unsharp'||brush.filter?.kind==='softBlur':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)
 const unsharpFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='unsharp':hasFilterUnsharp159Scope(brush)
 import{type BrushDescriptor,type BrushFilter}from'@grafetto/shared'
 import type{PaintTarget}from'../buffers/ILayerBuffer'
