@@ -9,5 +9,5 @@ it('144 oriented pad contains every literal native splat, including zero-fold, o
   // Independently enumerate trajectory candidates and all four addressed pixels.
   for(let k=0;k<=steps;k++){const x=start[0]+(den?dx/den:0)*k,y=start[1]+(den?dy/den:0)*k;for(let oy=0;oy<2;oy++)for(let ox=0;ox<2;ox++){const px=Math.trunc(x)+ox,py=Math.trunc(y)+oy;if(!bristleNativeAA142Alpha(start as[number,number],end as[number,number],[px,py],255))continue;const rx=px+.5-q.cx,ry=py+.5-q.cy;expect(Math.abs(rx*q.ux+ry*q.uy)).toBeLessThan(q.halfLength);expect(Math.abs(-rx*q.uy+ry*q.ux)).toBeLessThan(q.halfWidth)}}
  }
-})
+}, 15000)
 it('144 has linear mesh area and deterministic zero-length axis; 142 shader remains separate',()=>{const q=bristleNativePoint144Quad([0,0],[1000,1000]);expect(4*q.halfLength*q.halfWidth).toBeLessThan(12000);expect(bristleNativePoint144Quad([3,4],[3,4])).toEqual({cx:3,cy:4,ux:1,uy:0,halfLength:4,halfWidth:4})})

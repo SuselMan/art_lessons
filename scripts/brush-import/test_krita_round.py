@@ -51,6 +51,11 @@ class RoundMarkerTests(unittest.TestCase):
         fixed=self.read({'PressureSize':'true','SizeValue':'.4','SizeUseCurve':'false'})
         self.assertEqual(fixed['descriptor']['sizeByPressure'],[[0,.4],[1,.4]])
         self.assertIn('Size sensors',self.read({'PressureSize':'true','SizeSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="time"/></params>'},fail=True))
+    def test_neutral_saved_canvas_state_is_accepted(self):
+        self.read({'runtimeCanvasMirroredX':'false','runtimeCanvasMirroredY':'false','runtimeCanvasRotation':'0'})
+        self.assertIn('non-neutral canvas transform',self.read({'runtimeCanvasMirroredX':'true'},fail=True))
+        self.assertIn('non-neutral canvas transform',self.read({'runtimeCanvasRotation':'10'},fail=True))
+
     def test_basic_fields_version_identity_and_no_thumbnail_mask(self):
         brush=self.read();d=brush['descriptor']
         self.assertEqual(d['version'],28)

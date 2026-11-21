@@ -18,6 +18,7 @@ def roundmarker_preset(data, root, params, name):
         'SpacingSensor', 'SpacingUseCurve', 'SpacingUseSameCurve', 'SpacingValue',
         'SpacingcurveMode', 'autoSpacingCoeff', 'diameter', 'paintop', 'spacing',
         'useAutoSpacing', 'SizecommonCurve', 'SpacingcommonCurve', 'lodUserAllowed',
+        'runtimeCanvasMirroredX', 'runtimeCanvasMirroredY', 'runtimeCanvasRotation',
     }
     from native_timing195 import TIMING195
     if TIMING195.get():allowed.update(('PaintOpSettings/isAirbrushing','PaintOpSettings/rate','PaintOpSettings/ignoreSpacing','AirbrushOption/isAirbrushing','AirbrushOption/rate','PressureRate','RateSensor','RateValue','RateUseCurve'))
@@ -25,6 +26,8 @@ def roundmarker_preset(data, root, params, name):
     if unknown:
         raise ValueError('Unsupported round-marker parameters: ' + ', '.join(unknown))
     is_enabled = lambda value: str(value).lower() in ('true', '1')
+    if any(is_enabled(params.get(key)) for key in ('runtimeCanvasMirroredX','runtimeCanvasMirroredY')) or params.get('runtimeCanvasRotation','0') not in ('0','0.0',''):
+        raise ValueError('Round-marker non-neutral canvas transform is unsupported')
     active = sorted(key for key, value in params.items() if key.startswith('Pressure') and is_enabled(value) and key!='PressureSize' and not(TIMING195.get()and key=='PressureRate'))
     if active:
         raise ValueError('Unsupported active round-marker sensors: ' + ', '.join(active))
