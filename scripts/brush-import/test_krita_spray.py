@@ -4,8 +4,19 @@ import unittest
 from pathlib import Path
 from PIL import Image, PngImagePlugin
 from brush_contract import Catalog
-from krita_import import preset
-from krita_spray import inverse_cdf
+from krita_import import preset as public_preset
+from krita_spray import inverse_cdf, spray_preset
+
+
+def preset(data, name, catalog, external):
+    # These tests exercise the legacy standalone Spray adapter and its old
+    # descriptor revisions. The public importer now promotes eligible presets
+    # to native whole-role revision 194/195, covered by test_sketch_spray194.
+    import xml.etree.ElementTree as ET
+    image=Image.open(io.BytesIO(data));image.load()
+    root=ET.fromstring(image.info['preset'])
+    params={node.get('name'):node.text or '' for node in root.findall('param')}
+    return spray_preset(data,root,params,name,catalog,external)
 
 class SprayTest(unittest.TestCase):
     def make(self,extra=''):
@@ -20,6 +31,16 @@ class SprayTest(unittest.TestCase):
             convert.validate_portable_profile(brush['descriptor'])
         with self.assertRaisesRegex(ValueError,'Spray/scale'):
             self.convert('<param name="Spray/scale">10.01</param>')
+    def test_large_native_spacing_is_retained_in_source_profile(self):
+        for value in (4.6, 5):
+            brush=self.convert(f'<param name="Spray/spacing">{value}</param>')
+            self.assertEqual(brush['descriptor']['spacing'],2)
+            self.assertAlmostEqual(brush['descriptor']['behavior']['spacing']['coefficient'],value/2)
+            with tempfile.TemporaryDirectory() as directory:
+                actual=public_preset(self.make(f'<param name="Spray/spacing">{value}</param>'),'public.kpp',Catalog(Path(directory)),{})
+            self.assertAlmostEqual(actual['descriptor']['behavior']['spacing']['coefficient'],value/2)
+        with self.assertRaisesRegex(ValueError,'Spray/spacing'):
+            self.convert('<param name="Spray/spacing">10.01</param>')
     def test_separate_area_and_particle(self):
         b=self.convert();self.assertEqual(b['descriptor']['version'],43);self.assertEqual(b['sourceDefaults']['sizePx'],100);self.assertEqual(b['descriptor']['spray']['particle'],{'shape':'ellipse','width':6,'height':4,'proportional':False})
     def test_soft_spray_tip_keeps_its_curve_with_aa_and_random_coverage(self):

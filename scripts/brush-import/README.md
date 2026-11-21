@@ -389,3 +389,7 @@ value sensors with nonunit strength use `native-hsv-strength-v1`; unsupported
 sensor combinations remain explicit. Large Lightness frame banks stream through
 the existing bounded GPU texture cache. Source input smoothing, native random
 sequence, ICC conversion and pixel rounding can still differ from Krita.
+
+### Spray spacing above two diameters
+
+Krita's saved Spray/spacing is multiplied by half the diameter. Values up to 10 are accepted: the precise coefficient is stored in the source spacing profile while the legacy descriptor field remains bounded to 2. The runtime uses the source coefficient above that legacy bound; existing smaller spacing retains its historical behavior.

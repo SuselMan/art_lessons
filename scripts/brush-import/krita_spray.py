@@ -115,7 +115,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     behavior=d['behavior'];behavior.pop('scatter',None);d.pop('scatter',None)
     if not whole194 and image_shape and (d.get('texture') or d.get('paperInteraction') or behavior.get('erase') or behavior.get('dual') or behavior.get('taper') or behavior.get('edgeBleed') or behavior.get('wetMix') or behavior.get('rendering',{}).get('blendMode')!='normal'):
         raise ValueError('Spray image shape combination is not supported')
-    spacing=number('Spray/spacing',.5,0,4)*.5
+    spacing=number('Spray/spacing',.5,0,10)*.5
     d['spacing']=max(.000001,min(2,spacing));behavior['spacing']={'mode':'diameter','coefficient':spacing,'isotropic':True}
     behavior['rendering']['accumulation']='directOver'
     biased=enabled(params.get('Spray/radialDistributionCenterBiased','true'))

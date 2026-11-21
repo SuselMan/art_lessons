@@ -1153,7 +1153,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         supported_color_sensors=('fuzzy','fuzzystroke','pressure','distance')+(('speed',) if option in ('s','v') else ())+(('time',) if timed_input else ())
         strength=numeric(params.get(option+'Value'),1)
         if (enabled(params.get(option+'UseCurve','true')) and math.isfinite(strength) and 0<=strength<=1
-                and (strength==1 or option in ('s','v'))
+                and (strength==1 or option in ('s','v') or (option=='h' and len(sensors)==1 and sensors[0].get('id') in ('fuzzy','fuzzystroke')))
                 and numeric(params.get(option+'curveMode'),0)==0 and sensors
                 and all(sensor.get('id') in supported_color_sensors for sensor in sensors)):
             local=[];controls=sensor_controls(params,option,local,allow_time=timed_input)
@@ -1162,7 +1162,12 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                     combination=controls[0].get('combine')
                     if not combination or combination.get('mode')!='product' or len(combination['scaling'])>1 or not combination['additive'] or any(c['control']not in ('pressure','time','distance') for c in combination['scaling']) or any(c['control']not in ('random','strokeRandom') for c in combination['additive']):continue
                     combination['policy']='native-hue-v1'
-                if strength!=1:
+                if strength!=1 and option=='h':
+                    curve=controls[0].get('curve')
+                    if isinstance(curve,dict):curve['samples']=[.5+strength*(x-.5) for x in curve['samples']]
+                    elif isinstance(curve,list):controls[0]['curve']=[[x,.5+strength*(y-.5)] for x,y in curve]
+                    else:continue
+                elif strength!=1:
                     # KisHSVOption applies the stored strength twice around
                     # neutral for saturation/value after sizeLikeValue().
                     if 'combine' in controls[0]:

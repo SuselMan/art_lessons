@@ -38,19 +38,29 @@ class RandomOptionTests(unittest.TestCase):
         controls=b['behavior']['modulations']['roundness']
         self.assertEqual(controls[0]['control'],'random');self.assertEqual(controls[1]['curve'],[[0,.6],[1,.6]])
 
-    def test_unit_strength_hsv_keeps_neutral_domain_and_rejects_unproved_strength(self):
+    def test_hsv_strength_keeps_native_neutral_domain(self):
         for option,target in [('h','hue'),('s','saturation'),('v','value')]:
             params={'Pressure'+option:'true',option+'Value':'1',option+'Sensor':'<params id="fuzzy"><curve>0,.48;1,.61;</curve></params>'}
             b=self.brush(params);c=b['descriptor']['behavior']['colorAdjustment'][target]
             self.assertEqual(c['control'],'random');self.assertAlmostEqual(c['curve']['samples'][0],.48)
             params[option+'Value']='.7';b=self.brush(params)
             if option=='h':
-                self.assertNotIn('colorAdjustment',b['descriptor']['behavior'])
-                self.assertTrue(any(x['feature']=='activeDynamics' and 'Pressure'+option in x['detail'] for x in b['compatibility']))
+                adjusted=b['descriptor']['behavior']['colorAdjustment'][target]['curve']['samples']
+                self.assertAlmostEqual(adjusted[0],.5+.7*(.48-.5))
+                self.assertAlmostEqual(adjusted[-1],.5+.7*(.61-.5))
             else:
                 adjusted=b['descriptor']['behavior']['colorAdjustment'][target]['curve']['samples']
                 self.assertAlmostEqual(adjusted[0],.15+.49*.48)
                 self.assertAlmostEqual(adjusted[-1],.15+.49*.61)
+
+    def test_hue_fuzzy_strength_scales_offset_from_neutral(self):
+        result=self.brush({'Pressureh':'true','hValue':'.22','hUseCurve':'true','hUseSameCurve':'false','hSensor':'<params id="fuzzy"><curve>0,.497816;1,.591495;</curve></params>'})
+        control=result['descriptor']['behavior']['colorAdjustment']['hue']
+        self.assertEqual(control['control'],'random')
+        self.assertAlmostEqual(control['curve']['samples'][0],.5+.22*(.497816-.5))
+        self.assertAlmostEqual(control['curve']['samples'][-1],.5+.22*(.591495-.5))
+        self.assertFalse(any(n['status']=='unsupported' and 'Pressureh' in n['detail'] for n in result['compatibility']))
+        convert.validate_portable_profile(result['descriptor'])
 
     def test_saturation_speed_preserves_strength_and_input(self):
         result=self.brush({'Pressures':'true','sValue':'.42','sSensor':'<params id="speed"/>','sUseCurve':'true'})

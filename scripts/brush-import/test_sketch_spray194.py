@@ -28,6 +28,12 @@ def check_portable(root,c,record):
  path=root/'own.grafetto-brushes.json';path.write_text(json.dumps(envelope));p=Catalog(root/'portable');convert.portable_bundle(path,p);assert p.brushes==[record]
  return envelope
 class SketchSpray194Tests(unittest.TestCase):
+ def test_unimplemented_behind_is_not_advertised_for_sketch_or_spray(self):
+  self.assertNotIn('behind',NATIVE_MODES)
+  with tempfile.TemporaryDirectory() as tmp:
+   for engine in ('sketchbrush','spraybrush'):
+    with self.subTest(engine=engine):
+     with self.assertRaises(ValueError):preset(native194(engine,params={'CompositeOp':'behind'}),'Own194.kpp',Catalog(Path(tmp)/engine),{})
  def test_both_native_families_composites_and_wash_foreground_never_proxy(self):
   with tempfile.TemporaryDirectory()as tmp:
    for engine in('sketchbrush','spraybrush'):

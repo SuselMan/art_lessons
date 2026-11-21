@@ -75,7 +75,7 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number,baseDiameter?:number,commitGeometry=false):BrushSpacingAxes {
   if(brush.version===188||brush.version===190||brush.version===191||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush)||brush.version===195||brush.version===202)assertRecordedPen188Values(input)
   if(brush.deform){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*profile.coefficient);return{x:step,y:step,angle:0}}
-  if(brush.spray){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*brush.spacing);return{x:step,y:step,angle:0}}
+  if(brush.spray){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*(profile.coefficient>2?profile.coefficient:brush.spacing));return{x:step,y:step,angle:0}}
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
   const seed=brushDabSeed(input.x,input.y,input.pressure)
   const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,{...input,angle:pathAngle},state,brushDabRandom(seed,0xa0000+index)),1) ?? 1
