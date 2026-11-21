@@ -64,13 +64,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stripBadge {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  box-shadow: 0 0 0 2px var(--color-surface);
-  pointer-events: none;
-  animation: side-panel-badge-pulse 1.8s ease-in-out infinite;
+  .stripBadge { animation: none; }
 }
 
 /* Expandable content panel */
