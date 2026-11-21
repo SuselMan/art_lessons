@@ -7,6 +7,10 @@ class CurveTests(unittest.TestCase):
     def convert(self,extra=''):
         data=kpp(engine='curvebrush',resources='<param name="Curve/lineWidth">4</param><param name="Curve/smoothing">true</param>'+extra)
         with tempfile.TemporaryDirectory()as d:return preset(data,'test.kpp',Catalog(Path(d)),{})
+    def test_curve_family_dynamics_do_not_raise_pixel_warning(self):
+        extra='<param name="PressureLine width">true</param><param name="Line widthSensor"><![CDATA[<params id="pressure"/>]]></param><param name="PressureCurves opacity">true</param><param name="Curves opacitySensor"><![CDATA[<params id="pressure"/>]]></param>'
+        brush=self.convert(extra);self.assertIn('width',brush['descriptor']['curveTrace']['dynamics']);self.assertIn('opacity',brush['descriptor']['curveTrace']['dynamics'])
+        self.assertFalse(any(n['status']=='unsupported' and n['feature']=='activeDynamics' for n in brush['compatibility']))
     def test_configuration_and_size_default(self):
         a=self.convert();self.assertEqual(a['descriptor']['version'],53);self.assertEqual(a['descriptor']['curveTrace']['history'],12);self.assertEqual(a['sourceDefaults']['sizePx'],4);self.assertEqual(a['descriptor']['sizeByPressure'],[[0,1],[1,1]])
     def test_active_sensor_import(self):

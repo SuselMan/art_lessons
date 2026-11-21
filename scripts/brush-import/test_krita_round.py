@@ -41,7 +41,16 @@ class RoundMarkerTests(unittest.TestCase):
     def test_inactive_curves_and_lod_metadata_do_not_reject_marker(self):
         brush=self.read({'SizecommonCurve':'0,0;1,1;','SpacingcommonCurve':'0,0;1,1;','lodUserAllowed':'true'})
         self.assertEqual(brush['descriptor']['tip']['profile']['kind'],'circleBand')
-        self.assertIn('Unsupported active round-marker sensors',self.read({'SizecommonCurve':'0,0;1,1;','PressureSize':'true'},fail=True))
+        self.assertIn('Unsupported round-marker Size sensors',self.read({'SizecommonCurve':'0,0;1,1;','PressureSize':'true','SizeSensor':'<params id="fuzzy"/>'},fail=True))
+    def test_pressure_size_is_retained_with_constant_and_sensor_curve(self):
+        brush=self.read({'PressureSize':'true','SizeValue':'.5','SizeUseCurve':'true',
+                         'SizeUseSameCurve':'false','SizeSensor':'<params id="pressure"><curve>0,.2;1,1;</curve></params>'})
+        curve=brush['descriptor']['sizeByPressure']['samples']
+        self.assertAlmostEqual(curve[0],.1);self.assertAlmostEqual(curve[-1],.5)
+        convert.validate_portable_profile(brush['descriptor'])
+        fixed=self.read({'PressureSize':'true','SizeValue':'.4','SizeUseCurve':'false'})
+        self.assertEqual(fixed['descriptor']['sizeByPressure'],[[0,.4],[1,.4]])
+        self.assertIn('Size sensors',self.read({'PressureSize':'true','SizeSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="time"/></params>'},fail=True))
     def test_basic_fields_version_identity_and_no_thumbnail_mask(self):
         brush=self.read();d=brush['descriptor']
         self.assertEqual(d['version'],28)
@@ -72,7 +81,7 @@ class RoundMarkerTests(unittest.TestCase):
         self.assertEqual(stale['behavior']['spacing']['coefficient'],.1)
 
     def test_active_unsupported_settings_and_nonfinite_values_fail_explicitly(self):
-        for params,key in [({'PressureSize':'true'},'PressureSize'),({'PressureSpacing':'true'},'PressureSpacing'),
+        for params,key in [({'PressureSize':'true','SizeSensor':'<params id="fuzzy"/>'},'Size sensors'),({'PressureSpacing':'true'},'PressureSpacing'),
                            ({'PressureOpacity':'true'},'PressureOpacity'),({'PressureFlow':'true'},'PressureFlow'),
                            ({'PressureRotation':'true'},'PressureRotation'),({'Texture/Pattern/Enabled':'true'},'Texture/Pattern/Enabled'),
                            ({'MaskingBrush/Enabled':'true'},'MaskingBrush/Enabled'),({'FlowValue':'.5'},'flow'),

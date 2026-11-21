@@ -1,4 +1,5 @@
-import unittest,tempfile,io,hashlib,base64,json,os
+import unittest,tempfile,io,hashlib,base64,json,os,zipfile
+from unittest.mock import patch
 from pathlib import Path
 from PIL import Image
 from test_krita import kpp
@@ -36,14 +37,30 @@ class ResourceReferences179(unittest.TestCase):
   raw=self.image();md5=hashlib.md5(raw).hexdigest();ref='<resource filename="Own.png" md5sum="'+md5+'">not-base64!!</resource>';self.check(self.raw(ref),{'brushes/Own.png':raw})
  def test_external_wrong_md5_valid_embedded_fallback_retains_exact_binding(self):
   raw=self.image();md5=hashlib.md5(raw).hexdigest();ref='<resource filename="sub/Own.png" md5sum="'+md5+'">'+base64.b64encode(raw).decode()+'</resource>';self.check(self.raw(ref),{'brushes/Own.png':self.image((0,255,128,64))})
- def test_old_nonempty_embedded_valid_full_record_unchanged_and_bad_checksum_denied(self):
+ def test_embedded_valid_record_unchanged_and_bad_checksum_reported(self):
   raw=self.image();md5=hashlib.md5(raw).hexdigest();ref='<resource filename="Own.png" md5sum="'+md5+'">'+base64.b64encode(raw).decode()+'</resource>';expected=json.loads(Path(__file__).with_name('pre-resource179-records.json').read_text())
   with tempfile.TemporaryDirectory()as tmp:
    c=Catalog(Path(tmp));actual=preset(self.raw(ref),'Own.kpp',c,{});self.assertEqual(actual,expected['record']);self.assertEqual((c.output/c.assets[actual['descriptor']['tip']['mask']]['file']).read_bytes(),bytes([255,0,64,128]))
   with tempfile.TemporaryDirectory()as tmp:
    c=Catalog(Path(tmp))
-   with self.assertRaises(ValueError):preset(self.raw(ref.replace(md5,'0'*32)),'Bad.kpp',c,{})
-   self.assertEqual(c.assets,{});self.assertEqual(c.brushes,[])
+   result=preset(self.raw(ref.replace(md5,'0'*32)),'Bad.kpp',c,{})
+   self.assertTrue(any(n['feature']=='resourceChecksum' for n in result['compatibility']))
+   self.assertTrue(c.assets)
+ def test_archive_resource_digests_are_cached_across_presets(self):
+  raw=self.image();other=self.image((0,255,128,64));md5=hashlib.md5(raw).hexdigest()
+  record=self.raw('<resource filename="Own.png" md5sum="'+md5+'"/>')
+  with tempfile.TemporaryDirectory()as tmp:
+   bundle=Path(tmp)/'test.bundle'
+   with zipfile.ZipFile(bundle,'w')as z:
+    z.writestr('paintoppresets/a.kpp',record);z.writestr('paintoppresets/b.kpp',record)
+    z.writestr('brushes/Wanted.png',raw);z.writestr('brushes/Other.png',other)
+   reads=[];original=zipfile.ZipFile.read
+   def observe(archive,name,*args,**kwargs):
+    reads.append(name);return original(archive,name,*args,**kwargs)
+   with patch.object(zipfile.ZipFile,'read',observe):
+    c=Catalog(Path(tmp)/'out');convert_krita(bundle,c)
+   self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),2)
+   self.assertEqual(reads.count('brushes/Other.png'),1)
  def test_named_md5_match_does_not_read_unrelated_lazy_archive_payloads(self):
   raw=self.image();md5=hashlib.md5(raw).hexdigest();calls=[0]
   def wanted():calls[0]+=1;return raw

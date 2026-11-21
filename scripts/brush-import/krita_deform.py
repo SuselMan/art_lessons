@@ -30,7 +30,7 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     angle=number('Brush/rotation',0,-360,360)
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     for node in list(transformed):
-        if timer and node.get('name')=='PressureRate':node.text='false'
+        if node.get('name')=='PressureRate':node.text='false'
         if node.get('name')in('brush_definition','CompositeOp','PaintOpAction','paintop')or(timer and node.get('name')in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal'
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
@@ -59,6 +59,7 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     if timer:note=compatibility('deformTimer160','Existing canonical-BEGIN OLD source; static native Airbrush uses common81 F64 author distance/time requests and constructor spacing independent of pressure Size. Moving and stationary requests share accumulators; replay never retimes. Native RNG/U8 identity remains qualified.','supported')
     if timer and d['version']==165:note=compatibility('deformRate165','Checked native Rate pressure/off factors and strength modulate existing81 time interval only; native constructor spacing/fixed baseScale and canonical OLD145 source remain. Movement and time share accumulators; factor0 suspends time without disabling distance requests. Recorded F64 events replay without retiming, no fuzzy/combined sensors/native pixel identity.','supported')
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ('kritaEngine','standardMaskProfile','autoSpacing')]+[note]
+    if not timer and enabled(params.get('PressureRate')):result['compatibility'].append(compatibility('ignoredInactiveRate','Krita uses Rate only when native airbrushing is enabled.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

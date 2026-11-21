@@ -1,5 +1,6 @@
 """Missing native random options must survive as independent response inputs."""
 from pathlib import Path
+import copy
 import tempfile
 import unittest
 import convert
@@ -43,9 +44,21 @@ class RandomOptionTests(unittest.TestCase):
             b=self.brush(params);c=b['descriptor']['behavior']['colorAdjustment'][target]
             self.assertEqual(c['control'],'random');self.assertAlmostEqual(c['curve']['samples'][0],.48)
             params[option+'Value']='.7';b=self.brush(params)
-            self.assertNotIn('colorAdjustment',b['descriptor']['behavior'])
-            self.assertTrue(any(x['feature']=='activeDynamics' and 'Pressure'+option in x['detail'] for x in b['compatibility']))
+            if option=='h':
+                self.assertNotIn('colorAdjustment',b['descriptor']['behavior'])
+                self.assertTrue(any(x['feature']=='activeDynamics' and 'Pressure'+option in x['detail'] for x in b['compatibility']))
+            else:
+                adjusted=b['descriptor']['behavior']['colorAdjustment'][target]['curve']['samples']
+                self.assertAlmostEqual(adjusted[0],.15+.49*.48)
+                self.assertAlmostEqual(adjusted[-1],.15+.49*.61)
 
+    def test_pixel_size_perspective_retains_native_no_assistant_default(self):
+        sensor='<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="perspective"><curve>0,.2;1,.8;</curve></ChildSensor></params>'
+        result=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeUseSameCurve':'false','SizeSensor':sensor})
+        controls=result['descriptor']['behavior']['modulations']['size']
+        self.assertEqual([c['control'] for c in controls],['random','perspective'])
+        self.assertAlmostEqual(controls[1]['curve']['samples'][-1],.8)
+        self.assertFalse(any(n['status']=='unsupported' for n in result['compatibility']))
     def test_hue_stroke_random_and_saturation_sensor_combination(self):
         params={'Pressureh':'true','hValue':'1','hSensor':'<params id="fuzzystroke"/>',
                 'Pressures':'true','sValue':'1','sSensor':'<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="fuzzystroke"/></params>'}
@@ -57,8 +70,17 @@ class RandomOptionTests(unittest.TestCase):
         self.assertFalse(any(n['status']=='unsupported' for n in brush['compatibility']))
         params['hSensor']='<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="fuzzy"/></params>'
         result=self.brush(params)
-        self.assertNotIn('hue',result['descriptor']['behavior']['colorAdjustment'])
-        self.assertTrue(any(n['status']=='unsupported' and 'Pressureh' in n['detail'] for n in result['compatibility']))
+        hue=result['descriptor']['behavior']['colorAdjustment']['hue']
+        self.assertEqual(hue['combine']['policy'],'native-hue-v1')
+        self.assertFalse(any(n['status']=='unsupported' and 'Pressureh' in n['detail'] for n in result['compatibility']))
+        convert.validate_portable_dynamics([hue])
+        convert.validate_portable_profile(result['descriptor'])
+        params['hSensor']='<params id="sensorslist"><ChildSensor id="fuzzystroke"/><ChildSensor id="distance" length="400" periodic="1"/></params>'
+        distance=self.brush(params)['descriptor']['behavior']['colorAdjustment']['hue']
+        self.assertEqual(distance['combine']['scaling'][0]['control'],'distance')
+        forged=copy.deepcopy(result['descriptor']);adjustment=forged['behavior']['colorAdjustment']
+        adjustment['saturation']=adjustment.pop('hue')
+        with self.assertRaisesRegex(ValueError,'Native hue policy'):convert.validate_portable_profile(forged)
     def test_canonical_airbrush_key_overrides_legacy_alias(self):
         for params,expected in [({'PaintOpSettings/isAirbrushing':'true'},True),({'AirbrushOption/isAirbrushing':'true'},False),({'PaintOpSettings/isAirbrushing':'false','AirbrushOption/isAirbrushing':'true'},False)]:
             b=self.brush(params)

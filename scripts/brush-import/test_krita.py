@@ -162,6 +162,17 @@ class KritaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor']['tip']['profile']['kind'],'gaussian2D')
+    def test_alpha_mask_and_auto_tips_ignore_lightness_strength(self):
+        raw=io.BytesIO();Image.new('RGBA',(2,2),(0,0,0,255)).save(raw,format='PNG')
+        definitions=['<Brush type="auto_brush"><MaskGenerator type="circle"/></Brush>',
+                     '<Brush type="png_brush" filename="tip.png" brushApplication="0"/>']
+        for definition in definitions:
+            with self.subTest(definition=definition),tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition,'<param name="PressureLightnessStrength">true</param>'))
+                c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c,{'tip.png':raw.getvalue()})
+                self.assertEqual(c.skipped,[])
+                notes=c.brushes[0]['compatibility'];self.assertTrue(any(n['feature']=='ignoredMaskLightness' for n in notes))
+                self.assertFalse(any(n['status']=='unsupported' and 'PressureLightnessStrength' in n['detail'] for n in notes))
     def test_bitmap_brush_ignores_softness_sensor(self):
         raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+bytes([255]*4)
         with tempfile.TemporaryDirectory() as tmp:

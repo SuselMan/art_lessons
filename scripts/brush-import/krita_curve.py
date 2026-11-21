@@ -36,7 +36,7 @@ def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     # Curve has no stamp/Size/Rotation option. Supply a harmless initialization
     # tip only for the common parser, and remove stale unrelated settings.
     for node in list(transformed):
-        if node.get('name')in('brush_definition','PressureSize','PressureRotation','PressureScatter','PressureSpacing','PaintOpAction'):transformed.remove(node)
+        if node.get('name')in('brush_definition','PressureSize','PressureRotation','PressureScatter','PressureSpacing','PressureLine width','PressureCurves opacity','PaintOpAction'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='brush_definition').text='<Brush type="auto_brush" spacing="0.1" angle="0"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1" diameter="1"/></Brush>'
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)

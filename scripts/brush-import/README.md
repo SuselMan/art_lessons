@@ -372,3 +372,10 @@ reported as unsupported rather than silently treated as equivalent. Color mix
 captures an opaque background for replay; the current editor supplies white and
 does not expose a background-color picker. GPU floating point, color profiles,
 and native integer rounding can differ from Krita.
+
+Krita Pixel/Color Smudge HSV options retain supported per-dab and per-stroke
+random sensors, including bounded saturation combinations. Mixed Hue sensors
+use the native wrapped additive-angle law (`native-hue-v1`), with author-captured
+stroke seed and time where required. Native color-space quantization and the
+per-dab random sequence remain approximate. Other sensor combinations are still
+reported as unsupported.

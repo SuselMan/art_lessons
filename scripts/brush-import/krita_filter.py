@@ -31,8 +31,10 @@ def _legacy_filter_preset(data,root,params,name,catalog,external):
             sensor=xml(params['RotationSensor'])
             if any(node.get('fanCornersEnabled','0').lower()not in('false','0')or node.get('lockedAngleMode','0')!='0'for node in sensor.iter()):raise ValueError('Filter186 excludes fan/locked DrawingAngle')
     config={}
-    if params.get('Filter/configuration'):
-        cfg=xml(params['Filter/configuration'])
+    authored_configs=root.findall('filterconfig')
+    if len(authored_configs)>1:raise ValueError('Duplicate Filter configuration')
+    cfg=authored_configs[0] if authored_configs else xml(params['Filter/configuration']) if params.get('Filter/configuration') else None
+    if cfg is not None:
         config={p.get('name'):p.text or ''for p in cfg.iter('param')}
         if len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
     allowed={'horizRadius','vertRadius','lockAspect'}if kind=='gaussian'else{'halfSize','amount','threshold','lightnessOnly'}
@@ -109,7 +111,7 @@ def filter_preset(data,root,params,name,catalog,external):
     # Historical complete imports retain exact descriptors and identities.
     def legacy():
         result=_legacy_filter_preset(data,root,params,name,catalog,external)
-        if any(enabled(params.get('Pressure'+k))for k in('Opacity','Flow','Scatter','Softness','Sharpness','Ratio'))or enabled(params.get('Texture/Pattern/Enabled'))or enabled(params.get('MaskingBrush/Enabled'))or any(n['status']=='unsupported'for n in result['compatibility']):raise ValueError('Expanded native Filter settings require192')
+        if any(k in result['descriptor'].get('tip',{}) for k in ('autoNoise','autoShape')) or any(enabled(params.get('Pressure'+k))for k in('Opacity','Flow','Scatter','Softness','Sharpness','Ratio'))or enabled(params.get('Texture/Pattern/Enabled'))or enabled(params.get('MaskingBrush/Enabled'))or any(n['status']=='unsupported'for n in result['compatibility']):raise ValueError('Expanded native Filter settings require192')
         return result
     try:return _native_preset_transaction(catalog,legacy)
     except ValueError:

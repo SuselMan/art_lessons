@@ -262,6 +262,11 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
     const values=c.scaling.map((control,i)=>brushDynamicValue(control,dab,state,brushDabRandom(seed,0x51000+i),absolutePolicy))
     const scaling=!values.length?1:values.length===1?values[0]:c.mode==='sum'?values.reduce((a,b)=>a+b,0):c.mode==='max'?Math.max(...values):c.mode==='min'?Math.min(...values):c.mode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
     const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i),absolutePolicy)-1,0)):1
+    if(c.policy==='native-hue-v1'){
+      const native=(values.length ? 2*scaling-1 : 0)+(c.additive.length ? 2*additive-1 : 0)
+      const wrapped=((native+1)%2+2)%2-1
+      return (wrapped+1)*.5
+    }
     // Callers already multiply the option constant. Return its normalized
     // factor, allowing >1 when needed: .5 * (clamp(.5 * 1.5)/.5) = .75.
     const constant=c.constant??1,a=c.absolute

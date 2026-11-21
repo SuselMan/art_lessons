@@ -40,6 +40,14 @@ class TimingTests(unittest.TestCase):
   for duration in (0,2147483648):
    with self.assertRaises(ValueError):convert.validate_portable_dynamics([{**c,'period':duration}])
 
+ def test_default_pixel_time_sensor_records_clock_without_airbrush(self):
+  p={'PressureOpacity':'true','OpacitySensor':'<params id="time" duration="720" periodic="1"/>'}
+  legacy=self.brush(p,False)['descriptor'];self.assertNotIn('modulations',legacy['behavior'])
+  brush=self.brush(p,None);d=brush['descriptor'];control=d['behavior']['modulations']['opacity'][0]
+  self.assertEqual((control['control'],control['period'],control['periodic']),('time',720,True))
+  self.assertNotIn('timing',d['behavior']);self.assertTrue(any(n['feature']=='sourceClock' for n in brush['compatibility']))
+  p.pop('PressureOpacity');p['OpacityUseCurve']='true'
+  self.assertEqual(self.brush(p,None)['descriptor']['behavior']['modulations']['opacity'][0]['control'],'time')
  def test_invalid_rates_retain_unsupported_status_without_clamping(self):
   for rate in ('not-a-number','nan','inf','-1','1000.01'):
    b=self.brush({'PaintOpSettings/isAirbrushing':'true','PaintOpSettings/rate':rate},True)

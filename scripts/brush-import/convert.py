@@ -466,7 +466,8 @@ def validate_portable_dynamics(controls):
                     or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant','absolute','policy'} or c.get('mode')not in('product','sum','max','min','difference')
                     or not isinstance(c.get('scaling'),list) or not isinstance(c.get('additive'),list)):
                 raise ValueError('Invalid portable combined dynamic')
-            if 'policy'in c and c['policy']!='native-scatter-v1':raise ValueError('Invalid combined dynamic policy')
+            if 'policy'in c and c['policy'] not in ('native-scatter-v1','native-hue-v1'):raise ValueError('Invalid combined dynamic policy')
+            if c.get('policy')=='native-hue-v1' and (c['mode']!='product' or 'constant'in c or 'absolute'in c or len(c['scaling'])>1 or not 1<=len(c['additive'])<=2 or any(not isinstance(v,dict)or v.get('control')not in ('pressure','time','distance') for v in c['scaling']) or any(not isinstance(v,dict)or v.get('control')not in ('random','strokeRandom') for v in c['additive'])):raise ValueError('Invalid native hue combination')
             if 'constant'in c and not finite(c['constant'],0,4 if c.get('policy')=='native-scatter-v1'else 1):raise ValueError('Invalid combined dynamic constant')
             children=c['scaling']+c['additive']
             absolute=c.get('absolute')
@@ -569,6 +570,14 @@ def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False,native
 
 
 def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False,sketchSpray194=False,native195=False,native195Root=None):
+    def hue_policies(v):
+        if isinstance(v,dict):return ([v]if isinstance(v.get('combine'),dict)and v['combine'].get('policy')=='native-hue-v1'else[])+[c for key,child in v.items() if key!='brush' for c in hue_policies(child)]
+        return [c for child in v for c in hue_policies(child)]if isinstance(v,list)else[]
+    native_hue=hue_policies(descriptor)
+    if native_hue:
+        behavior=descriptor.get('behavior',{});color=behavior.get('colorAdjustment',{}) if isinstance(behavior,dict) else {}
+        if len(native_hue)!=1 or not isinstance(color,dict)or color.get('hue') is not native_hue[0]:raise ValueError('Native hue policy requires hue adjustment target')
+        validate_portable_dynamics(native_hue)
     mix_behavior=descriptor.get('behavior',{})
     render=mix_behavior.get('rendering',{}) if isinstance(mix_behavior,dict) else {}
     if isinstance(render,dict) and 'pixelComposite' in render and descriptor.get('version')!=198:raise ValueError('Greater composite requires Pixel198')

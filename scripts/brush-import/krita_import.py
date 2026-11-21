@@ -398,6 +398,7 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
     source_ids=[]
     supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress','distance':'distance'}
     if COMPONENT190.get():supported.update(pressurein='pressureIn',perspective='perspective')
+    elif allow_recorded_pen:supported['perspective']='perspective'
     if allow_time:supported['time']='time'
     if allow_recorded_pen:supported.update(rotation='barrelRotation',tangentialpressure='tangentialPressure')
     for node in sensors:
@@ -430,6 +431,7 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
         if name!='pressure':
             notes.append(compatibility(option+'Sensor',
                 'Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.' if name=='speed'
+                else 'Without a perspective assistant, native Krita supplies a constant 1; the authored response curve remains active.'if name=='perspective'
                 else 'Distance follows canonical centreline length in world pixels; native input-curve subdivision may differ.'if name=='distance'else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
     if compound and controls:
         constant=numeric(params.get(option+'Value',params.get('Scattering/Amount')if option=='Scatter'and allow_scatter_policy else None),1)
@@ -491,10 +493,14 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate', 'mypaintbrush', 'tangentnormal'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
+    native_source_time=False
     for pen_key,pen_value in params.items():
         if TIMING195.get()and pen_key=='RateSensor':continue
-        if not pen_key.endswith('Sensor')or not enabled(params.get('Pressure'+pen_key[:-6],'false'))or not enabled(params.get(pen_key[:-6]+'UseCurve','true')):continue
+        option=pen_key[:-6] if pen_key.endswith('Sensor') else ''
+        checked=params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
+        if not option or not enabled(checked)or not enabled(params.get(option+'UseCurve','true')):continue
         pen_nodes=xml(pen_value);pen_nodes=list(pen_nodes.findall('ChildSensor'))if pen_nodes.get('id')=='sensorslist'else[pen_nodes]
+        native_source_time |= any(n.get('id')=='time' for n in pen_nodes)
         if not COMPONENT190.get()and any(n.get('id')in('rotation','tangentialpressure')for n in pen_nodes)and(engine!='paintbrush'or depth or pen_key[:-6]not in('Size','Opacity','Rotation')or enabled(params.get('MaskingBrush/Enabled'))):raise ValueError('Recorded pen188 supports root ordinary Pixel Size/Opacity/Rotation only')
     # XML bytearray properties have an outer serialization layer. The embedded
     # pattern string itself is base64, hence two layers for bytearray patterns.
@@ -503,6 +509,13 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             params[p.get('name')]=base64.b64decode(''.join((p.text or '').split()),validate=True).decode('utf-8')
     if len(params) != len(root.findall('param')):
         raise ValueError('Duplicate Krita parameter')
+    # A Time sensor reads the recorded stroke clock even without airbrushing.
+    # Keep explicit legacy False and independent masking/host timers unchanged.
+    source_clock_only=(_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and engine=='paintbrush'
+        and depth==0 and _allow_texture_material and native_source_time
+        and not enabled(params.get('MaskingBrush/Enabled'))
+        and not any(enabled(params.get(k)) for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')))
+    if source_clock_only:timed_input=True
     # Only genuine root Pixel with its checked canonical native timer opts in.
     # The alias AirbrushOption alone, private PNG bridges and child descriptors
     # cannot activate this policy. Explicit True still retains its old breadth.
@@ -529,13 +542,18 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 identity = ('callable', id(source)) if callable(source) else ('key', key)
                 if md5 and identity in external_hashes and external_hashes[identity] != md5:
                     continue
+                if md5 and isinstance(source,_ArchiveResource) and source.digest is not None and source.digest!=md5:
+                    continue
                 value = matched_payloads.get(identity)
                 if value is None:
                     value = source() if callable(source) else source
                 if md5:
                     digest = external_hashes.get(identity)
                     if digest is None:
-                        digest = hashlib.md5(value).hexdigest()
+                        digest = source.digest if isinstance(source,_ArchiveResource) else None
+                        if digest is None:
+                            digest = hashlib.md5(value).hexdigest()
+                            if isinstance(source,_ArchiveResource):source.digest=digest
                         external_hashes[identity] = digest
                     if digest != md5:
                         continue
@@ -662,6 +680,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     definition = xml(params.get('brush_definition', ''))
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
+    if source_clock_only:notes.append(compatibility('sourceClock','Time sensors use the author-recorded stroke clock without enabling an airbrush timer.','supported'))
     d = descriptor(data, '')
     d['version']=27
     child_drawing_angle=None
@@ -1120,13 +1139,24 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if not enabled(params.get('Pressure'+option)): continue
         node=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
         sensors=list(node.findall('ChildSensor')) if node.get('id')=='sensorslist' else [node]
-        supported_color_sensors=('fuzzy','fuzzystroke','pressure')+(('time',) if timed_input else ())
-        if (enabled(params.get(option+'UseCurve','true')) and numeric(params.get(option+'Value'),1)==1
+        supported_color_sensors=('fuzzy','fuzzystroke','pressure','distance')+(('time',) if timed_input else ())
+        strength=numeric(params.get(option+'Value'),1)
+        if (enabled(params.get(option+'UseCurve','true')) and math.isfinite(strength) and 0<=strength<=1
+                and (strength==1 or option in ('s','v') and len(sensors)==1)
                 and numeric(params.get(option+'curveMode'),0)==0 and sensors
-                and (option!='h' or len(sensors)==1)
                 and all(sensor.get('id') in supported_color_sensors for sensor in sensors)):
             local=[];controls=sensor_controls(params,option,local,allow_time=timed_input)
             if len(controls)==1 and not any(n['status']=='unsupported' for n in local):
+                if option=='h' and len(sensors)>1:
+                    combination=controls[0].get('combine')
+                    if not combination or combination.get('mode')!='product' or len(combination['scaling'])>1 or not combination['additive'] or any(c['control']not in ('pressure','time','distance') for c in combination['scaling']) or any(c['control']not in ('random','strokeRandom') for c in combination['additive']):continue
+                    combination['policy']='native-hue-v1'
+                if strength!=1:
+                    # KisHSVOption applies the stored strength twice around
+                    # neutral for saturation/value after sizeLikeValue().
+                    curve=controls[0]['curve']
+                    if isinstance(curve,dict):curve['samples']=[(1-strength)/2+strength*strength*x for x in curve['samples']]
+                    else:controls[0]['curve']=[[x,(1-strength)/2+strength*strength*y]for x,y in curve]
                 notes.extend(local)
                 behavior.setdefault('colorAdjustment',{})[target]=controls[0]
                 color_decoded.append('Pressure'+option)
@@ -1479,6 +1509,12 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if definition.get('type') in ('gbr_brush','png_brush') and 'PressureSoftness' in active:
             active.remove('PressureSoftness')
             notes.append(compatibility('ignoredBitmapSoftness','Krita image brush masks do not consume the Softness factor.','supported'))
+        # Alpha-mask/auto tips do not use the Lightness Strength passed to
+        # KisBrush; only the preserve-lightness material path consumes it.
+        if (kind in ('auto_brush','gbr_brush','png_brush') and application==0
+                and 'PressureLightnessStrength' in active):
+            active.remove('PressureLightnessStrength')
+            notes.append(compatibility('ignoredMaskLightness','Krita alpha-mask and auto-brush tips do not consume Lightness Strength.','supported'))
     # Pixel Mix samples foreground/background at each request. Opt in only to
     # root plain-colour Wash with a single pressure curve; other sources and
     # sensors remain explicitly unsupported instead of losing their meaning.
@@ -2074,6 +2110,15 @@ def _native_preset_transaction(catalog, produce):
         raise
 
 
+class _ArchiveResource:
+    # One callable per immutable ZIP member for the lifetime of a conversion.
+    # Keep only the digest across presets; release unselected decoded bytes.
+    def __init__(self,archive,name):
+        self.archive=archive;self.name=name;self.digest=None
+    def __call__(self):
+        return self.archive.read(self.name)
+
+
 def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=None):
     # None is the new shared CLI/API/stock default, False is explicit legacy.
     default_policy=DEFAULT_NATIVE_INPUT_POLICY if timed_input is None else None
@@ -2099,7 +2144,7 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         # previous resolver precedence. Raw bundle SVG is a fallback captured
         # member, never a URL/path opened by its filename.
         prepared_svg_names={PurePosixPath(n).name for n in resources if n.lower().endswith('.svg')}
-        resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')) or (n.lower().endswith('.svg') and PurePosixPath(n).name not in prepared_svg_names)})
+        resources.update({n:_ArchiveResource(archive,n) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')) or (n.lower().endswith('.svg') and PurePosixPath(n).name not in prepared_svg_names)})
         for name in sorted(n for n in names if n.lower().endswith(('.kpp','.myb'))):
             try:
                 if name.lower().endswith('.myb'):

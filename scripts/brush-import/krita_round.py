@@ -25,7 +25,7 @@ def roundmarker_preset(data, root, params, name):
     if unknown:
         raise ValueError('Unsupported round-marker parameters: ' + ', '.join(unknown))
     is_enabled = lambda value: str(value).lower() in ('true', '1')
-    active = sorted(key for key, value in params.items() if key.startswith('Pressure') and is_enabled(value) and not(TIMING195.get()and key=='PressureRate'))
+    active = sorted(key for key, value in params.items() if key.startswith('Pressure') and is_enabled(value) and key!='PressureSize' and not(TIMING195.get()and key=='PressureRate'))
     if active:
         raise ValueError('Unsupported active round-marker sensors: ' + ', '.join(active))
     if params.get('paintop', 'roundmarker') != 'roundmarker':
@@ -57,6 +57,15 @@ def roundmarker_preset(data, root, params, name):
                'coefficient': coefficient, 'isotropic': True}
     d = descriptor(data, '')
     d.update(version=28, opacity=opacity, spacing=max(.000001, min(2, spacing)))
+    if is_enabled(params.get('PressureSize')):
+        from krita_import import size_like_controls
+        from curve_transfer import scaled_curve
+        size_value=value('SizeValue',1,0,1)
+        size_notes=[]
+        controls=size_like_controls(params,'Size',size_notes) if is_enabled(params.get('SizeUseCurve','true')) else []
+        if is_enabled(params.get('SizeUseCurve','true')) and (len(controls)!=1 or controls[0].get('control')!='pressure' or any(n['status']=='unsupported' for n in size_notes)):
+            raise ValueError('Unsupported round-marker Size sensors')
+        d['sizeByPressure']=scaled_curve(controls[0]['curve'] if controls else [[0,1],[1,1]],size_value)
     d['tip'] = {'kind': 'procedural', 'profile': {'kind': 'circleBand', 'antialias': True},
                 'hardness': 1, 'aspect': 1, 'angle': 0, 'rotation': 'fixed'}
     d['behavior'] = {'version': 2, 'spacing': profile,

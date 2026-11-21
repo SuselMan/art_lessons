@@ -10,6 +10,10 @@ class DeformTests(unittest.TestCase):
     def test_copy_and_native_density(self):
         result=self.convert('<param name="Brush/density">100</param>')
         d=result['descriptor'];self.assertEqual(d['version'],51);self.assertTrue(d['mixer']['smearAlpha']);self.assertEqual(d['deform']['density'],1);self.assertEqual(d['mixer']['source'],'previousCanvas')
+    def test_inactive_airbrush_rate_is_ignored(self):
+        result=self.convert('<param name="PressureRate">true</param><param name="PaintOpSettings/isAirbrushing">false</param>')
+        self.assertTrue(any(n['feature']=='ignoredInactiveRate' for n in result['compatibility']))
+        self.assertFalse(any(n['status']=='unsupported' and 'PressureRate' in n['detail'] for n in result['compatibility']))
     def test_normal_and_move(self):
         d=self.convert('<param name="Deform/deformAction">5</param>',mode='normal')['descriptor'];self.assertFalse(d['mixer']['smearAlpha']);self.assertEqual(d['deform']['mode'],5)
     def test_old_data_is_explicit_version145_only(self):

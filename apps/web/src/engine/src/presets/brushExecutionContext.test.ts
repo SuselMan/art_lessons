@@ -96,3 +96,15 @@ it('captures keyed color sensors nested in a random combination for replay', asy
   expect(brushDynamicValue(hue,dab(1,2),state,.2)).toBe(brushDynamicValue(hue,dab(1,2),copy,.2))
   expect(brushDynamicValue(saturation,dab(1,2),state,.3)).toBe(brushDynamicValue(saturation,dab(1,2),copy,.3))
 })
+
+it('evaluates native hue combinations as wrapped additive angles, not products', async () => {
+  const { isBrushBehavior } = await import('@grafetto/shared')
+  const hue:BrushDynamic={control:'off',minimum:0,jitter:0,combine:{mode:'product',policy:'native-hue-v1',
+    scaling:[{control:'pressure',minimum:0,jitter:0,curve:[[0,.2],[1,.2]]}],
+    additive:[{control:'random',minimum:0,jitter:0,curve:[[0,.9],[1,.9]]}]}}
+  expect(isBrushBehavior({version:2,colorAdjustment:{hue}})).toBe(true)
+  expect(isBrushBehavior({version:2,colorAdjustment:{saturation:hue}})).toBe(false)
+  expect(isBrushBehavior({version:2,dynamics:{size:hue}})).toBe(false)
+  const state=beginBrushBehavior(dab(1,2))
+  expect(brushDynamicValue(hue,dab(1,2),state,.3)).toBeCloseTo(.6)
+})

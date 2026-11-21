@@ -65,6 +65,21 @@ class Filter192Tests(unittest.TestCase):
                 else:d['filter'][{'policy':'maskPolicy','source':'sourcePolicy','composite':'composite'}[mutation]]='wrong'
                 path.write_text(json.dumps(bad))
                 with self.subTest(mutation=mutation),self.assertRaises(ValueError):convert.portable_bundle(path,Catalog(root/mutation))
+    def test_native_filterconfig_retains_authored_unsharp_parameters(self):
+        definition='<Brush type="auto_brush" randomness=".6"><MaskGenerator type="circle" ratio="1" diameter="16" id="soft" softness_curve="0,1;1,0;" antialiasEdges="0"/></Brush>'
+        extra='<param name="Filter/id">unsharp</param><filterconfig version="1"><param name="amount">2</param><param name="halfSize">4</param><param name="lightnessOnly">true</param><param name="threshold">0</param></filterconfig>'
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(kpp(definition,extra,engine='filter'),'authored.kpp',Catalog(Path(tmp)),{})
+        f=result['descriptor']['filter'];self.assertTrue(scope192(result['descriptor']))
+        self.assertEqual((f['radiusX'],f['radiusY'],f['amount'],f['threshold']),(4,4,2,0))
+    def test_randomized_auto_tip_uses_native_filter_scope(self):
+        definition='<Brush type="auto_brush" randomness=".6" density="1"><MaskGenerator type="circle" ratio="1" diameter="16" id="soft" softness_curve="0,1;1,0;" antialiasEdges="0"/></Brush>'
+        extra='<param name="Filter/id">unsharp</param><param name="Filter/smudgeMode">false</param>'
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(kpp(definition,extra,engine='filter'),'random.kpp',Catalog(Path(tmp)),{})
+        self.assertEqual(result['descriptor']['version'],192)
+        self.assertTrue(scope192(result['descriptor']))
+        self.assertEqual(result['descriptor']['tip']['autoNoise']['randomness'],.6)
     def test_ignored_native_pixel_settings(self):
         label,data=fixtures192()[0]
         from krita_import import xml
