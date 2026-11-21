@@ -31,12 +31,11 @@ const OUT_DIR = join(HERE, '../public')
 // Opaque plates are required by iOS and Android maskable icons.
 const PLATE = '#000000'
 
-// The 316-unit crop renders at 632 px, enough for the largest PNG.
+// Render the vector at sufficient resolution for the largest PNG.
 const DENSITY = 144
 
-// Every nontransparent source pixel is inside radius 1.281 (half-side units).
-// At 62% it fits Android's circular safe zone of radius 0.8, including flecks.
-const MASKABLE_SCALE = 0.62
+// A square at 56% fits inside Android’s circular safe zone (80% diameter).
+const MASKABLE_SCALE = 0.56
 
 interface IconSpec {
   file: string
@@ -81,23 +80,13 @@ async function bakeIcon(svg: Buffer, { file, size, scale }: IconSpec): Promise<v
 }
 
 async function main(): Promise<void> {
-  // Crop the same source artwork to the letter and embed the original PNG
-  // so favicon.svg works as a standalone image (SVG images cannot fetch it).
-  const mark = readFileSync(join(HERE, '../public/brand/grafetto-g.png'))
-  const svg = Buffer.from(readFileSync(SOURCE, 'utf8')
-    .replace(/^[ \t]*<g id="logo-wordmark"[\s\S]*?<\/g>/m, '')
-    .replace(/viewBox="[^"]*"/, 'viewBox="40 42 316 316"')
-    .replace('href="/brand/grafetto-g.png"', `href="data:image/png;base64,${mark.toString('base64')}"`))
+  const svg = readFileSync(SOURCE)
   mkdirSync(OUT_DIR, { recursive: true })
   console.log(`Baking app icons from ${SOURCE}`)
   for (const spec of ICONS) await bakeIcon(svg, spec)
 
-  // An SVG favicon is an image document: external PNG references are blocked.
-  // Embed a 192px copy instead of making every tab fetch the 1.2MB original.
-  const faviconMark = await sharp(mark).resize(192, 192, { fit: 'inside' }).png().toBuffer()
-  const favicon = svg.toString().replace(mark.toString('base64'), faviconMark.toString('base64'))
-  writeFileSync(join(OUT_DIR, 'favicon.svg'), favicon)
-  console.log('  favicon.svg              standalone embedded artwork')
+  writeFileSync(join(OUT_DIR, 'favicon.svg'), svg)
+  console.log('  favicon.svg              standalone vector artwork')
 }
 
 main().catch((err: unknown) => {

@@ -1,4 +1,4 @@
-/* The wordmark follows the theme; the brush letter keeps its own colors. */
+/* Preserve the supplied artwork’s colors in every theme. */
 .mark {
   display: block;
   height: 100%;

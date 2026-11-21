@@ -142,7 +142,7 @@
 .headerCompact .headerRight { gap: 2px; }
 .headerCompact .headerDivider { margin: 0 3px; }
 
-/* The editor's own, smaller wordmark — the header is 52px tall and shared with
+/* The editor's own, smaller logo — the header is 52px tall and shared with
    a dense row of icon buttons, so it can't take AppHeader's --app-logo-h.
    Not a <Link>: leaving asks first (see leaveRoom in index.tsx), and a real
    link would let a middle-click or ⌘-click bypass the question. */
@@ -150,21 +150,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* The wordmark's box is measured, not chosen: .headerDivider after it is
-     meant to be the same vertical line as the left rail's edge, continuing it
-     up through the header. Hugging the wordmark's own width put the divider
-     at x=112 against the rail's 123 — two lines 11px apart, which reads as
-     sloppy without being nameable, and which would drift again the moment
-     either the mark or the rail changed. So the box is derived instead:
-     everything between the header's left edge and the divider's is fixed
-     chrome — 16px header padding + 12px flex gap + 8px divider margin — and
-     the -1px is the rail's border-right, the pixel the divider lands *on*
-     rather than after. Comes out at 87px today.
-     Height follows the width rather than leading it: the wordmark is ~2.91:1,
-     so a 77px content box wants ~26px (it was 22px, i.e. ~11px narrow —
-     exactly the shortfall above). Padding 6 → 5px for the last 2px of that.
-     Still well under AppHeader's --app-logo-h — this header is denser — and
-     now exactly half the 52px it sits in. */
+  /* Keep the divider aligned with the left rail on wide screens. */
   width: calc(var(--rail-w) - 1px - 36px);
   height: 26px;
   padding: 0 5px;
@@ -174,10 +160,7 @@
   transition: opacity var(--duration-fast), background var(--duration-fast);
 }
 
-/* (#575) The narrow header's "g" alone. Gives up the rail alignment above on
-   purpose: holding the box at the rail's width would keep the ~50px this
-   variant exists to hand back. Same height, so the glyph doesn't change
-   size between the two. */
+/* On narrow screens the logo keeps its height but gives up rail alignment. */
 .headerLogoBtnMark {
   width: auto;
 }

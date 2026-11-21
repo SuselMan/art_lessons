@@ -238,7 +238,7 @@ export function RoomHeader({
         title={t('room.home')}
         aria-label={t('room.home')}
       >
-        <Logo variant={narrowHeader ? 'mark' : 'full'} />
+        <Logo />
       </button>
       {/* Same divider the control clusters use on the right (#329) — the
           wordmark is a button that leaves the room, and without a break
