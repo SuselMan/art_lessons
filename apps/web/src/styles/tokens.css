@@ -93,8 +93,9 @@
      --color-knob-off is the same object with the switch turned off, kept as a
      separate value only so the dark theme's grey-knob/bright-knob distinction
      survives untouched. */
-  /* The approved palette uses white thumbs for both controls. */
+  /* The off-state keeps its palette colour; on matches the slider thumb. */
   --color-switch-knob: #FFFFFF;
+  --color-switch-knob-on: var(--color-surface);
   --color-knob: #FFFFFF;
   --color-knob-off: #A9A6B0;
   --color-knob-border: transparent;
@@ -282,6 +283,7 @@
      separates it from the track underneath, which here is light in both
      states (grey when off, accent when on). */
   --color-switch-knob: var(--color-knob);
+  --color-switch-knob-on: var(--color-switch-knob);
   --color-knob: #ffffff;
   --color-knob-off: #ffffff;
   --color-knob-border: var(--color-border-strong);
