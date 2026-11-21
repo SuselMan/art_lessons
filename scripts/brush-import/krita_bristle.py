@@ -104,9 +104,9 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
     # admitted late on the completed genuine Bristle descriptor, never on a child.
     if params.get('PaintOpAction','1')=='2':
         from bristle_wash135 import bristle_wash135_scope
-        d['version']=135;d['behavior']['rendering']['accumulation']='alphaDarken'
+        d['version']=203 if compositing else 135;d['behavior']['rendering']['accumulation']='alphaDarken'
         if enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or not bristle_wash135_scope(d):raise ValueError('Bristle Wash135 requires closed no-ink AA additive request')
-        result['compatibility'].append(compatibility('bristleWash','One existing additive-AA hair-line request is transferred through common creamy Wash; captured external stroke opacity is applied once. Hair geometry/seed and first-anchor policy are unchanged; capsule coverage is a functional approximation to native Wu/DDA.'))
+        result['compatibility'].append(compatibility('bristleWash','One AA hair-line request is transferred through common creamy Wash with the selected per-hair composition; captured external stroke opacity is applied once. Hair geometry/seed and first-anchor policy are unchanged; capsule coverage is a functional approximation to native Wu/DDA.'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     if soak:
         result['compatibility']=[dict(n,detail=n['detail'].replace('saturation/soaking remain rejected.','Saturation requires its trusted compiled lookup. Soaking uses canonical-BEGIN source palette.').replace('soaking remains rejected.','Soaking uses canonical-BEGIN source palette.').replace('Canvas soaking remains unsupported.','Canvas soaking uses canonical-BEGIN source palette.'))if n['feature']in('bristle','bristleSaturation')else n for n in result['compatibility']]

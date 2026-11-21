@@ -651,7 +651,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         for(const tile of tiles){
           const entry=scratch.getOrCreate(tile.buffer),previous=scratch.brushCeiling(tile.buffer)
           for(const region of sprayWashRegions(bounds,tile,request.buffer.width,request.buffer.height)){
-            current();request.assertCurrent();batch.assertPrepared();batch.paintRequest(placed,request.buffer,region.originX,region.originY,brush.sketch?.antialias??true,!brush.sketch)
+            current();request.assertCurrent();batch.assertPrepared();batch.paintRequest(placed,request.buffer,region.originX,region.originY,brush.sketch?.antialias??true,brush.bristle?!brush.bristle.compositing:false)
             const bottom=tile.buffer.height-region.y-region.height
             if(direct194){
               tile.buffer.copyRegionInto(previous,region.x,bottom,region.x,bottom,region.width,region.height)

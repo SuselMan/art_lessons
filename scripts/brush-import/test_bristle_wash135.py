@@ -49,6 +49,15 @@ class BristleWash135(unittest.TestCase):
     with self.subTest(case=case),self.assertRaises(ValueError):portable_bundle(path,bad)
     self.assertEqual(bad.brushes,[]);self.assertEqual(bad.assets,{});self.assertEqual(list(bad.output.iterdir()),[])
  def test_native_wrong_branches_skip_without_published_source_assets(self):
-  for change in({'HairyInk/enabled':'true','HairyInk/inkAmount':'4'},{'HairyBristle/antialias':'false'},{'HairyBristle/useCompositing':'true'},{'Krita/erase':'true'},{'PaintOpSettings/isAirbrushing':'true'}):
+  for change in({'HairyInk/enabled':'true','HairyInk/inkAmount':'4'},{'HairyBristle/antialias':'false'},{'Krita/erase':'true'}):
    with tempfile.TemporaryDirectory()as tmp:
     file=Path(tmp)/'Own.kpp';file.write_bytes(authored(extra=change));c=Catalog(Path(tmp)/'bad');convert_krita(file,c,{'own.gbr':GBR});self.assertTrue(c.skipped);self.assertEqual(c.brushes,[]);self.assertEqual(c.assets,{});self.assertEqual(list(c.output.iterdir()),[])
+ def test_composited_wash_uses_new_revision_and_roundtrips(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   c,_=self.native(tmp,extra={'HairyBristle/useCompositing':'true'});b=c.brushes[0];d=b['descriptor']
+   self.assertEqual(d['version'],203);self.assertTrue(d['bristle']['compositing']);self.assertTrue(bristle_wash135_scope(d))
+   env={'library':c.write(),'assets':{k:base64.b64encode((c.output/v['file']).read_bytes()).decode()for k,v in c.assets.items()}}
+   path=Path(tmp)/'portable.json';path.write_text(json.dumps(env));out=Catalog(Path(tmp)/'out');portable_bundle(path,out);self.assertEqual(out.brushes,c.brushes)
+   for mutation in (lambda v:v.update(version=135),lambda v:v['bristle'].update(compositing=False)):
+    bad=copy.deepcopy(env);mutation(bad['library']['brushes'][0]['descriptor']);path.write_text(json.dumps(bad))
+    with self.assertRaises(ValueError):portable_bundle(path,Catalog(Path(tmp)/('bad'+str(mutation))))

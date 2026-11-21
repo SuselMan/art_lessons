@@ -527,6 +527,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    if(d.version===203&&(maskRoot!==undefined||!hasBristleWash135Scope(d)))return false
     const native202=d.version===202
     if(native202&&!hasNativePixel202Scope(d))return false
     const dissolve201=d.version===201

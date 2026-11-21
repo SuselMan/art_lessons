@@ -654,6 +654,9 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
+    if descriptor.get('version')==203:
+        from bristle_wash135 import bristle_wash135_scope
+        if parent is not None or not bristle_wash135_scope(descriptor):raise ValueError('Invalid Bristle Wash203 scope')
     if descriptor.get('version')==202:
         from native_pixel202 import scope202
         if parent is not None or not scope202(descriptor):raise ValueError('Invalid native202 scope')
