@@ -59,7 +59,11 @@ export function useToolChoice(roomId: string | undefined, engineRef: RefObject<P
   const brushRevision = useRoomStore(s => s.brushLibraryRevision)
   useBrushPreviewRefresh(roomId, brushRevision)
   const brushSelection = currentBrushSelection()
-  useEffect(() => () => { choiceAbort.current?.abort() }, [enabledTools, brushSelection])
+  // Polling may replace these arrays with equal copies while assets are downloading.
+  // Cancel only when the actual room permissions or selection change.
+  const enabledToolsKey = JSON.stringify(enabledTools)
+  const brushSelectionKey = JSON.stringify(brushSelection)
+  useEffect(() => () => { choiceAbort.current?.abort() }, [enabledToolsKey, brushSelectionKey])
   const nativeOffered = useCallback((id: string) => !brushSelection || brushSelection.includes(`native:${id}`), [brushSelection])
   const brushes = useMemo(() => ({ revision: brushRevision, selection: brushSelection, drawing: pickerImportedBrushes(), eraser: pickerImportedBrushes('eraser'), smudge: pickerImportedBrushes('smudge') }), [brushRevision, brushSelection])
 
