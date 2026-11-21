@@ -24,7 +24,19 @@ def lower_filter192(data,root,params,name,catalog,external):
     # Only filter configuration is needed; unrelated active keys cannot affect kernel parsing.
     for key,value in values.items():
         if key.startswith('Filter/')or key in('brush_definition','CompositeOp','EraserMode'):ET.SubElement(kernel,'param',name=key).text=value
-    if params.get('Filter/id')=='colorbalance':
+    if params.get('Filter/id')=='hsvadjustment':
+        configs=root.findall('filterconfig')
+        if len(configs)>1:raise ValueError('Duplicate Filter configuration')
+        cfg=configs[0] if configs else xml(params['Filter/configuration']) if params.get('Filter/configuration') else None
+        config={p.get('name'):p.text or '' for p in cfg.iter('param')} if cfg is not None else {}
+        if cfg is not None and len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
+        if set(config)-{'h','s','v','type','colorize','compatibilityMode'}:raise ValueError('Unknown HSV adjustment setting')
+        if config.get('type','1')!='0' or config.get('h','0')!='0' or config.get('v','0')!='0' or config.get('colorize','false').lower() not in ('false','0') or config.get('compatibilityMode','true').lower() not in ('false','0'):raise ValueError('Unsupported HSV adjustment mode')
+        try:amount=int(config.get('s','0'))
+        except (ValueError,TypeError):raise ValueError('Invalid HSV saturation')from None
+        if not -100<=amount<=100:raise ValueError('HSV saturation outside native range')
+        f={'version':3,'kind':'hsvSaturation','amount':amount/100}
+    elif params.get('Filter/id')=='colorbalance':
         configs=root.findall('filterconfig')
         if len(configs)>1:raise ValueError('Duplicate Filter configuration')
         cfg=configs[0] if configs else xml(params['Filter/configuration']) if params.get('Filter/configuration') else None

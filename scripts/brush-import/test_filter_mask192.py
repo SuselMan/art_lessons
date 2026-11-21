@@ -65,6 +65,13 @@ class Filter192Tests(unittest.TestCase):
                 else:d['filter'][{'policy':'maskPolicy','source':'sourcePolicy','composite':'composite'}[mutation]]='wrong'
                 path.write_text(json.dumps(bad))
                 with self.subTest(mutation=mutation),self.assertRaises(ValueError):convert.portable_bundle(path,Catalog(root/mutation))
+    def test_hsv_saturation_native_mode_and_rejections(self):
+        config='<filterconfig><param name="type">0</param><param name="h">0</param><param name="s">50</param><param name="v">0</param><param name="colorize">false</param><param name="compatibilityMode">false</param></filterconfig>'
+        with tempfile.TemporaryDirectory() as tmp:
+            def read(value):return preset(kpp(resources='<param name="Filter/id">hsvadjustment</param>'+value,engine='filter'),'hsv.kpp',Catalog(Path(tmp)/str(len(value))),{})
+            d=read(config)['descriptor'];self.assertTrue(scope192(d));self.assertEqual(d['filter']['amount'],.5)
+            for bad in (config.replace('50','101'),config.replace('false','true'),config.replace('name="type">0','name="type">1')):
+                with self.assertRaises(ValueError):read(bad)
     def test_color_balance_preserves_native_channels_and_is_bounded(self):
         config='<filterconfig version="0"><param name="cyan_red_shadows">-60</param><param name="magenta_green_highlights">60</param><param name="preserve_luminosity">false</param></filterconfig>'
         extra='<param name="Filter/id">colorbalance</param>'+config

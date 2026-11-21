@@ -26,6 +26,13 @@ vec4 filterColorBalance(vec4 original,float preserveLuminosity){
  return vec4(clamp(adjusted,0.0,1.0)*alpha,alpha);
 }
 vec4 filterPointwise(vec4 original,vec4 settings){
+ if(settings.w>5.5){
+  float a=original.a;vec3 rgb=a>0.0?clamp(original.rgb/a,0.0,1.0):vec3(0.0);
+  float hi=max(max(rgb.r,rgb.g),rgb.b),lo=min(min(rgb.r,rgb.g),rgb.b),c=hi-lo;
+  float factor=settings.x>0.0?1.0+settings.x+2.0*settings.x*settings.x:1.0+settings.x;
+  float next=min(hi,min(1.0,c*factor));
+  return vec4((c>1e-9?vec3(hi)-(vec3(hi)-rgb)*(next/c):rgb)*a,a);
+ }
  if(settings.w>4.5)return filterColorBalance(original,settings.x);
  if(settings.w>3.5)return p117posterize(original,settings.x);
  if(settings.w>2.5){float lo=min(min(original.r,original.g),original.b),hi=max(max(original.r,original.g),original.b);float gray;if(settings.x<.5)gray=(lo+hi)*.5;else if(settings.x<1.5)gray=dot(original.rgb,vec3(.2126,.7152,.0722));else if(settings.x<2.5)gray=dot(original.rgb,vec3(.299,.587,.114));else if(settings.x<3.5)gray=(original.r+original.g+original.b)/3.;else if(settings.x<4.5)gray=lo;else gray=hi;return vec4(vec3(gray),original.a);}

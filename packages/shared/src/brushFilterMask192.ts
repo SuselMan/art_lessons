@@ -20,6 +20,7 @@ export function isFilterComposite192(v: unknown): v is FilterComposite192 {
 export function isFilterMask192Payload(v: unknown): boolean {
   if (!obj(v) || v.maskPolicy !== 'native-dab-v1' || v.sourcePolicy !== 'canonical-begin-v1' || typeof v.smudgeMode !== 'boolean' || !isFilterComposite192(v.composite)) return false
   const common = ['version', 'kind', 'maskPolicy', 'sourcePolicy', 'smudgeMode', 'composite']
+  if (v.kind === 'hsvSaturation') return v.version === 3 && keys(v,[...common,'amount']) && number(v.amount,-1,1)
   if (v.kind === 'colorBalance') return v.version === 3 && keys(v,[...common,'shadows','midtones','highlights','preserveLuminosity']) && typeof v.preserveLuminosity==='boolean' && ['shadows','midtones','highlights'].every(k=>Array.isArray(v[k]) && (v[k] as unknown[]).length===3 && (v[k] as unknown[]).every(x=>number(x,-1,1)))
   if (v.kind === 'invert') return v.version === 2 && keys(v, common)
   if (v.kind === 'desaturate') return v.version === 2 && keys(v, [...common, 'type']) && Number.isInteger(v.type) && number(v.type, 0, 5)

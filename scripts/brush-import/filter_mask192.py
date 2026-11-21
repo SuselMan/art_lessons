@@ -24,7 +24,9 @@ def scope192(d,*,clock195=False):
     common={'version','kind','maskPolicy','sourcePolicy','smudgeMode','composite'}
     if f.get('maskPolicy')!='native-dab-v1'or f.get('sourcePolicy')!='canonical-begin-v1'or type(f.get('smudgeMode'))is not bool or f.get('composite')not in COMPOSITES:return False
     kind=f.get('kind')
-    if kind=='colorBalance':
+    if kind=='hsvSaturation':
+        if type(f.get('version'))is not int or f['version']!=3 or set(f)!=common|{'amount'} or not _number(f.get('amount'),-1,1):return False
+    elif kind=='colorBalance':
         if type(f.get('version'))is not int or f['version']!=3 or set(f)!=common|{'shadows','midtones','highlights','preserveLuminosity'} or type(f.get('preserveLuminosity'))is not bool:return False
         if any(not isinstance(f.get(k),list)or len(f[k])!=3 or any(not _number(v,-1,1)for v in f[k])for k in ('shadows','midtones','highlights')):return False
     elif kind in('invert','desaturate','posterize'):

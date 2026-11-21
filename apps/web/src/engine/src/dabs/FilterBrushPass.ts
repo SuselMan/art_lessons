@@ -41,7 +41,7 @@ export class FilterBrushPass{
  }
  paint(filter:BrushFilter,tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,scratch:BrushScratch,target:Pick<ILayerBuffer,'resolveForPaint'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>):void{
   if(filter.kind==='posterize'&&!isPosterizeBrushFilter(filter))throw Error('Invalid Posterize117 filter')
-  if(filter.kind==='colorBalance')throw Error('Color Balance requires native Filter192')
+  if(filter.kind==='colorBalance'||filter.kind==='hsvSaturation')throw Error('Filter requires native Filter192')
   if(filter.kind==='invert'||filter.kind==='desaturate'||filter.kind==='posterize'){
    this.prepare();const gl=this.gl,left=Math.max(0,Math.floor(bounds.minX-tile.originX)),top=Math.max(0,Math.floor(bounds.minY-tile.originY)),right=Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX)),bottom=Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY))
    if(right<=left||bottom<=top)return
