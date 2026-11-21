@@ -58,7 +58,7 @@ export function gihFrameMaskBounds(s:GihFrameSize,side:number){
 export interface GihFrameMetadata {readonly sourceWidth:number;readonly sourceHeight:number;readonly maskBounds:Readonly<{x:number;y:number;width:number;height:number}>}
 /** Preparation-only checked metadata, not a render capability or mutable caller alias. */
 export function captureGihFrameMetadata(rows:readonly GihFrameMetadata[],assetSides:readonly number[]):readonly GihFrameMetadata[]{
- if(rows.length<2||rows.length>256||rows.length!==assetSides.length)throw new RangeError('invalid GIH geometry inventory');
+ if(rows.length<2||rows.length>1024||rows.length!==assetSides.length)throw new RangeError('invalid GIH geometry inventory');
  return Object.freeze(rows.map((r,index)=>{
   if(!r||Object.keys(r).sort().join(',')!=='maskBounds,sourceHeight,sourceWidth')throw new RangeError('invalid GIH geometry fields');
   const sourceWidth=r.sourceWidth,sourceHeight=r.sourceHeight;

@@ -19,7 +19,7 @@ def _is_sensor_original_rgba(d,equal,kind='rgba'):
     t=d.get('tip');b=d.get('behavior')
     if not isinstance(t,dict)or not isinstance(b,dict):return False
     a=t.get('animation');c=t.get('color')
-    if t.get('kind')!='bitmap'or not isinstance(a,dict)or a.get('mode')not in('angular','xtilt','ytilt','dimensions')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=256 or kind=='rgba' and(not isinstance(c,dict)or set(c)!={'planes','frames'}):return False
+    if t.get('kind')!='bitmap'or not isinstance(a,dict)or a.get('mode')not in('angular','xtilt','ytilt','dimensions')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=(1024 if a.get('mode')=='dimensions' else 256) or kind=='rgba' and(not isinstance(c,dict)or set(c)!={'planes','frames'}):return False
     if equal:
         if 'geometry'in a:return False
     elif not isinstance(a.get('geometry'),dict)or a['geometry'].get('version')!=1 or not isinstance(a['geometry'].get('frames'),list)or len(a['geometry']['frames'])!=len(a['frames']):return False
@@ -75,7 +75,7 @@ def validate_variable_gih_descriptor(d,asset_sizes):
         if d.get('version',0)<118 or not isinstance(scatter,dict)or scatter.get('radius',0)>0 or('color'in tip and not(is_sensor_original_rgba119(d)or gradient))or any(k in tip and(k!='material'or not lightness)for k in('material','imageSampling','profile','autoNoise','autoShape')):raise ValueError('Sensor GIH original geometry requires118 alpha without positional scatter')
     if type(d.get('version'))is not int or d['version']<86 or d.get('model')!='stamp' or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or tip.get('kind')!='bitmap' or any(k in tip and(k!='material'or not lightness)for k in('profile','autoNoise','autoShape','imageSampling','material')) or any(k in b for k in('dual','edgeBleed','colorAdjustment')) or b.get('rendering',{}).get('wetEdges') or any('sharpness'in b.get(k,{}) for k in('dynamics','modulations')):
         raise ValueError('Unsupported variable GIH geometry combination')
-    if not isinstance(g,dict) or set(g)!={'version','frames'} or type(g['version'])is not int or g['version']!=1 or not isinstance(frames,list) or not 2<=len(frames)<=256 or any(not isinstance(a,str)or a not in asset_sizes for a in frames) or not isinstance(g['frames'],list) or len(g['frames'])!=len(frames):
+    if not isinstance(g,dict) or set(g)!={'version','frames'} or type(g['version'])is not int or g['version']!=1 or not isinstance(frames,list) or not 2<=len(frames)<=(1024 if animation.get('mode')=='dimensions' else 256) or any(not isinstance(a,str)or a not in asset_sizes for a in frames) or not isinstance(g['frames'],list) or len(g['frames'])!=len(frames):
         raise ValueError('Invalid variable GIH geometry inventory')
     for index,row in enumerate(g['frames']):
         if not isinstance(row,dict) or set(row)!={'sourceWidth','sourceHeight','maskBounds'}:raise ValueError('Invalid variable GIH geometry fields')

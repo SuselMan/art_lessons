@@ -70,9 +70,9 @@ async function loadMetadata(scope: string | undefined): Promise<void> {
     // offline metadata: pruning would make already loaded history unreadable.
     if (scopedLibraries.has(scope)) return
     try { data = JSON.parse(localStorage.getItem(cacheKey) ?? 'null') } catch { /* unavailable storage */ }
-    if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) throw error
+    if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 8192 })) throw error
   }
-  if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) throw new Error('Invalid brush library')
+  if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 8192 })) throw new Error('Invalid brush library')
   if (scope !== roomScope) return
   try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch { /* quota/private mode */ }
   installBrushLibrary(data)

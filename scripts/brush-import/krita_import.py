@@ -211,7 +211,7 @@ def gih(data, preserve_color=False):
         dimensions=None
         dim=int(params.get('dim','1'))
         if dim!=1:
-            if not 2<=dim<=4 or not 1<=count<=256 or int(params.get('ncells','0'))!=count:raise ValueError('Unsupported multidimensional GIH count')
+            if not 2<=dim<=4 or not 1<=count<=1024 or int(params.get('ncells','0'))!=count:raise ValueError('Unsupported multidimensional GIH count')
             names={f'{key}{i}'for i in range(dim)for key in('rank','sel')}
             if any(key.startswith(('rank','sel'))and key not in names for key in params)or not names<=set(params):raise ValueError('Incomplete GIH dimension header')
             keys=list(params)
@@ -238,7 +238,7 @@ def gih(data, preserve_color=False):
         # actual count. Its official fairy-dust pipe declares4 but contains1.
         if offset==len(data) and frames:
             break
-        if len(frames)>=256:
+        if len(frames)>=(1024 if dimensions is not None else 256):
             raise ValueError('GIH actual frame limit')
         if len(data)-offset<20:
             raise ValueError('Truncated GIH frame')
@@ -2018,9 +2018,9 @@ def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_x
         if advanced:raise Needs190('Whole native masking settings require190')
         return result
     try:return _native_preset_transaction(catalog,legacy)
-    except ValueError:
-        from native_mask190 import lower_pair
-        return lower_pair(data,name,catalog,external,_preset_impl,options)
+    except ValueError:pass
+    from native_mask190 import lower_pair
+    return lower_pair(data,name,catalog,external,_preset_impl,options)
 
 
 def _preset_without_smudge193(data,name,catalog,external,depth=0,**options):
@@ -2075,9 +2075,9 @@ def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
     try:return _native_preset_transaction(catalog,legacy)
     except ValueError:
         if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise
-        from native_smudge193 import lower_smudge193
-        defaults=dict(sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None);defaults.update(options)
-        return _native_preset_transaction(catalog,lambda:lower_smudge193(data,name,catalog,external,_preset_impl,defaults))
+    from native_smudge193 import lower_smudge193
+    defaults=dict(sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None);defaults.update(options)
+    return _native_preset_transaction(catalog,lambda:lower_smudge193(data,name,catalog,external,_preset_impl,defaults))
 
 
 

@@ -42,7 +42,7 @@ import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
-import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES,streamingSmudgeResources, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per target and user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -1356,7 +1356,7 @@ export class SmudgePainter {
     let plan=this.recordedTexture191Plans.get(brush)
     if(!plan){
       if(!(brush.version===195?hasStationary195Scope(brush):brush&&usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush)))throw Error('Invalid whole recorded Texture191 scope')
-      const resources=brushPreparationResources(brush)
+      const resources=streamingSmudgeResources(brush,brushPreparationResources(brush),this.imageDimensionLimit())
       plan={resources,...(usesNativeSmudgeFeatures(brush)&&usesVariableGih(brush.tip)?{gihFrames:prepareVariableGih(brush,true)}:{})}
       const bytes=brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)
       if(bytes+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Recorded Texture191 bank exceeds texture budget')

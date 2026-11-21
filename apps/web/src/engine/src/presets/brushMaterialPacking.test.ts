@@ -107,3 +107,9 @@ describe('direct material derivatives', () => {
     expect(() => materialGroupMips({ ...paired, size: 3 }, () => alpha)).toThrow('dimensions')
   })
 })
+
+it('plans large native tensor inventories with a hard upper bound',()=>{
+ const sources=Array.from({length:738},(_,i)=>({alpha:`a${i}`,gray:`g${i}`}))
+ const plan=materialPackingPlan(sources,128);expect(plan.frames).toHaveLength(738);expect(plan.groups).toHaveLength(369)
+ expect(()=>materialPackingPlan(Array.from({length:1025},()=>({alpha:'a',gray:'g'})),128)).toThrow()
+})

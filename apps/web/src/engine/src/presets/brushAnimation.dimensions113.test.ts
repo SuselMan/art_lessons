@@ -31,3 +31,8 @@ describe('113 runtime signed tensor selection',()=>{
   Object.assign(b.tip.animation!.dimensions![0],{mode:'future-selector'});expect(()=>brushAnimationIndex(b.tip,0,0,0,1,0,0,-1,0)).toThrow()
  })
 })
+
+it('selects high indices from a 738-frame tensor without truncation',()=>{
+ const b=brush([{mode:'angular',rank:18},{mode:'incremental',rank:41}]);b.tip.animation!.frames=Array.from({length:738},(_,i)=>`asset:${i.toString(16).padStart(64,'0')}` as const)
+ const index=brushAnimationIndex(b.tip,1,40,0,1,0,0,0,0);expect(index).toBeGreaterThanOrEqual(0);expect(index).toBeLessThan(738)
+})

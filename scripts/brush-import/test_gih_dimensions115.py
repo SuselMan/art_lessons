@@ -7,6 +7,12 @@ from test_krita import kpp
 class Dimensions115(unittest.TestCase):
  def imported(self,tmp,dims,actual=3):
   p=Path(tmp)/'Own.kpp';p.write_bytes(kpp('<Brush type="gbr_brush" filename="own.gih"/>'));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c,{'own.gih':pipe(dims,actual)});self.assertEqual(c.skipped,[]);return c
+ def test_large_tensor_product_and_actual_frames_are_bounded(self):
+  from krita_import import gih
+  from test_gih_dimensions113 import pipe
+  for dims in ([('angular',18),('incremental',22)],[('angular',18),('incremental',41)]):
+   parsed=gih(pipe(dims,actual=3));self.assertEqual(parsed['dimensions'],[{'mode':mode,'rank':rank} for mode,rank in dims]);self.assertEqual(len(parsed['frames']),3)
+  with self.assertRaises(ValueError):gih(pipe([('angular',33),('incremental',32)],actual=1))
  def test_genuine_default_API_two_three_four_dimensions_and_policies(self):
   for dims in[[('random',4),('random',4)],[('incremental',2),('incremental',3)],[('pressure',2),('random',2),('angular',2)],[('incremental',2),('xtilt',2),('random',2),('ytilt',2)]]:
    with self.subTest(dims=dims),tempfile.TemporaryDirectory()as tmp:

@@ -44,3 +44,9 @@ it('118 admits original alpha geometry only with canonical rows and no active po
  for(const edit of edits){const bad=structuredClone(c);edit(bad.brushes[0].descriptor);expect(isBrushLibrary(bad)).toBe(false)}
  for(const mode of['angular','xtilt','ytilt']as const){const other=structuredClone(c),b=other.brushes[0].descriptor;b.tip.animation={mode,rank:8,frames:[id,id],geometry:d.tip.animation!.geometry,...mode==='angular'?{cursorPolicy:'first-request-v1'}:{roundingPolicy:'qt5-half-up-v1'}};expect(isBrushLibrary(other)).toBe(true);b.version=117;expect(isBrushLibrary(other)).toBe(false)}
 })
+
+it('accepts up to 1024 multidimensional slots while preserving the flat limit',()=>{
+ const c=tensor(),d=c.brushes[0].descriptor,id=c.assets[0].id;d.version=115;d.tip.animation={mode:'dimensions',dimensions:[{mode:'angular',rank:18},{mode:'incremental',rank:41}],frames:Array.from({length:738},()=>id),cursorPolicy:'first-request-v1'}
+ expect(isBrushLibrary(c)).toBe(true)
+ d.tip.animation.dimensions=[{mode:'angular',rank:33},{mode:'incremental',rank:32}];expect(isBrushLibrary(c)).toBe(false)
+})

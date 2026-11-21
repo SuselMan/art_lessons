@@ -498,7 +498,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
 /** Only internal recursion can supply the actual validated190 parent. */
 function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;maxBrushes?:number;maxAssets?:number}={},maskRoot?:unknown):value is BrushLibrary {
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
-    || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
+    || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 8192)) return false
   if (value.selection !== undefined && (!Array.isArray(value.selection) || value.selection.length > 512 || !value.selection.every(v => typeof v === 'string' && /^(?:native:[A-Za-z]+|brush:imported-[a-f0-9]+@\d+)$/.test(v)))) return false
   if (value.nativePreviews !== undefined && (!record(value.nativePreviews) || Object.keys(value.nativePreviews).length > 20 || !Object.values(value.nativePreviews).every(isBrushSampleUrl))) return false
   const ids = new Set<string>()
@@ -789,13 +789,13 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
         || animation.mode!=='dimensions'&&animation.mode!=='xtilt'&&animation.mode!=='ytilt'&&animation.roundingPolicy!==undefined
         || animation.mode!=='dimensions'&&animation.mode!=='angular' && animation.cursorPolicy!==undefined
         || (animation.mode==='dimensions'||animation.mode==='angular'||animation.mode==='xtilt'||animation.mode==='ytilt' ? false : animation.mode==='pressure'||animation.mode==='velocity' ? !numberIn(animation.rank,1,animation.mode==='velocity'?256:2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
-        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='dimensions'||animation.mode==='angular'?1:2) || animation.frames.length > 256
+        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='dimensions'||animation.mode==='angular'?1:2) || animation.frames.length > (animation.mode==='dimensions'?1024:256)
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       if(animation.mode==='dimensions'){
         const dims=animation.dimensions
         if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined&&Number(d.version)<118||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
         const product=dims.reduce((n,v)=>n*Number(v.rank),1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
-        if(product>256||animation.frames.length>product||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
+        if(product>1024||animation.frames.length>product||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
         const random=brushAnimationUsesMode(animation,'random'),sequence=random||brushAnimationUsesMode(animation,'incremental')
         if(sequence&&Number(d.version)<115||(random?animation.randomPolicy!=='grafetto-dim-stream-v1':animation.randomPolicy!==undefined))return false
       }else if(animation.dimensions!==undefined||animation.randomPolicy!==undefined)return false

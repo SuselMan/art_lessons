@@ -285,6 +285,23 @@ export function brushPreparationBytes(resources: readonly BrushPreparationResour
   }, 0)
 }
 
+/** Large native Lightness tensors keep immutable source planes on CPU and
+ * prepare only one frame plus static textures on GPU. Each requested frame is
+ * subsequently protected and loaded by the existing wet-texture LRU. */
+export function streamingSmudgeResources(brush:BrushDescriptor,resources:readonly BrushPreparationResource[],maximumTextureSide:number):BrushPreparationResource[] {
+ const animation=brush.tip.animation
+ if(!usesNativeSmudgeFeatures(brush)||brush.model!=='mixer'||brush.mixer?.algorithm!=='krita-mask'||!brush.mixer.paintThickness||brush.tip.material?.kind!=='lightness'||animation?.mode!=='dimensions'||animation.frames.length<=256||animation.geometry||brush.tip.color||brush.behavior?.dual||brush.texture?.material)return [...resources]
+ const frames=resources.filter(r=>r.painter==='wet'&&!r.grain&&!!r.colorPlanes),fixed=resources.filter(r=>!(r.painter==='wet'&&!r.grain&&r.colorPlanes))
+ if(!Number.isFinite(maximumTextureSide)||maximumTextureSide<2||!frames.length||frames.some(r=>r.nativeImage||r.lookup32||r.gradientLut||r.colorPlanes?.length!==3))throw Error('Invalid streaming smudge frame inventory')
+ const size=(id:string)=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256
+ const fixedBytes=brushPreparationBytes(fixed,size)
+ for(const frame of frames){
+  const side=size(frame.id)
+  if(!Number.isSafeInteger(fixedBytes)||!Number.isInteger(side)||side<2||side>maximumTextureSide||(side&(side-1))!==0||frame.colorPlanes!.some(id=>size(id)!==side)||fixedBytes+brushPreparationBytes([frame],size)+brushPreparationTransientBytes([...fixed,frame])>BRUSH_PREPARATION_BYTES)throw Error('Streaming smudge frame exceeds the texture budget')
+ }
+ return [...fixed,frames[0]]
+}
+
 /** Native policy promises a complete finite working bank, never a legacy
  * lazy-upload fallback after readiness reported an oversized skip. */
 export function assertNativeImageAdmission(resources: readonly BrushPreparationResource[], maximumTextureSide: number): void {

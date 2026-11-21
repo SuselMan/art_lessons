@@ -27,7 +27,7 @@ function validSize(size: number): boolean {
  * A fresh plan holds metadata only; callers may weakly cache it per descriptor.
  */
 export function materialPackingPlan(sources: readonly MaterialFrameSource[], size: number, sizes?:readonly number[]): MaterialPackingPlan {
-  if (!validSize(size) || sources.length < 1 || sources.length > 256)
+  if (!validSize(size) || sources.length < 1 || sources.length > 1024)
     throw Error('Invalid material animation dimensions/count')
   if(sizes&&(sizes.length!==sources.length||sizes[0]!==size||!sizes.every(validSize)))throw Error('Invalid per-frame material sides')
   for (const source of sources) {

@@ -39,7 +39,7 @@ export function merge(...libraries: BrushLibrary[]): BrushLibrary {
     for (const asset of library.assets) if (!result.assets.some(a => a.id === asset.id)) result.assets.push(asset)
     for (const item of library.skipped) if (!result.skipped.some(previous => previous.name === item.name && JSON.stringify(previous.reasons) === JSON.stringify(item.reasons))) result.skipped.push(item)
   }
-  if (!isBrushLibrary(result, {maxBytes:512*1024*1024,maxBrushes:1024,maxAssets:2048})) throw Error('Visible brush library quota exceeded')
+  if (!isBrushLibrary(result, {maxBytes:512*1024*1024,maxBrushes:1024,maxAssets:8192})) throw Error('Visible brush library quota exceeded')
   return result
 }
 export class BrushStorage {

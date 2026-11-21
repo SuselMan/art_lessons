@@ -877,7 +877,7 @@ def portable_bundle(path,catalog):
     library=data['library'];payloads=data['assets']
     if not isinstance(library,dict) or library.get('schemaVersion')!=1 or not isinstance(payloads,dict): raise ValueError('Invalid portable library')
     assets=library.get('assets');brushes=library.get('brushes');skipped=library.get('skipped')
-    if not isinstance(assets,list) or len(assets)>1024 or not isinstance(brushes,list) or len(brushes)>512 or not isinstance(skipped,list) or len(skipped)>1024: raise ValueError('Portable library item limit')
+    if not isinstance(assets,list) or len(assets)>8192 or not isinstance(brushes,list) or len(brushes)>512 or not isinstance(skipped,list) or len(skipped)>1024: raise ValueError('Portable library item limit')
     total=0;validated=[];ids=set()
     for asset in assets:
         if not isinstance(asset,dict): raise ValueError('Invalid portable asset')
@@ -1086,7 +1086,7 @@ def portable_bundle(path,catalog):
                 if type(animation.get('rank')) is not int or not 1<=animation['rank']<=maximum:raise ValueError('Invalid portable GIH selector rank')
             elif animation['mode']not in('dimensions','angular','xtilt','ytilt')and 'rank'in animation:raise ValueError('Unexpected portable GIH rank')
             frames=animation['frames']
-            if not isinstance(frames,list) or not (1 if animation['mode']in('angular','dimensions')else 2)<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
+            if not isinstance(frames,list) or not (1 if animation['mode']in('angular','dimensions')else 2)<=len(frames)<=(1024 if animation['mode']=='dimensions' else 256) or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
             if 'geometry'not in animation and len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
         if 'color' in tip:
             color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])

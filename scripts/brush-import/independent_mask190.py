@@ -82,10 +82,10 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
     if animation is not None:
         if not isinstance(animation,dict)or set(animation)-{'mode','frames','rank','cursorPolicy','roundingPolicy','randomPolicy','dimensions','geometry'}or animation.get('mode')not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental','dimensions'):raise ValueError('Invalid190 animation')
         frames=animation.get('frames');mode=animation['mode']
-        if not isinstance(frames,list)or not 1<=len(frames)<=256 or not all(ref(a)for a in frames)or frames[0]!=tip.get('mask'):raise ValueError('Invalid190 frame inventory')
+        if not isinstance(frames,list)or not 1<=len(frames)<=(1024 if animation.get('mode')=='dimensions' else 256) or not all(ref(a)for a in frames)or frames[0]!=tip.get('mask'):raise ValueError('Invalid190 frame inventory')
         dims=animation.get('dimensions');modes=[mode]
         if mode=='dimensions':
-            if not isinstance(dims,list)or not 2<=len(dims)<=4 or any(not isinstance(x,dict)or set(x)!={'mode','rank'}or x['mode']not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental')or type(x['rank'])is not int or not 2<=x['rank']<=256 for x in dims)or math.prod(x['rank']for x in dims)>256 or len(frames)>math.prod(x['rank']for x in dims):raise ValueError('Invalid190 tensor')
+            if not isinstance(dims,list)or not 2<=len(dims)<=4 or any(not isinstance(x,dict)or set(x)!={'mode','rank'}or x['mode']not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental')or type(x['rank'])is not int or not 2<=x['rank']<=256 for x in dims)or math.prod(x['rank']for x in dims)>1024 or len(frames)>math.prod(x['rank']for x in dims):raise ValueError('Invalid190 tensor')
             modes=[x['mode']for x in dims]
             if 'rank'in animation:raise ValueError('Unexpected190 tensor rank')
             if ('random'in modes and animation.get('randomPolicy')!='grafetto-dim-stream-v1')or('random'not in modes and'randomPolicy'in animation):raise ValueError('Invalid190 tensor RNG policy')

@@ -48,7 +48,7 @@ export function pixelOriginalRgbaFrames(brush:BrushDescriptor,mask190=false):rea
  if(equalGradient&&!mask190&&!isEqualGradientGih125(brush))throw Error('Equal Gradient sensor requires125 closed scope')
  let equalSide:number|undefined
  const frames=brush.tip.animation?.frames??(brush.tip.mask?[brush.tip.mask]:[])
- if(!frames.length||frames.length>256)throw new RangeError('Invalid Pixel original RGBA frame inventory')
+ if(!frames.length||frames.length>(animation?.mode==='dimensions'?1024:256))throw new RangeError('Invalid Pixel original RGBA frame inventory')
  return Object.freeze(frames.map((id,index)=>{
   const planes=brushTipColorPlanes(brush.tip,index)
   if(!planes||planes.length!==3||planes.some(p=>typeof p!=='string'||!p))throw new RangeError('Missing Pixel original RGB planes')
