@@ -105,19 +105,19 @@ export function PencilSoundTuningPanel({ pencilSoundRef, tool }: { pencilSoundRe
 
   return (
     <div className={styles.debugOverlay} style={{ pointerEvents: 'auto', maxWidth: 320 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button type="button" onClick={() => setCollapsed(c => !c)} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-8)" }}>
+        <button type="button" onClick={() => setCollapsed(c => !c)} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: "var(--space-1) var(--space-6)", cursor: 'pointer' }}>
           {collapsed ? '▸' : '▾'} pencil sound tuning — {tool}
         </button>
-        <button type="button" onClick={handleCopy} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}>
+        <button type="button" onClick={handleCopy} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: "var(--space-1) var(--space-6)", cursor: 'pointer' }}>
           {copied ? 'copied!' : 'copy config'}
         </button>
-        <button type="button" onClick={handleReset} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}>
+        <button type="button" onClick={handleReset} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: "var(--space-1) var(--space-6)", cursor: 'pointer' }}>
           reset
         </button>
       </div>
       {!collapsed && (
-        <div style={{ marginTop: 6, maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
+        <div style={{ marginTop: "var(--space-6)", maxHeight: '70vh', overflowY: 'auto', paddingRight: "var(--space-4)" }}>
           <Section title="noise texture">
             <Row label="floor" value={grain.floor} min={0} max={1} step={0.01} onChange={v => patchGrain({ floor: v })} />
             <Row label="depth" value={grain.depth} min={0} max={3} step={0.01} onChange={v => patchGrain({ depth: v })} />
@@ -200,8 +200,8 @@ export function PencilSoundTuningPanel({ pencilSoundRef, tool }: { pencilSoundRe
 
 function Section({ title, children }: { title: string; children: React.ReactNode }): React.JSX.Element {
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ opacity: 0.7, marginBottom: 2 }}>— {title} —</div>
+    <div style={{ marginTop: "var(--space-8)" }}>
+      <div style={{ opacity: 0.7, marginBottom: "var(--space-2)" }}>— {title} —</div>
       {children}
     </div>
   )
@@ -216,7 +216,7 @@ function Row({ label, value, min, max, step, onChange }: {
   label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void
 }): React.JSX.Element {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-6)" }}>
       <span style={{ minWidth: 150, flexShrink: 0 }}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} style={{ width: 90, flexShrink: 0 }} />
       <span style={{ minWidth: 46, textAlign: 'right' }}>{value.toFixed(decimals(step))}</span>
@@ -226,7 +226,7 @@ function Row({ label, value, min, max, step, onChange }: {
 
 function CheckRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }): React.JSX.Element {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-6)" }}>
       <span style={{ minWidth: 150, flexShrink: 0 }}>{label}</span>
       <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
     </div>

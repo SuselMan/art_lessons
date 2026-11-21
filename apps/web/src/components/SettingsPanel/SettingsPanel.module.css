@@ -8,17 +8,17 @@
 }
 
 .flagList {
-  padding: 8px;
+  padding: var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .flagRow {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 8px;
+  gap: var(--space-10);
+  padding: var(--space-8);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -26,7 +26,7 @@
 .flagRow:hover { background: var(--color-surface); }
 
 .flagRow input[type='checkbox'] {
-  margin-top: 3px;
+  margin-top: var(--space-3);
   width: 18px;
   height: 18px;
   accent-color: var(--color-accent);
@@ -41,14 +41,14 @@
 .flagDescription {
   color: var(--color-text-dim);
   font-size: 11px;
-  margin-top: 2px;
+  margin-top: var(--space-2);
   line-height: 1.4;
 }
 
 /* (#321) Section label inside a tab — "Sound", "Interface". Quiet on
    purpose: it groups rows, it isn't a title competing with the modal's own. */
 .sectionHeading {
-  margin: 8px 8px 0;
+  margin: var(--space-8) var(--space-8) 0;
   color: var(--color-text-dim);
   font-size: 11px;
   font-weight: 600;
@@ -61,15 +61,15 @@
 .sliderRow {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: var(--space-6);
+  padding: var(--space-8);
 }
 
 .sliderHead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .sliderValue {
@@ -81,22 +81,22 @@
 .choiceRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  gap: var(--space-4);
+  padding: var(--space-8);
 }
 
 .hotkeyRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-10);
   width: 100%;
 }
 
 .hotkeyBtn {
   flex-shrink: 0;
   min-width: 84px;
-  padding: 4px 10px;
+  padding: var(--space-4) var(--space-10);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-bright);
@@ -111,18 +111,18 @@
 .hotkeyError {
   color: var(--color-error);
   font-size: 11px;
-  margin-top: 2px;
+  margin-top: var(--space-2);
 }
 
 
 .select {
-  margin-top: 6px;
+  margin-top: var(--space-6);
   width: 100%;
   background: var(--color-surface);
   color: var(--color-text-bright);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  padding: 6px 8px;
+  padding: var(--space-6) var(--space-8);
   font-size: 13px;
 }
 
@@ -141,8 +141,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 16px 12px;
+  gap: var(--space-10);
+  padding: var(--space-8) var(--space-16) var(--space-12);
   border-top: 1px solid var(--color-border);
   /* Same surface the modal box itself is painted with, so rows scrolling
      under the bar disappear behind it rather than showing through. */
@@ -151,7 +151,7 @@
 
 .saveBtn {
   flex-shrink: 0;
-  padding: 6px 14px;
+  padding: var(--space-6) var(--space-14);
   font-size: 12px;
   font-weight: 600;
   /* The same bug as ConfirmDialog's .confirm, mirrored: --color-bg is the page
@@ -176,8 +176,8 @@
 .buttonRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
 }
 
 .presetBtnActive {
@@ -187,11 +187,11 @@
   border-color: var(--color-accent-border);
 }
 
-.choiceHeading { display: flex; align-items: center; gap: 4px; }
+.choiceHeading { display: flex; align-items: center; gap: var(--space-4); }
 .infoButton { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: var(--color-text-dim); border-radius: var(--radius-sm); cursor: pointer; }
 .infoButton:hover, .infoButton:focus-visible { color: var(--color-accent); background: var(--color-surface-hover); }
 .infoButton :global(.material-symbols-outlined) { font-size: 18px; }
-.toolsTab { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
+.toolsTab { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-16); }
 
 /* The Tools tab owns its inset; its embedded picker must not add another. */
 .toolsTab .toolsPicker { padding: 0; }

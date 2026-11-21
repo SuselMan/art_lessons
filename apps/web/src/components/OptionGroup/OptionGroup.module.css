@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .option > :global(.material-symbols-outlined) {
@@ -33,14 +33,14 @@
   display: flex;
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border);
-  padding: 0 8px;
-  gap: 4px;
+  padding: 0 var(--space-8);
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 .tabs .option {
   min-height: 44px;
-  padding: 10px 8px 9px;
+  padding: var(--space-10) var(--space-8) var(--space-9);
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text-dim);
@@ -70,16 +70,16 @@
 .list .strip {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .list .option {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: var(--space-12);
   min-height: var(--touch-target);
-  padding: 0 16px;
+  padding: 0 var(--space-16);
   background: var(--color-surface-2);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -105,8 +105,8 @@
 .segmented .strip {
   display: flex;
 
-  gap: 4px;
-  padding: 4px;
+  gap: var(--space-4);
+  padding: var(--space-4);
   background: var(--color-surface-2);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -116,7 +116,7 @@
   flex: 1 1 0;
   min-width: 0;
   min-height: 44px;
-  padding: 8px 10px;
+  padding: var(--space-8) var(--space-10);
   border: 0;
   border-radius: var(--radius-sm);
   font: inherit;
@@ -142,7 +142,7 @@
 .segmented.iconOnly .option {
   flex: 1 1 0;
   min-width: 44px;
-  padding: 8px;
+  padding: var(--space-8);
 }
 
 .tabs .strip { overflow-x: auto; scrollbar-width: none; min-height: 44px; }

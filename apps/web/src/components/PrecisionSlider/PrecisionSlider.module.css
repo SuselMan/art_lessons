@@ -2,7 +2,7 @@
    inside the fill at both limits. The full 48px control captures touch. */
 .track {
   position: relative;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
@@ -35,7 +35,7 @@
 .rail::before {
   content: '';
   position: absolute;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-border-strong);
 }
 
@@ -59,7 +59,7 @@
 
 .fill {
   position: absolute;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-accent);
 }
 
@@ -102,7 +102,7 @@
   font-family: var(--font-mono);
   font-size: 20px;
   font-weight: 700;
-  padding: 6px 12px;
+  padding: var(--space-6) var(--space-12);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   pointer-events: none;

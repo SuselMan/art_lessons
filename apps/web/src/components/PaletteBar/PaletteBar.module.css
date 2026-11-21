@@ -1,8 +1,8 @@
 .bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px 12px;
+  gap: var(--space-8);
+  padding: 0 var(--space-12) var(--space-12);
   width: 180px;
   flex-wrap: wrap;
 }
@@ -10,7 +10,7 @@
 .swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
   flex: 1;
   min-width: 0;
 }

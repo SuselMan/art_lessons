@@ -17,9 +17,9 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   flex-wrap: wrap;
-  padding: 10px 16px;
+  padding: var(--space-10) var(--space-16);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -36,17 +36,17 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-text-dim);
-  margin-right: 12px;
+  margin-right: var(--space-12);
 }
 
 .tabs {
   display: flex;
-  gap: 2px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .tab {
-  padding: 6px 12px;
+  padding: var(--space-6) var(--space-12);
   border-radius: var(--radius-sm);
   color: var(--color-text-dim);
   background: none;
@@ -66,16 +66,16 @@
 .main {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px 16px 72px;
+  padding: var(--space-20) var(--space-16) var(--space-72);
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-28);
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
   min-width: 0;
 }
 
@@ -85,13 +85,13 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-text-dim);
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }
 
 .detailTitle {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   font-size: 20px;
   font-weight: 700;
   color: var(--color-text-bright);
@@ -100,19 +100,19 @@
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .stat {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: var(--space-12) var(--space-14);
 }
 
 .statLabel { color: var(--color-text-dim); font-size: 12px; }
-.statValue { font-size: 24px; font-weight: 700; color: var(--color-text-bright); font-variant-numeric: tabular-nums; margin-top: 2px; }
-.statSub { color: var(--color-text-faint); font-size: 12px; margin-top: 2px; }
+.statValue { font-size: 24px; font-weight: 700; color: var(--color-text-bright); font-variant-numeric: tabular-nums; margin-top: var(--space-2); }
+.statSub { color: var(--color-text-faint); font-size: 12px; margin-top: var(--space-2); }
 
 /* Tables scroll inside their wrapper on a narrow screen; the page never does. */
 .tableWrap {
@@ -129,7 +129,7 @@
 
 .table th,
 .table td {
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid var(--color-border-soft);
@@ -157,7 +157,7 @@
 
 .dim { color: var(--color-text-dim); }
 
-.thumbCell { width: 56px; padding-top: 6px !important; padding-bottom: 6px !important; }
+.thumbCell { width: 56px; padding-top: var(--space-6) !important; padding-bottom: var(--space-6) !important; }
 
 .thumb {
   display: block;
@@ -170,7 +170,7 @@
 
 .toolbar {
   display: flex;
-  gap: 10px;
+  gap: var(--space-10);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -180,11 +180,11 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 2px;
+  padding: var(--space-2);
 }
 
 .segment {
-  padding: 5px 12px;
+  padding: var(--space-5) var(--space-12);
   border: none;
   background: none;
   border-radius: var(--radius-sm);
@@ -206,7 +206,7 @@
      text, and red on it is unreadable (contrast.test.ts). */
   background: color-mix(in srgb, var(--color-error) 12%, transparent);
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
 }
 
 .link {
@@ -223,9 +223,9 @@
 
 .chip {
   display: inline-block;
-  margin: 0 4px 4px 0;
-  padding: 2px 8px;
-  border-radius: 999px;
+  margin: 0 var(--space-4) var(--space-4) 0;
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-border);
   background: var(--color-surface-2);
   color: var(--color-text);
@@ -238,9 +238,9 @@
 .badgeLive,
 .badgeBanned {
   display: inline-block;
-  margin-right: 4px;
-  padding: 1px 7px;
-  border-radius: 999px;
+  margin-right: var(--space-4);
+  padding: var(--space-1) var(--space-7);
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 600;
   border: 1px solid var(--color-border);
@@ -253,7 +253,7 @@
 .facts {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
+  gap: var(--space-6) var(--space-16);
 }
 
 .facts dt { color: var(--color-text-dim); }
@@ -262,9 +262,9 @@
 .banBox {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
   max-width: 560px;
-  padding: 14px;
+  padding: var(--space-14);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -276,7 +276,7 @@
 .reason {
   width: 100%;
   resize: vertical;
-  padding: 8px 10px;
+  padding: var(--space-8) var(--space-10);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -285,7 +285,7 @@
 }
 
 .button {
-  padding: 7px 14px;
+  padding: var(--space-7) var(--space-14);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface-2);
@@ -308,21 +308,21 @@
 .pager {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 /* (#589) Device cards in a person's detail view. */
 .devices {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .device {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: var(--space-10);
+  padding: var(--space-12) var(--space-14);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -333,7 +333,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-6);
   color: var(--color-text-bright);
 }
 

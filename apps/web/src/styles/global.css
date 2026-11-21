@@ -27,6 +27,7 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-text);
+  caret-color: transparent;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   touch-action: none; /* prevent browser scroll/zoom interfering with canvas */
@@ -108,7 +109,7 @@ body {
   background: var(--color-border);
   background-clip: padding-box;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -131,4 +132,20 @@ button {
 input, textarea {
   font: inherit;
   color: inherit;
+}
+
+/* UI controls are operated, not edited. Keep keyboard focus outlines intact;
+   text fields explicitly opt back into selection and a visible caret below. */
+:where(button, [role='button'], [role='switch'], [role='slider'], [role='tab'],
+       [role='option'], [role='checkbox'], [role='radio'], [role='menuitem']) {
+  -webkit-user-select: none;
+  user-select: none;
+  caret-color: transparent;
+}
+
+:where(input, textarea, [contenteditable='true'], [contenteditable=''],
+       [contenteditable='plaintext-only']) {
+  -webkit-user-select: text;
+  user-select: text;
+  caret-color: currentColor;
 }

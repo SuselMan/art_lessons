@@ -8,7 +8,7 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-18);
   padding: var(--panel-inset);
   min-height: 0;
 }
@@ -17,7 +17,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .summary {
@@ -46,7 +46,7 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .groupLabel {
@@ -64,7 +64,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 /* 44px tall at minimum — these are toggles a teacher hits with a finger on a
@@ -73,16 +73,16 @@
 .tool {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   min-height: 44px;
-  padding: 8px 10px;
+  padding: var(--space-8) var(--space-10);
   font: inherit;
   font-size: 13px;
   color: var(--color-text-dim);
   text-align: left;
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 

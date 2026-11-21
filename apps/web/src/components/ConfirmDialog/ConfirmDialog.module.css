@@ -1,5 +1,5 @@
 .message {
-  padding: 16px;
+  padding: var(--space-16);
   font-size: 13px;
   line-height: 1.5;
   color: var(--color-text);
@@ -9,6 +9,6 @@
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 0 16px 16px;
+  gap: var(--space-8);
+  padding: 0 var(--space-16) var(--space-16);
 }

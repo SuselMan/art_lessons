@@ -1,7 +1,7 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: var(--space-18);
   /* Lets the row give way instead of running past the viewport edge — the
      account trigger below is the only part that shrinks, and it ellipsises. */
   min-width: 0;
@@ -13,11 +13,11 @@
 .identity {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   max-width: 220px;
   min-width: 0;
   min-height: var(--touch-target-sm);
-  padding: 0 8px;
+  padding: 0 var(--space-8);
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
@@ -52,7 +52,7 @@
   font-weight: 600;
   color: var(--color-text);
   text-decoration: none;
-  padding: 4px 2px;
+  padding: var(--space-4) var(--space-2);
   min-height: var(--touch-target-sm);
   display: inline-flex;
   align-items: center;

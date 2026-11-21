@@ -95,14 +95,14 @@ export function DebugStack({
         <button
           type="button"
           onClick={() => { void navigator.clipboard.writeText(getDiagLogs()) }}
-          style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', marginRight: 6 }}
+          style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: "var(--space-1) var(--space-6)", cursor: 'pointer', marginRight: "var(--space-6)" }}
         >
           copy logs
         </button>
         <button
           type="button"
           onClick={() => clearDiagLogs()}
-          style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}
+          style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: "var(--space-1) var(--space-6)", cursor: 'pointer' }}
         >
           clear logs
         </button>
@@ -149,7 +149,7 @@ export function DebugStack({
               beneath it) — this is the one real control in that stack,
               so it alone needs to opt back in or no pointer/touch input
               ever reaches it at all. */}
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+          <div style={{ marginTop: "var(--space-6)", display: 'flex', alignItems: 'center', gap: "var(--space-6)", pointerEvents: 'auto' }}>
             <span>fill @</span>
             <input
               type="range"
@@ -166,7 +166,7 @@ export function DebugStack({
             />
             <span>{paperFillThreshold.toFixed(3)}</span>
           </div>
-          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+          <div style={{ marginTop: "var(--space-4)", display: 'flex', alignItems: 'center', gap: "var(--space-6)", pointerEvents: 'auto' }}>
             <span>fill cap</span>
             <input
               type="range"
@@ -191,10 +191,10 @@ export function DebugStack({
               "draw, nudge, draw again" rather than live-morphing what's
               already on the page. */}
           {tool === 'charcoal' && (
-            <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+            <div style={{ marginTop: "var(--space-8)", borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: "var(--space-6)" }}>
               <div style={{ opacity: 0.7 }}>charcoal tilt (next stroke)</div>
               {CHARCOAL_FEEL_SLIDERS.map(s => (
-                <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                <div key={s.key} style={{ marginTop: "var(--space-4)", display: 'flex', alignItems: 'center', gap: "var(--space-6)", pointerEvents: 'auto' }}>
                   <span style={{ width: 78 }}>{s.label}</span>
                   <input
                     type="range"
@@ -222,10 +222,10 @@ export function DebugStack({
               one-way change; takes effect on the next dab, so it can be
               slid mid-drawing and compared on the same page. */}
           {tool === 'smudge' && (
-            <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+            <div style={{ marginTop: "var(--space-8)", borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: "var(--space-6)" }}>
               <div style={{ opacity: 0.7 }}>smudge grain (next dab)</div>
               {SMUDGE_GRAIN_SLIDERS.map(s => (
-                <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                <div key={s.key} style={{ marginTop: "var(--space-4)", display: 'flex', alignItems: 'center', gap: "var(--space-6)", pointerEvents: 'auto' }}>
                   <span style={{ width: 78 }}>{s.label}</span>
                   <input
                     type="range"
@@ -252,10 +252,10 @@ export function DebugStack({
               one only reaches graphite's own deposit. Same "next stroke"
               semantics as charcoal's block above. */}
           {(tool === 'pencil' || tool === 'eraser' || tool === 'smudge') && (
-            <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+            <div style={{ marginTop: "var(--space-8)", borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: "var(--space-6)" }}>
               <div style={{ opacity: 0.7 }}>pencil tilt (next stroke)</div>
               {PENCIL_TILT_SLIDERS.map(s => (
-                <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                <div key={s.key} style={{ marginTop: "var(--space-4)", display: 'flex', alignItems: 'center', gap: "var(--space-6)", pointerEvents: 'auto' }}>
                   <span style={{ width: 78 }}>{s.label}</span>
                   <input
                     type="range"

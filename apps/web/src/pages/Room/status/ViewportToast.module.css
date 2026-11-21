@@ -3,7 +3,7 @@
 .values {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 /* Both values update every animation frame of a pinch, and the strip is

@@ -5,7 +5,7 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
   padding: var(--panel-inset);
   /* min-height:0 so the panel shrinks and scrolls inside a Modal's flex
      column instead of pushing the box past its max-height (same trap as
@@ -17,13 +17,13 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .heading {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -42,7 +42,7 @@
 }
 
 .loading {
-  padding: 24px 16px;
+  padding: var(--space-24) var(--space-16);
   font-size: 13px;
   color: var(--color-text-dim);
 }
@@ -50,7 +50,7 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 /* The input in a row carries the row: the button beside it stays its own
@@ -64,7 +64,7 @@
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   font-size: 13px;
   color: var(--color-text);
 }
@@ -72,7 +72,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -81,9 +81,9 @@
 .listRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   min-height: var(--touch-target-sm);
-  padding: 4px 8px;
+  padding: var(--space-4) var(--space-8);
   border-radius: var(--radius-sm);
 }
 
@@ -98,7 +98,7 @@
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-1);
   font-size: 13px;
   color: var(--color-text-bright);
   overflow: hidden;
@@ -118,5 +118,5 @@
 
 .fieldLabel { margin: 0; font-size: 12px; font-weight: 400; color: var(--color-text); }
 .row { justify-content: space-between; }
-.peopleHeading { margin: 0; padding-top: 16px; border-top: 1px solid var(--color-border); color: var(--color-text-dim); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.peopleHeading { margin: 0; padding-top: var(--space-16); border-top: 1px solid var(--color-border); color: var(--color-text-dim); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .avatar { display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-surface-2); color: var(--color-accent-hover); font-size: 11px; }

@@ -7,8 +7,8 @@
 .notice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 8px 16px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12) var(--space-8) var(--space-16);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--notice-accent) 16%, var(--color-surface));
   border: 1px solid color-mix(in srgb, var(--notice-accent) 45%, transparent);
@@ -58,7 +58,7 @@
 .action {
   flex-shrink: 0;
   min-height: var(--touch-target-sm);
-  padding: 0 12px;
+  padding: 0 var(--space-12);
   border: 1px solid color-mix(in srgb, var(--color-text-bright) 25%, transparent);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -92,7 +92,7 @@
   justify-content: center;
   min-width: var(--touch-target-sm);
   min-height: var(--touch-target-sm);
-  margin-left: 4px;
+  margin-left: var(--space-4);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);

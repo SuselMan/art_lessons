@@ -1,11 +1,11 @@
-.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; }
+.field { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; width: 100%; }
 .label { color: var(--color-text); font-size: 12px; font-weight: 500; line-height: 1.4; }
-.required { margin-left: 4px; color: var(--color-error); }
+.required { margin-left: var(--space-4); color: var(--color-error); }
 .wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--space-8);
+  padding: 0 var(--space-12);
   min-width: 0;
   color: var(--color-text-dim);
   background: var(--color-surface);
@@ -31,7 +31,7 @@
   width: 100%;
   min-height: calc(var(--input-height) - 2px);
   min-width: 0;
-  padding: 8px 0;
+  padding: var(--space-8) 0;
   font: inherit;
   color: var(--color-text-bright);
   background: transparent;

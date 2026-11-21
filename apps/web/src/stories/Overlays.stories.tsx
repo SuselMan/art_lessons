@@ -17,7 +17,7 @@ export const Dialog: StoryObj = {
         <Button onClick={() => setOpen(true)}>Open modal</Button>
         {open && (
           <Modal title="Project settings" onClose={() => setOpen(false)}>
-            <div style={{ padding: 24 }}>
+            <div style={{ padding: "var(--space-24)" }}>
               <p>
                 A real Grafetto modal. Escape, backdrop and keyboard focus are
                 active.

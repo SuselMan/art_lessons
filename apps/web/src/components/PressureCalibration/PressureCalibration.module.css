@@ -4,8 +4,8 @@
 .wizard {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-10);
+  padding: var(--space-12);
 }
 
 .prompt {
@@ -34,7 +34,7 @@
 .meterRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .meterLabel {
@@ -74,15 +74,15 @@
 
 .numbers {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .number {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  gap: var(--space-2);
+  padding: var(--space-8);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -106,14 +106,14 @@
 .compare {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .compareHalf {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .compareLabel {
@@ -134,7 +134,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .stepCount {
@@ -146,7 +146,7 @@
 .btn,
 .btnPrimary {
   min-height: var(--touch-target-sm);
-  padding: 6px 14px;
+  padding: var(--space-6) var(--space-14);
   font-size: 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -177,8 +177,8 @@
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 6px;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
 }
 
 .curveSvg {

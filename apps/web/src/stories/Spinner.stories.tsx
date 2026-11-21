@@ -11,5 +11,5 @@ const meta = {
 export default meta
 export const Default: StoryObj<typeof meta> = {}
 export const Sizes: StoryObj<typeof meta> = {
-  render: () => <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}><Spinner size={28} /><Spinner /><Spinner size={80} /></div>,
+  render: () => <div style={{ display: 'flex', gap: "var(--space-24)", alignItems: 'center' }}><Spinner size={28} /><Spinner /><Spinner size={80} /></div>,
 }

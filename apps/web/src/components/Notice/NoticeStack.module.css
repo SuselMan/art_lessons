@@ -8,7 +8,7 @@
   z-index: var(--z-notice);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
   /* The column spans the width its widest strip needs and no more — the
      container itself must never intercept clicks, only the strips inside it
      that ask for them (see Notice's `.interactive`). */

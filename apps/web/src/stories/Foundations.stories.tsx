@@ -58,3 +58,33 @@ export const Icons: StoryObj = {
     </div>
   ),
 }
+
+export const SpacingAndRadii: StoryObj = {
+  name: 'Spacing and radii',
+  render: () => (
+    <>
+      <section>
+        <h2>Spacing</h2>
+        <div className="workshop-column">
+          {[...tokens.matchAll(/--space-(\d+)\s*:\s*(\d+)px;/g)].map(([, step, pixels]) => (
+            <div key={step} className="workshop-row">
+              <code style={{ width: 160 }}>{`--space-${step} · ${pixels}px`}</code>
+              <span aria-hidden="true" style={{ display: 'block', width: `var(--space-${step})`, height: 8, background: 'var(--color-accent)' }} />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section>
+        <h2>Radii</h2>
+        <div className="workshop-row">
+          {['sm', 'md', 'lg', 'pill'].map(radius => (
+            <div key={radius} style={{ width: 160 }}>
+              <div style={{ width: 96, height: 48, marginBottom: 'var(--space-8)', border: '1px solid var(--color-border-strong)', borderRadius: `var(--radius-${radius})`, background: 'var(--color-surface-raised)' }} />
+              <code>{`--radius-${radius}`}</code>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  ),
+}

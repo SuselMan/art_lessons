@@ -3,7 +3,7 @@
 .field {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-2);
   /* Fixed, and never a flex-grow candidate: this sits in a space-between row
      next to its label, where "as wide as there is room" made it read as a
      panel-wide block rather than as a field. Sized for the longest value any
@@ -12,7 +12,7 @@
   flex: 0 0 auto;
   width: 84px;
   height: 26px;
-  padding: 0 2px 0 8px;
+  padding: 0 var(--space-2) 0 var(--space-8);
   /* Always visible, not hover-only: the border is the only thing that says
      "you can type in here" — without it the value reads as a plain readout,
      which is exactly what it used to be. */

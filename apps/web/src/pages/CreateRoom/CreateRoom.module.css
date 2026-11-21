@@ -15,10 +15,10 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 36px;
+  padding: var(--space-36);
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: var(--space-32);
 }
 
 .heading {
@@ -35,8 +35,8 @@
 .tabBody {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding-top: 28px;
+  gap: var(--space-32);
+  padding-top: var(--space-28);
 }
 
 /* (#548) A tab whose whole content is one of the self-contained panels
@@ -52,7 +52,7 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .label {
@@ -78,7 +78,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .colorPickerAnchor {
@@ -106,8 +106,8 @@
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--space-8);
+  padding: var(--space-12);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -118,7 +118,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text-dim);
-  padding: 4px 2px;
+  padding: var(--space-4) var(--space-2);
   text-align: center;
   border-radius: var(--radius-sm);
 }
@@ -133,7 +133,7 @@
   /* Four across since #300: coarse / medium / fine / flat. */
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: var(--space-10);
   /* (#465) Cards take their own height instead of the row's.
      A grid stretches its items by default, so one card wrapping its
      description to a second line ("Barely any tooth", "Почти без зерна" —
@@ -195,7 +195,7 @@
 }
 
 .paperInfo {
-  padding: 9px 11px 10px;
+  padding: var(--space-9) var(--space-11) var(--space-10);
 }
 
 .paperName {
@@ -207,7 +207,7 @@
 .paperDesc {
   font-size: 11px;
   color: var(--color-text-dim);
-  margin-top: 2px;
+  margin-top: var(--space-2);
   line-height: 1.4;
 }
 
@@ -215,7 +215,7 @@
 .sizeCards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .sizeCard {
@@ -224,13 +224,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding: 12px 8px 10px;
+  padding: var(--space-12) var(--space-8) var(--space-10);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
   background: var(--color-surface-2);
   transition: border-color var(--duration-fast);
-  gap: 7px;
+  gap: var(--space-7);
   min-height: 96px;
 }
 
@@ -268,7 +268,7 @@
   color: var(--color-text-dim);
   background: var(--color-surface-raised);
   border-radius: var(--radius-sm);
-  padding: 3px 6px;
+  padding: var(--space-3) var(--space-6);
   line-height: 1;
 }
 
@@ -303,7 +303,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: var(--space-8);
   border: none;
   background: none;
   /* Accent, not text-dim: this icon is the only thing advertising that the
@@ -349,8 +349,8 @@
 .customRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-8);
+  margin-top: var(--space-4);
 }
 
 .customRow > div { flex: 1; min-width: 0; }
@@ -371,7 +371,7 @@
 .toggleRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   cursor: pointer;
   user-select: none;
 }
@@ -421,7 +421,7 @@
   background: color-mix(in srgb, var(--color-error) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-error) 25%, transparent);
   border-radius: var(--radius-sm);
-  padding: 9px 13px;
+  padding: var(--space-9) var(--space-13);
 }
 
 /* submit */
@@ -432,7 +432,7 @@
 .comingSoon {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .badge {
@@ -444,15 +444,15 @@
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
   border-radius: 4px;
-  padding: 2px 5px;
+  padding: var(--space-2) var(--space-5);
   line-height: 1.4;
 }
 
 /* (#300) Paper picker: three inline, the rest behind a modal. The grid is
    extensible by design, so the inline row deliberately never grows. */
 .showAllPapers {
-  margin-top: 10px;
-  padding: 7px 12px;
+  margin-top: var(--space-10);
+  padding: var(--space-7) var(--space-12);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -472,8 +472,8 @@
 .paperModalGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  padding: 16px;
+  gap: var(--space-10);
+  padding: var(--space-16);
   /* min-height:0 so the grid scrolls inside the modal's flex column instead
      of pushing the box past its max-height. */
   min-height: 0;
@@ -487,10 +487,10 @@
 .summaryRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   width: 100%;
   min-height: 44px;
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--color-text-dim);

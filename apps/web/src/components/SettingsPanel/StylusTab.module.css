@@ -1,10 +1,10 @@
-.panel { padding: 16px; display: flex; flex-direction: column; gap: 24px; }
-.calibration { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-2); }
-.summary { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.panel { padding: var(--space-16); display: flex; flex-direction: column; gap: var(--space-24); }
+.calibration { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-2); }
+.summary { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .title { margin: 0; color: var(--color-text); font-size: 12px; font-weight: 600; line-height: 1.4; }
 .status { color: var(--color-text-dim); font-size: 11px; line-height: 1.4; }
-.calibrate { min-height: 40px; padding: 8px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font-size: 12px; }
+.calibrate { min-height: 40px; padding: var(--space-8) var(--space-12); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font-size: 12px; }
 .calibrate:hover { background: var(--color-surface-hover); }
 .calibrate:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-.response { display: flex; flex-direction: column; gap: 12px; }
+.response { display: flex; flex-direction: column; gap: var(--space-12); }
 .hint { margin: 0; font-size: 11px; line-height: 1.4; text-align: center; color: var(--color-text-dim); }

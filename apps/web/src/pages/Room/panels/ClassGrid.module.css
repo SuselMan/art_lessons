@@ -10,17 +10,17 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 16px;
+  padding: var(--space-16);
   background: var(--color-scrim);
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
   width: min(1100px, 100%);
   max-height: 100%;
-  padding: 14px 16px 16px;
+  padding: var(--space-14) var(--space-16) var(--space-16);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
@@ -31,7 +31,7 @@
 .head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   flex-wrap: wrap;
   color: var(--color-text);
 }
@@ -52,9 +52,9 @@
 .headAction {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   height: var(--touch-target-sm);
-  padding: 0 14px 0 10px;
+  padding: 0 var(--space-14) 0 var(--space-10);
   border-radius: 20px;
   border: 1px solid var(--color-border-strong);
   color: var(--color-text);
@@ -85,7 +85,7 @@
 
 .empty {
   margin: 0;
-  padding: 24px 4px;
+  padding: var(--space-24) var(--space-4);
   text-align: center;
   color: var(--color-text-dim);
   font-size: 14px;
@@ -97,17 +97,17 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px;
+  gap: var(--space-12);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 2px;
+  padding: var(--space-2);
 }
 
 .tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 6px;
+  gap: var(--space-6);
+  padding: var(--space-6);
   border-radius: var(--radius-md);
   border: 2px solid transparent;
   color: var(--color-text);
@@ -160,7 +160,7 @@
 .meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   min-height: 32px;
 }
 
@@ -182,7 +182,7 @@
   text-overflow: ellipsis;
 }
 
-.tileActions { display: flex; gap: 2px; }
+.tileActions { display: flex; gap: var(--space-2); }
 
 .tileAction {
   width: 32px;
@@ -200,7 +200,7 @@
 .updated {
   font-size: 12px;
   color: var(--color-text-dim);
-  padding-left: 14px;
+  padding-left: var(--space-14);
 }
 
 /* ── The teacher's bar on a student's board ─────────────────────────────── */
@@ -213,9 +213,9 @@
   z-index: 4;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-4);
   max-width: calc(100% - 2 * var(--panel-inset, 8px) - 16px);
-  padding: 4px;
+  padding: var(--space-4);
   border-radius: 24px;
   border: 1px solid var(--color-accent-border);
   background: var(--color-surface-raised);
@@ -228,9 +228,9 @@
 .barBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   height: var(--touch-target-sm);
-  padding: 0 12px 0 8px;
+  padding: 0 var(--space-12) 0 var(--space-8);
   border-radius: 20px;
   color: var(--color-text);
   transition: background var(--duration-fast);
@@ -257,12 +257,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
-  padding: 0 2px;
+  padding: 0 var(--space-2);
 }
 
 .barDivider {
   width: 1px;
   height: 20px;
   background: var(--color-border);
-  margin: 0 2px;
+  margin: 0 var(--space-2);
 }
