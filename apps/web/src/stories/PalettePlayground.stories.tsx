@@ -14,7 +14,7 @@ import { Modal } from '../components/Modal'
 import { Tooltip } from '../components/Tooltip'
 import { SidePanel } from '../components/SidePanel'
 import { CardMenu } from '../components/CardMenu'
-import { rgbToHex } from '../lib/browser/color'
+import { rgbToHex, hexToRgb } from '../lib/browser/color'
 import { Logo } from '../components/Logo'
 import type { IconName } from '../icons/iconNames'
 import tokens from '../styles/tokens.css?raw'
@@ -55,7 +55,7 @@ function exportCss(drafts: Drafts) {
 function Workspace() {
   const [tool, setTool] = useState('brush'), [tab, setTab] = useState<string | null>('tool')
   const [opacity, setOpacity] = useState(72), [sound, setSound] = useState(true), [texture, setTexture] = useState(false)
-  const [grade, setGrade] = useState('2b'), [color, setColor] = useState<[number, number, number]>([85, 85, 170])
+  const [grade, setGrade] = useState('2b'), [color, setColor] = useState<[number, number, number]>(() => hexToRgb('#5555aa'))
   const [dialog, setDialog] = useState(false), [saved, setSaved] = useState(false)
   const toolSettings = <div className={styles.controls}>
     <OptionGroup selection="radio" variant="segmented" ariaLabel="Инструмент" active={tool} onSelect={setTool} options={[{ id: 'brush', label: 'Кисть' }, { id: 'pencil', label: 'Карандаш' }]} />
@@ -116,12 +116,12 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
     if (!context) return
     context.fillStyle = background; context.fillRect(0, 0, 1, 1)
     const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
-    setPicked({ name, rgb: [r, g, b], alpha: a / 255 })
+    setPicked({ name, rgb: [r / 255, g / 255, b / 255], alpha: a / 255 })
   }
   const changePicked = (rgb: [number, number, number], alpha: number) => {
     if (!picked) return
     setPicked({ ...picked, rgb, alpha })
-    edit(picked.name, alpha === 1 ? rgbToHex(rgb) : `rgba(${rgb.join(', ')}, ${Number(alpha.toFixed(3))})`)
+    edit(picked.name, alpha === 1 ? rgbToHex(rgb) : `rgba(${rgb.map(value => Math.round(value * 255)).join(', ')}, ${Number(alpha.toFixed(3))})`)
   }
   return <main className={styles.page} data-palette-playground>
     <div className={styles.top}><div><h1>Палитра в интерфейсе</h1><p>Живые компоненты Grafetto. Наводи, переключай, открывай меню и окна.</p></div><OptionGroup variant="segmented" selection="radio" ariaLabel="Тема палитры" active={theme} onSelect={value => onThemeChange(value === 'light' ? 'light' : 'dark')} options={[{ id: 'dark', label: 'Тёмная' }, { id: 'light', label: 'Светлая' }]} /></div>
