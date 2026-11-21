@@ -1,3 +1,4 @@
+import { isBoardObserver } from './observerMode'
 import type { RefObject } from 'react'
 
 import { copyBrushSourceContext, packDabs, type ClientToServerEvents, type Operation } from '@grafetto/shared'
@@ -58,6 +59,7 @@ export function createEngineNetworkCallbacks({
     // `onSettled` (see the Outbox construction above) owns everything the
     // old inline ack callback did — watermark, pendingIds, the seq confirmation (#537).
     onLocalOperation: op => {
+      if (isBoardObserver()) return
       appliedOpIdsRef.current.add(op.id)
       // (#289 §2/§4) A fresh layer/folder is a "local island" member from
       // the instant it's created — nobody else could possibly reference

@@ -1,3 +1,4 @@
+import { isBoardObserver } from './observerMode'
 import { useCallback, useMemo, useState, type RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
@@ -92,7 +93,7 @@ export function useClassView({
   }, [])
   /** A classmate's work this client was let in to look at: drawing on it is
    *  refused server-side (`board_not_yours`), so it is shown closed. */
-  const readOnlyBoard = isForeignPersonalBoard(currentBoardSummary, myUserId, isOwner)
+  const readOnlyBoard = isBoardObserver() || isForeignPersonalBoard(currentBoardSummary, myUserId, isOwner)
   const myHandRaised = handsRaised.includes(myUserId)
   /** Raised hands of people present — the Class tab's badge counts them. */
   const handsUp = handsRaised.filter(id => presentUserIds.has(id)).length

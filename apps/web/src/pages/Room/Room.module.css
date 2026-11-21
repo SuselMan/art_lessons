@@ -1534,3 +1534,8 @@
 }
 
 .gateAction { width: 100%; }
+
+/* The iframe keeps the real renderer, with no editor chrome or input. */
+:global(html[data-board-observer]) .editor > :not(.body),
+:global(html[data-board-observer]) .body > :not(.viewport) { display: none; }
+:global(html[data-board-observer]) .viewport { pointer-events: none; }

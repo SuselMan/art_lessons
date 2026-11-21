@@ -1,3 +1,4 @@
+import { isBoardObserver } from './observerMode'
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
@@ -31,7 +32,7 @@ export function useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, p
   // Read through a ref by everything the socket effect registers: that effect
   // is keyed on the lesson and must not be torn down by a page turn, so
   // nothing per-board may sit in its dependency list.
-  const snapshotUploader = useMemo(() => (boardId ? createSnapshotUploader(boardId, { workerCompression: true }) : null), [boardId])
+  const snapshotUploader = useMemo(() => (boardId && !isBoardObserver() ? createSnapshotUploader(boardId, { workerCompression: true }) : null), [boardId])
   const snapshotUploaderRef = useRef(snapshotUploader)
   snapshotUploaderRef.current = snapshotUploader
   // Highest seq the engine buffer has actually *committed* (painted) up to —

@@ -1374,3 +1374,58 @@ describe('#762 terminal rejection retires only unrecorded live ink', () => {
     await noCancellation
   })
 })
+
+describe('read-only board observer (#871)', () => {
+  function observer(userId: string, lessonId: string): Client {
+    const socket: Client = connect(`http://localhost:${port}`, {
+      extraHeaders: { cookie: userId }, transports: ['websocket'], forceNew: true,
+      auth: { observeLessonId: lessonId },
+    })
+    clients.push(socket)
+    return socket
+  }
+  function observe(socket: Client, roomId: string) {
+    return new Promise<void>((resolve, reject) => {
+      socket.emit('observe_board', { roomId }, result => result.ok ? resolve() : reject(new Error(result.error)))
+    })
+  }
+  it('streams the watched board without moving or duplicating the primary seat, refuses writes', async () => {
+    const { lessonId, boardId, teacher, student } = await classroom()
+    await join(student, boardId, 'Alice')
+    const watch = observer('student', lessonId)
+    await expect(join(watch, lessonId, '')).rejects.toThrow('board_not_visible')
+    const snapshot = next(watch, 'room_state')
+    await observe(watch, lessonId)
+    expect((await snapshot).participants).toHaveLength(2)
+    expect(getParticipant(lessonId, 'student')?.boardId).toBe(boardId)
+    const received = next(watch, 'operation_confirmed')
+    teacher.emit('operation', stroke('teacher-watch-ink', 'teacher'))
+    expect((await received).operation.id).toBe('teacher-watch-ink')
+    const denied = await new Promise<SendResult>(resolve => watch.emit('operation', stroke('observer-write', 'student'), resolve))
+    expect(denied).toMatchObject({ ok: false, reason: 'not_owner' })
+    watch.close()
+    await silent(teacher, 'peer_left')
+    expect(getParticipant(lessonId, 'student')?.boardId).toBe(boardId)
+  })
+  it('refuses users who have not joined the lesson, and boards from a different lesson', async () => {
+    const { lessonId, boardId } = await classroom()
+    const outsider = observer('outsider', lessonId)
+    await expect(observe(outsider, lessonId)).rejects.toThrow('board_not_visible')
+    const watch = observer('student', lessonId)
+    await expect(observe(watch, 'other-lesson')).rejects.toThrow('board_not_visible')
+    noteBoardCreated(lessonId, { id: 'private-work', name: 'Private', order: 2, ownerId: 'student', assignmentId: 'assignment' })
+    await expect(observe(watch, 'private-work')).rejects.toThrow('board_not_visible')
+    await observe(watch, boardId)
+    expect(getParticipant(lessonId, 'outsider')).toBeUndefined()
+  })
+  it('disconnects the observer on access revocation, preserving neither its subscription nor residency', async () => {
+    const { lessonId, boardId } = await classroom()
+    const watch = observer('student', lessonId)
+    await observe(watch, boardId)
+    const disconnected = new Promise<void>(resolve => watch.once('disconnect', () => resolve()))
+    await removeUserFromRoom(io as never, lessonId, 'student')
+    await disconnected
+    expect(watch.connected).toBe(false)
+    expect(getParticipant(lessonId, 'student')).toBeUndefined()
+  })
+})

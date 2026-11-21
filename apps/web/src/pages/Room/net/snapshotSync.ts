@@ -1,3 +1,4 @@
+import { isBoardObserver } from '../observerMode'
 import type { LayerState, RouteResponse } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
@@ -118,6 +119,7 @@ async function uploadSnapshot(
  *  long-running rooms so the list preview updates without anyone having to
  *  leave first. */
 export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<boolean> {
+  if (isBoardObserver()) return false
   try {
     const preview = await engine.bakePreview()
     if (!preview) return false

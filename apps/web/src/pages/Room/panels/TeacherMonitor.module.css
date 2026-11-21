@@ -1,0 +1,29 @@
+.panel {
+  position: fixed;
+  z-index: 80;
+  width: min(360px, 100vw);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  user-select: none;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  touch-action: none;
+  cursor: grab;
+  color: var(--color-text);
+  font-size: 14px;
+}
+.header > span { flex: 1; }
+.frame {
+  display: block;
+  width: 100%;
+  height: min(260px, 60vh);
+  border: 0;
+  pointer-events: none;
+}

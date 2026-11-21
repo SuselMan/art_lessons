@@ -1,3 +1,4 @@
+import { isBoardObserver } from './observerMode'
 import { useEffect, useRef, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
@@ -23,7 +24,7 @@ export function useLivePreviewBake({ engineRef, boardId, active, canBake }: Live
   canBakeRef.current = canBake
   const previewScheduleRef = useRef<ReturnType<typeof createPreviewSchedule> | null>(null)
   useEffect(() => {
-    if (!active || !boardId) return
+    if (isBoardObserver() || !active || !boardId) return
     const schedule = createPreviewSchedule()
     previewScheduleRef.current = schedule
     if (useRoomStore.getState().strokeActive) schedule.notePenDown(Date.now())

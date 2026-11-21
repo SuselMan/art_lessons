@@ -1,3 +1,4 @@
+import { registerBoardObserver } from './boardObserver.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
@@ -30,23 +31,8 @@ import { describeClient } from '../health/clientDescription.js'
 import { createSnapshotLagWatch } from '../health/snapshotLagWatch.js'
 import { reportException, reportIssue } from '../instrument.js'
 
-/** Per-connection state. `userId` is resolved once, in the `io.use()`
- *  middleware below, from the same identity cookie (#41) that HTTP routes
- *  use — never re-derived per event, and never trusted from a client-
- *  supplied Operation's own `userId` field for authorization (role checks
- *  below always go through `getParticipant`, keyed by this). */
-export interface SocketData {
-  // (#176) The *board* this socket draws on — its content channel. For a
-  // lesson with one board it is the lesson id.
-  roomId?: string
-  // (#176) The lesson the socket is in — its social channel (see
-  // lessonChannel). Set with `roomId` and outlives board switches.
-  lessonId?: string
-  userId?: string
-  // (#590) The handshake's client address, so an IP ban can close the sockets
-  // already open from it (adminRoutes.ts).
-  ip?: string
-}
+import type { SocketData } from './socketData.js'
+export type { SocketData } from './socketData.js'
 
 /** (#328) Last resort when a client sends a blank display name. The client
  *  always has something to send (an account name, or a per-device "Guest-XXXX"
@@ -138,6 +124,7 @@ export async function removeUserFromRoom(io: AppServer, lessonId: string, userId
     // (#176) A kick is from the lesson, whichever board they are on: the
     // block is written under the lesson and the gate reads it for every board.
     if (socket.data.lessonId !== lessonId) continue
+    if (socket.data.observer) { socket.emit('kicked', { roomId: lessonId }); socket.disconnect(true); continue }
     const boardId = socket.data.roomId ?? lessonId
 
     // Told before being moved, so the client can react to a room it is still
@@ -161,6 +148,7 @@ export async function removeDeletedLesson(io: AppServer, lessonId: string): Prom
   for (const socket of await io.in(lessonChannel(lessonId)).fetchSockets()) {
     // A socket may have switched lessons while adapter lookup was pending.
     if (socket.data.lessonId !== lessonId) continue
+    if (socket.data.observer) { socket.emit('kicked', { roomId: lessonId }); socket.disconnect(true); continue }
     const boardId = socket.data.roomId ?? lessonId
     socket.emit('kicked', { roomId: lessonId })
     void socket.leave(boardId)
@@ -185,6 +173,7 @@ export async function removeDeletedLesson(io: AppServer, lessonId: string): Prom
 export async function evacuateBoard(io: AppServer, lessonId: string, boardId: string): Promise<void> {
   if (boardId === lessonId) return
   for (const candidate of await io.in(boardId).fetchSockets()) {
+    if (candidate.data.observer) { candidate.disconnect(true); continue }
     const userId = candidate.data.userId
     if (!userId || candidate.data.roomId !== boardId) continue
 
@@ -361,6 +350,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // belongs to, not only by which room it later joins. Everything
     // access-control has to tell one person travels this way.
     socket.join(userChannel(socket.data.userId!))
+    registerBoardObserver(socket, log, admitRoomLoad, lessonChannel)
 
     // Registers a brand-new room and seats the caller as its `owner` (#39
     // fix: ownership is now fixed at creation time, not "whoever joins
@@ -430,6 +420,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     })
 
     socket.on('join_room', async ({ roomId, name, password, lastKnownSeq }, ack) => {
+      if (socket.data.observer) return
       const userId = socket.data.userId!
       const intent = beginSeatIntent(roomId, ack)
       try {

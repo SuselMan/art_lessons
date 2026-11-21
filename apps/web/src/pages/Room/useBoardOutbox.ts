@@ -1,3 +1,4 @@
+import { isBoardObserver } from './observerMode'
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 import { Outbox } from './net/outbox'
@@ -67,7 +68,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
     // for the *lesson* can land after this client has already asked to turn to
     // the teacher's board, and a `resendAll` at that moment would put the
     // first board's leftovers on the second.
-    canSend: () => hasJoinedRef.current && socketBoardRef.current === boardId,
+    canSend: () => !isBoardObserver() && hasJoinedRef.current && socketBoardRef.current === boardId,
     // `onSettled` is the one place a definitive verdict lands, for both
     // dispatch paths (optimistic and confirmation-gated).
     ...createOutboxVerdicts({
@@ -112,7 +113,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
       previousOutbox.current.dispose()
       previousOutbox.current = outbox
     }
-    void outbox.hydrate()
+    if (!isBoardObserver()) void outbox.hydrate()
   }, [outbox])
 
   return { outbox, outboxRef, outboxState }

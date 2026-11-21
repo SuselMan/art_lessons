@@ -1,3 +1,4 @@
+import { isBoardObserver } from './observerMode'
 import type { RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
@@ -126,7 +127,7 @@ export function retireEngine(
   const destroy = (): void => {
     try { engine.destroy() } finally { brushResourceLeases.get(engine)?.(); brushResourceLeases.delete(engine) }
   }
-  if (!replayIncompleteRef.current) {
+  if (!isBoardObserver() && !replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
       .then(uploaded => {
         // (#567) The board strip shows each board's own thumbnail, and this

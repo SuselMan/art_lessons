@@ -1,3 +1,4 @@
+import { isBoardObserver } from '../observerMode'
 import type { RefObject } from 'react'
 
 import type { ClientToServerEvents, JoinDenial, Operation, Participant, ServerToClientEvents } from '@grafetto/shared'
@@ -96,7 +97,7 @@ export function createRoomStateHandler<Engine>({
       // socket stays. The board itself is kept: it is the one the link
       // meant.
       const enteredByBoardUrl = room.lessonId !== undefined
-      if (enteredByBoardUrl && id !== lesson.id) replaceUrl(`/room/${lesson.id}`)
+      if (!isBoardObserver() && enteredByBoardUrl && id !== lesson.id) replaceUrl(`/room/${lesson.id}`)
       // Only a joiner needs this: a creator's config is already known
       // synchronously from navigation state (see creatorDraft/toRoomConfig
       // above) with the exact same fields toLessonConfig would produce
@@ -118,7 +119,7 @@ export function createRoomStateHandler<Engine>({
       // the teacher may well be on another. Ask for that one now and let
       // *its* room_state be the one that builds the engine — this one's
       // content is for a page we are not going to look at.
-      const entry = entryBoard({ arrivedBoardId: arrivedBoard, enteredByBoardUrl: enteredByBoardUrl || store.reviewBoardId === arrivedBoard, lesson })
+      const entry = entryBoard({ arrivedBoardId: arrivedBoard, enteredByBoardUrl: isBoardObserver() || enteredByBoardUrl || store.reviewBoardId === arrivedBoard, lesson })
       store.setFollowing(entry.following)
       if (entry.target !== arrivedBoard && store.boardId === null) {
         wantedBoardRef.current = entry.target

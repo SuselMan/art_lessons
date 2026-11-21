@@ -478,6 +478,12 @@ export type ClientToServerEvents = {
     data: { roomId: string; password?: string; name: string; lastKnownSeq?: number },
     ack: (result: JoinResult) => void,
   ) => void
+  /** Read-only iframe transport, admitted only for an existing lesson member.
+   * Separate event so an older server cannot accidentally seat the observer. */
+  observe_board: (
+    data: { roomId: string; lastKnownSeq?: number },
+    ack: (result: JoinResult) => void,
+  ) => void
   // `ack`, when provided, receives an explicit `SendResult` — accepted
   // (with the real, authoritative `seq`) or rejected (with a reason), never
   // silence. This is bookkeeping only (outbox retry/rollback decisions,

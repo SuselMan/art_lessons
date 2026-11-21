@@ -1,4 +1,6 @@
-import { useMemo, type ComponentProps } from 'react'
+import { Button } from '../../../components/Button'
+import { TeacherMonitor } from './TeacherMonitor'
+import { useMemo, useState, type ComponentProps } from 'react'
 import clsx from 'clsx'
 
 import type { OperationDraft } from '@grafetto/shared'
@@ -58,6 +60,7 @@ export function RoomSidePanel({
   classView, selectBoard, toggleRoomFrozen, toggleParticipantFrozen, onExpandColor, onShapeFrameChange,
 }: RoomSidePanelProps) {
   const t = useT()
+  const [monitorOpen, setMonitorOpen] = useState(false)
   const handedness = useSettingsStore(s => s.handedness)
   const layerState = useRoomStore(s => s.layerState)
   const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
@@ -96,6 +99,9 @@ export function RoomSidePanel({
 
   return (
     <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+      {!isOwner && knownLessonId && teacherBoard && (
+        <TeacherMonitor lessonId={knownLessonId} boardId={teacherBoard} open={monitorOpen} onClose={() => setMonitorOpen(false)} />
+      )}
       <SidePanel
         side={handedness === 'left' ? 'left' : 'right'}
         active={active}
@@ -175,6 +181,9 @@ export function RoomSidePanel({
                   onGoto={selectBoard}
                   onSpotlightOff={() => setSpotlight(null)}
                 />
+              )}
+              {!isOwner && knownLessonId && teacherBoard && (
+                <Button variant="secondary" onClick={() => setMonitorOpen(true)}>{t('class.monitor.open')}</Button>
               )}
               <ParticipantsPanel
                 participants={participants}

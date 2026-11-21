@@ -1,3 +1,4 @@
+import { isBoardObserver } from '../observerMode'
 import type { RefObject } from 'react'
 
 import type { ClientToServerEvents, JoinDenial, Room as RoomEntity, RoomAccessMode } from '@grafetto/shared'
@@ -137,6 +138,14 @@ export function createJoinFlow({
 
   const handleConnect = () => {
     noteConnected()
+    if (isBoardObserver()) {
+      joinRoom({ roomId: id, name: '' }, result => {
+        if (!isCurrentSocket()) return
+        if (result.ok) { hasJoinedRef.current = true; applyIdentity(result.userId) }
+        else reportJoinFailure(result.error, 'observe board')
+      })
+      return
+    }
     // (#298) resendAll deliberately does NOT happen here any more. It used
     // to, and a fresh connection is precisely the moment the socket has
     // joined nothing — so the whole backlog went out against a socket the
@@ -248,7 +257,7 @@ export function createJoinFlow({
    *  moved" without checking first. */
   let boardJoinGeneration = 0
   const switchBoard = async (next: string) => {
-    if (!hasJoinedRef.current) return
+    if (isBoardObserver() || !hasJoinedRef.current) return
     if (next === (wantedBoardRef.current ?? boardIdRef.current)) return
     const generation = ++boardJoinGeneration
     wantedBoardRef.current = next

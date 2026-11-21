@@ -1,3 +1,4 @@
+import { observerLessonId } from '../observerMode'
 import type {BrushSourceContext} from '@grafetto/shared'
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
@@ -79,6 +80,11 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   setBrushRoomScope(id)
 
   const socket = openSocket()
+  const observing = observerLessonId()
+  if (observing !== null) {
+    socket.auth = { observeLessonId: observing }
+    document.documentElement.dataset.boardObserver = ''
+  }
   socketRef.current = socket
 
   // (#504) socket.io переподключается само — кроме двух случаев, в которых
@@ -87,7 +93,13 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // перечень случаев, и почему у страницы комнаты нет законной причины
   // принять такой ответ.
   const revival = createSocketRevival(socket)
-  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { socket.emit('join_room', data, ack) }
+  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => {
+    if (observing !== null) {
+      socket.timeout(10_000).emit('observe_board', data, (error, result) => {
+        ack(error ? { ok: false, error: 'server_busy' } : result)
+      })
+    } else socket.emit('join_room', data, ack)
+  }
 
   // (#493) Joining and staying joined — create/rejoin, page turns,
   // following, gap resync — see joinFlow.ts. Handed the two joining emits
