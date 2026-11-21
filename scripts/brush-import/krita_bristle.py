@@ -39,15 +39,18 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
         if definition.get('type')!='auto_brush':raise ValueError('Bristle requires a bitmap or supported procedural tip')
         mask=standard_circle(definition,side)
         result['compatibility']=[n for n in result['compatibility'] if n['feature'] not in ('autoBrush','autoMaskNoise','standardMaskProfile','autoSpikes')]
-        result['compatibility'].append(compatibility('bristleProceduralSource','Standard circular or rectangular procedural source rasterized at authored size with deterministic per-pixel density and attenuation; Krita random sequence and raster rounding may differ.'))
+        result['compatibility'].append(compatibility('bristleProceduralSource','Standard circular or rectangular procedural source rasterized at authored size and angle with deterministic per-pixel density and attenuation; Krita random sequence and raster rounding may differ.'))
     density=numeric(params.get('HairyBristle/density'),100)/100
     if not math.isfinite(density) or not 0<=density<=1:raise ValueError('Bristle density outside0..100')
+    mask_side=mask.width
+    expansion=mask_side/side
+    if expansion!=1 and ink_enabled:raise ValueError('Expanded rotated Bristle ink/soak initialization is not implemented')
     hairs=[]
-    for yy in range(side):
-        for xx in range(side):
+    for yy in range(mask_side):
+        for xx in range(mask_side):
             alpha=mask.getpixel((xx,yy))/255
             random=int.from_bytes(hashlib.sha256(f'{xx},{yy}'.encode()).digest()[:4],'big')/2**32
-            if alpha>0 and random<=density:hairs.append([(xx-side//2)/side,(yy-side//2)/side,alpha])
+            if alpha>0 and random<=density:hairs.append([(xx-mask_side//2)/mask_side,(yy-mask_side//2)/mask_side,alpha])
     population_limit=4096 if ink_enabled else 8192
     if not 0<len(hairs)<=population_limit:raise ValueError(f'Bristle population outside1..{population_limit}; reduce source mask/density')
     def number(key,default,lo,hi):
@@ -58,7 +61,9 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('scatter','spacing'):d['behavior'].pop(key,None)
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
-    d['bristle']={'version':1,'hairs':hairs,'scale':number('scale',2,0 if ink_enabled else -10,10),'shear':number('shear',0,-10,10),'random':number('random',2,0,100),'mousePressure':enabled(params.get('HairyBristle/useMousePressure')),'threshold':enabled(params.get('HairyBristle/threshold')),'connected':enabled(params.get('HairyBristle/isConnected')),'antialias':aa,'compositing':compositing}
+    effective_scale=number('scale',2,0 if ink_enabled else -10,10)*expansion
+    if not -10<=effective_scale<=10:raise ValueError('Expanded Bristle scale outside bounded range')
+    d['bristle']={'version':1,'hairs':hairs,'scale':effective_scale,'shear':number('shear',0,-10,10),'random':number('random',2,0,100)/expansion,'mousePressure':enabled(params.get('HairyBristle/useMousePressure')),'threshold':enabled(params.get('HairyBristle/threshold')),'connected':enabled(params.get('HairyBristle/isConnected')),'antialias':aa,'compositing':compositing}
     if ink_enabled:
         from curve_transfer import native_transfer
         import struct
@@ -117,7 +122,7 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
             result['compatibility'].append(compatibility('bristleResize','This Soak preset keeps legacy139 fixed imported hairs: density below100% or initialization side above64 is outside the mask-population resize policy. Toolbar resizing stretches existing hairs; native reinitialization population differs.'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     if not ink_enabled:
-        if _allow_initialization and density==1 and params.get('PaintOpAction','1')=='1':
+        if _allow_initialization and expansion==1 and density==1 and params.get('PaintOpAction','1')=='1':
             from bristle_soak139 import bristle_resize141_scope
             candidate={**d,'version':141,'bristle':{**d['bristle'],'initialization':{'sourceSide':side,'resizePolicy':'mask-population-v1'}}}
             if not enabled(params.get('Krita/erase'))and not enabled(params.get('EraserMode'))and bristle_resize141_scope(candidate):

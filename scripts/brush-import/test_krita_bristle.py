@@ -14,9 +14,15 @@ class BristleTests(unittest.TestCase):
         self.assertEqual(sparse.tobytes(),standard_circle(source('.36','.2'),25).tobytes())
         self.assertLess(sum(value>0 for value in sparse.tobytes()),sum(value>0 for value in full.tobytes()))
         self.assertEqual(max(standard_circle(source('0'),25).tobytes()),0)
-        with self.assertRaisesRegex(ValueError,'bounds'):standard_circle(source('1',angle='30'),25)
+        rotated=standard_circle(source('1',angle='.7853981633974483'),25)
+        self.assertGreater(rotated.width,full.width)
+        self.assertGreater(sum(rotated.tobytes()),0)
         square=source('1');square.find('MaskGenerator').set('type','rect');square.find('MaskGenerator').set('spikes','2')
         rectangle=standard_circle(square,25);self.assertGreater(sum(rectangle.tobytes()),sum(full.tobytes()))
+        square.find('MaskGenerator').set('ratio','.4')
+        horizontal=standard_circle(square,25);square.set('angle','1.5707963267948966');vertical=standard_circle(square,25)
+        self.assertGreater(horizontal.getpixel((20,12)),horizontal.getpixel((12,20)))
+        self.assertGreater(vertical.getpixel((12,20)),vertical.getpixel((20,12)))
 
     def test_procedural_bristle_converts_to_fixed_hairs(self):
         definition='<Brush type="auto_brush" density=".36" randomness="0" angle="0"><MaskGenerator id="default" type="circle" ratio="1" hfade=".6" vfade=".6" diameter="25" spikes="4" antialiasEdges="1"/></Brush>'
@@ -26,6 +32,17 @@ class BristleTests(unittest.TestCase):
         self.assertEqual(result['descriptor']['version'],135)
         self.assertGreater(len(result['descriptor']['bristle']['hairs']),0)
         self.assertTrue(any(n['feature']=='bristleProceduralSource' for n in result['compatibility']))
+
+    def test_rotated_source_preserves_hair_positions_and_jitter_scale(self):
+        definition='<Brush type="auto_brush" density="1" randomness="0" angle=".7853981633974483"><MaskGenerator id="default" type="rect" ratio=".8" hfade=".7" vfade=".7" diameter="25" spikes="2" antialiasEdges="0"/></Brush>'
+        data=kpp(engine='hairybrush',definition=definition,resources='<param name="HairyBristle/density">100</param><param name="HairyBristle/scale">5</param><param name="HairyBristle/random">2</param>')
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(data,'rotated.kpp',Catalog(Path(tmp)),{})
+        hair=result['descriptor']['bristle']
+        self.assertGreater(hair['scale'],5)
+        self.assertAlmostEqual(hair['scale']*hair['random'],10)
+        self.assertNotIn('initialization',hair)
+        self.assertTrue(all(-.5<=x<=.5 and -.5<=y<=.5 for x,y,_ in hair['hairs']))
 
     def convert(self,extra='',aa=True):
         definition='<Brush type="gbr_brush" filename="hair.gbr" scale="1" ColorAsMask="1"/>'

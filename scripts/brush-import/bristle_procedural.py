@@ -23,13 +23,18 @@ def standard_circle(definition, side):
     density, randomness = (number(definition, key, default) for key, default in (('density', 1), ('randomness', 0)))
     spikes = number(generator, 'spikes', 2)
     angle = number(definition, 'angle', 0)
-    if not (angle == 0 and 0.0625 <= ratio <= 1 and 0 <= hf <= 1 and 0 <= vf <= 1 and 0 <= density <= 1 and 0 <= randomness <= 1 and spikes == int(spikes) and 2 <= spikes <= 20):
+    if not (0.0625 <= ratio <= 1 and 0 <= hf <= 1 and 0 <= vf <= 1 and 0 <= density <= 1 and 0 <= randomness <= 1 and spikes == int(spikes) and 2 <= spikes <= 20):
         raise ValueError('Bristle procedural source settings outside supported bounds')
+    angle=math.remainder(angle,2*math.pi)
+    cosine,sine=math.cos(angle),math.sin(angle)
+    extent=max(abs(cosine)+ratio*abs(sine),abs(sine)+ratio*abs(cosine))
+    canvas_side=side if angle==0 else max(side,math.ceil(side*extent))
     aa = generator.get('antialiasEdges', '0').lower() in ('1', 'true')
     radius = side / 2
     ry = radius * ratio
     n = 6 if aa and side * ratio < 1 else 3 if aa and side * ratio < 10 else 1
     def transparency(x, y):
+        x,y=cosine*x+sine*y,-sine*x+cosine*y
         if spikes > 2:
             y = abs(y)
             angle = math.atan2(y, x)
@@ -58,14 +63,14 @@ def standard_circle(definition, side):
         q = fx*fx + fy*fy
         value = 0 if q < 1 else 255 if q == distance else 255 * distance * (q - 1) / (q - distance)
         return math.floor(max(0, min(255, value)))
-    pixels = bytearray(side * side)
-    for y in range(side):
-        for x in range(side):
+    pixels = bytearray(canvas_side * canvas_side)
+    for y in range(canvas_side):
+        for x in range(canvas_side):
             seed = hashlib.sha256(f'bristle-mask:{x},{y}'.encode()).digest()
             if int.from_bytes(seed[:4], 'big') / 2**32 >= density:
                 continue
-            total = sum(transparency(x-side//2+sx/n, y-side//2+sy/n) for sy in range(n) for sx in range(n))
+            total = sum(transparency(x-canvas_side//2+sx/n, y-canvas_side//2+sy/n) for sy in range(n) for sx in range(n))
             alpha = 255 - total // (n*n)
             attenuation = int.from_bytes(seed[4:8], 'big') / 2**32
-            pixels[y*side+x] = round(alpha * (1 - randomness * attenuation))
-    return Image.frombytes('L', (side, side), bytes(pixels))
+            pixels[y*canvas_side+x] = round(alpha * (1 - randomness * attenuation))
+    return Image.frombytes('L', (canvas_side, canvas_side), bytes(pixels))
