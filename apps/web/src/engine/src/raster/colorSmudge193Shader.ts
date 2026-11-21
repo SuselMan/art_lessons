@@ -14,7 +14,7 @@ export function colorSmudge193CompositeCode(value:unknown):number {
  if(value==='burn')value='colorBurn'
  const index=BRUSH_BLEND_MODES.indexOf(value as typeof BRUSH_BLEND_MODES[number])
  if(index>=0)return index
- switch(value){case'grainMerge':return 28;case'grainExtract':return 29;case'negation':return 30;case'erase':return 31;case'parallel':return 32;default:throw Error('Unknown Color Smudge193 foreground composite')}
+ switch(value){case'grainMerge':return 28;case'grainExtract':return 29;case'negation':return 30;case'erase':return 31;case'parallel':return 32;case'behind':return 33;default:throw Error('Unknown Color Smudge193 foreground composite')}
 }
 function replace(source:string,before:string,after:string):string {
  if(source.split(before).length!==2)throw Error('Color Smudge193 shader anchor changed')
@@ -51,6 +51,7 @@ export function colorSmudge193Fragment(modern:boolean):string {
  const bank=`
  uniform float u_colorSmudgeComposite;
  vec4 colorSmudge193Paint(vec4 d,vec4 s){
+  if(u_colorSmudgeComposite>32.5)return d+s*(1.0-d.a);
   if(u_colorSmudgeComposite>30.5 && u_colorSmudgeComposite<31.5)return d*(1.0-s.a);
   if(u_colorSmudgeComposite<0.5)return s+d*(1.0-s.a);
   vec3 dst=d.rgb/max(d.a,0.000001),src=s.rgb/max(s.a,0.000001);

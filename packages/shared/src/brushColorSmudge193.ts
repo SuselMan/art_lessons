@@ -1,7 +1,7 @@
 import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 import {BRUSH_BLEND_MODES,isBrushBehavior,type BrushBlendMode} from './brushBehavior.js'
-export type ColorSmudgeComposite193 = BrushBlendMode | 'dodge' | 'burn' | 'grainMerge' | 'grainExtract' | 'negation' | 'erase' | 'parallel'
-export const COLOR_SMUDGE193_COMPOSITES:readonly ColorSmudgeComposite193[]=[...BRUSH_BLEND_MODES,'dodge','burn','grainMerge','grainExtract','negation','erase','parallel']
+export type ColorSmudgeComposite193 = BrushBlendMode | 'dodge' | 'burn' | 'grainMerge' | 'grainExtract' | 'negation' | 'erase' | 'parallel' | 'behind'
+export const COLOR_SMUDGE193_COMPOSITES:readonly ColorSmudgeComposite193[]=[...BRUSH_BLEND_MODES,'dodge','burn','grainMerge','grainExtract','negation','erase','parallel','behind']
 const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
 const keys=(v:Record<string,unknown>,allowed:readonly string[])=>Object.keys(v).every(k=>allowed.includes(k))
 const unit=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1

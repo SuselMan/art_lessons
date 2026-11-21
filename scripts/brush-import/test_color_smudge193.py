@@ -103,7 +103,7 @@ class Smudge193Tests(unittest.TestCase):
                     before=old.preset(raw,'Old.kpp',Catalog(Path(tmp)/('old'+str(modern)+mode+str(dull))),{});after=preset(raw,'Old.kpp',Catalog(Path(tmp)/('new'+str(modern)+mode+str(dull))),{});self.assertEqual(before,after)
     def test_canonical_bank_parity_and_invalid_raw_rates_radius(self):
         import re
-        shared=(Path(__file__).resolve().parents[2]/'packages/shared/src/brushBehavior.ts').read_text();modes=re.findall(r"'([^']+)'",re.search(r'BRUSH_BLEND_MODES: readonly BrushBlendMode\[\] = \[(.*?)\]',shared).group(1));self.assertEqual(set(COMPOSITES),{*modes,'dodge','burn','grainMerge','grainExtract','negation','erase','parallel'})
+        shared=(Path(__file__).resolve().parents[2]/'packages/shared/src/brushBehavior.ts').read_text();modes=re.findall(r"'([^']+)'",re.search(r'BRUSH_BLEND_MODES: readonly BrushBlendMode\[\] = \[(.*?)\]',shared).group(1));self.assertEqual(set(COMPOSITES),{*modes,'dodge','burn','grainMerge','grainExtract','negation','erase','parallel','behind'})
         with tempfile.TemporaryDirectory()as tmp:
             for key,value in [('ColorRateValue','NaN'),('SmudgeRateValue','bad'),('SmudgeRadiusValue','bad'),('SmudgeRadiusValue','NaN'),('SmudgeRadiusValue','301'),('SmudgeRadiusVersion','bad'),('SmudgeRadiusVersion','3')]:
                 raw=native193(extra='<param name="'+key+'">'+value+'</param>')

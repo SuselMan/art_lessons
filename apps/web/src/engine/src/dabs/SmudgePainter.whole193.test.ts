@@ -37,13 +37,13 @@ it('uses one full foreground bank for both native strategies; historical inputs 
  for(const modern of[false,true]){
   const shader=colorSmudge193Fragment(modern)
   expect(shader).toContain('colorSmudge193Paint');expect(shader).toContain('brushKritaHardMix')
-  expect(shader).toContain('u_colorSmudgeComposite>30.5');expect(shader).toContain('brushEffectsMask')
+  expect(shader).toContain('u_colorSmudgeComposite>32.5');expect(shader).toContain('u_colorSmudgeComposite>30.5');expect(shader).toContain('brushEffectsMask')
   expect(shader).toContain('brushAutoMaskNoiseU8');expect(shader).toContain('brushGihFrameSample')
   if(modern)expect(shader).toContain('u_colorSmudgeComposite<0.5')
  }
  expect(wetTransferFragment(true,true,true,true)).toBe(old)
- const codes=[...BRUSH_BLEND_MODES,'grainMerge','grainExtract','negation','erase','parallel'].map(colorSmudge193CompositeCode)
- expect(codes).toEqual(Array.from({length:33},(_,i)=>i))
+ const codes=[...BRUSH_BLEND_MODES,'grainMerge','grainExtract','negation','erase','parallel','behind'].map(colorSmudge193CompositeCode)
+ expect(codes).toEqual(Array.from({length:34},(_,i)=>i))
  expect(colorSmudge193CompositeCode('dodge')).toBe(colorSmudge193CompositeCode('colorDodge'))
  expect(()=>colorSmudge193CompositeCode('invented')).toThrow('Unknown')
 })
