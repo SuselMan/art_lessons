@@ -19,10 +19,30 @@ def failed_sketch():return kpp(definition('failed.gbr'),engine='sketchbrush',res
 def failed_nested():
  params={'MaskingBrush/Enabled':'true','MaskingBrush/Preset/brush_definition':definition('failed.gbr'),'MaskingBrush/Preset/PressureRotation':'true','MaskingBrush/Preset/RotationUseCurve':'true','MaskingBrush/Preset/RotationSensor':'malformed ACTIVE XML'}
  return kpp(definition('failed.gbr'),resources=''.join('<param name="'+key+'"><![CDATA['+value+']]></param>'for key,value in params.items()))
+def failed_shared_and_new():
+ params={'MaskingBrush/Enabled':'true','MaskingBrush/Preset/brush_definition':definition('failed.gbr'),'MaskingBrush/Preset/Texture/Pattern/Enabled':'true','MaskingBrush/Preset/Texture/Pattern/PatternFileName':'missing.png'}
+ return kpp(definition('shared.gbr'),resources=''.join('<param name="'+key+'"><![CDATA['+value+']]></param>'for key,value in params.items()))
 def bundle(path):
  with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED)as z:
   for name,data in [('paintoppresets/a-accepted.kpp',accepted()),('paintoppresets/b-rejected.kpp',failed_sketch()),('paintoppresets/c-nested.kpp',failed_nested()),('paintoppresets/d-valid.myb',json.dumps({'version':3,'settings':{}}).encode()),('paintoppresets/e-rejected.myb',json.dumps({'version':3,'settings':{'not_a_mypaint_setting':{}}}).encode()),('brushes/shared.gbr',A),('brushes/failed.gbr',B)]:z.writestr(name,data)
 class NativePresetRollbackTests(unittest.TestCase):
+ def test_bundle_preserves_shared_cas_and_removes_new_child_cas(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);a=Catalog(root/'a');b=Catalog(root/'b')
+   preset(accepted(),'a.kpp',a,RESOURCES);preset(kpp(definition('failed.gbr')),'b.kpp',b,RESOURCES)
+   self.assertTrue(a.assets);self.assertTrue(b.assets);self.assertTrue(set(a.assets).isdisjoint(b.assets))
+   path=root/'both.bundle'
+   with zipfile.ZipFile(path,'w')as z:
+    z.writestr('a.kpp',accepted());z.writestr('b.kpp',failed_shared_and_new());z.writestr('brushes/shared.gbr',A);z.writestr('brushes/failed.gbr',B)
+   catalog=Catalog(root/'out');calls=[];asset=catalog.asset
+   def track(*args,**kwargs):
+    key=asset(*args,**kwargs);calls.append((key,catalog.assets[key]['file']));return key
+   with patch.object(catalog,'asset',side_effect=track):convert_krita(path,catalog)
+   self.assertEqual([x['source']for x in catalog.brushes],['a.kpp']);self.assertEqual([x['name']for x in catalog.skipped],['b']);self.assertIn('Missing Krita resource: missing.png',catalog.skipped[0]['reasons'][0])
+   self.assertGreaterEqual(sum(key in a.assets for key,_ in calls),2);self.assertTrue(any(key in b.assets for key,_ in calls))
+   self.assertEqual(catalog.assets,a.assets)
+   for key,item in a.assets.items():self.assertEqual((catalog.output/item['file']).read_bytes(),(a.output/item['file']).read_bytes())
+   for key,item in b.assets.items():self.assertNotIn(key,catalog.assets);self.assertFalse((catalog.output/item['file']).exists())
  def test_mixed_bundle_rolls_back_failed_newcas_preserves_accepted_sharedcas_and_continues_myb(self):
   with tempfile.TemporaryDirectory()as tmp:
    root=Path(tmp);control=Catalog(root/'control');expected=preset(accepted(),'a-accepted.kpp',control,RESOURCES);shared=copy.deepcopy(control.assets);raw={k:(control.output/v['file']).read_bytes()for k,v in shared.items()}
