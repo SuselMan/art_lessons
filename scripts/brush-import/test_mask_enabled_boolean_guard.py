@@ -38,9 +38,23 @@ def typed_action(payload):
     return output.getvalue()
 
 
+def typed_mask(payload):
+    image = Image.open(io.BytesIO(pixel(action='2', mask='true')))
+    image.load()
+    root = ET.fromstring(image.info['preset'])
+    mask = next(p for p in root.findall('param') if p.get('name') == 'MaskingBrush/Enabled')
+    mask.set('type', 'bytearray')
+    mask.text = payload
+    meta = PngImagePlugin.PngInfo()
+    meta.add_text('preset', ET.tostring(root, encoding='unicode'))
+    output = io.BytesIO()
+    image.save(output, format='PNG', pnginfo=meta)
+    return output.getvalue()
+
+
 class MaskEnabledBooleanGuard(unittest.TestCase):
     def test_pixel_wash_canonical_and_noncanonical(self):
-        for value, dual in [('true', True), ('1', True), ('false', False), ('0', False), (None, False)]:
+        for value, dual in [('true', True), ('1', True), ('false', False), ('0', False), ('', False), (None, False)]:
             with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
                 path = Path(tmp) / 'test.kpp'
                 path.write_bytes(pixel(mask=value))
@@ -49,7 +63,7 @@ class MaskEnabledBooleanGuard(unittest.TestCase):
                 self.assertEqual(out.skipped, [])
                 self.assertEqual(len(out.brushes), 1)
                 self.assertEqual('dual' in out.brushes[0]['descriptor'].get('behavior', {}), dual)
-        for value in ('yes', 'no', '', 'garbage', ' true '):
+        for value in ('yes', 'no', 'garbage', ' true '):
             with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
                 path = Path(tmp) / 'test.kpp'
                 path.write_bytes(pixel(mask=value))
@@ -112,6 +126,25 @@ class MaskEnabledBooleanGuard(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result = preset(pixel(mask='yes'), 'private.kpp', Catalog(Path(tmp) / 'out'), {}, _allow_texture_material=False)
             self.assertNotIn('dual', result['descriptor'].get('behavior', {}))
+
+    def test_typed_mask_disabled_and_enabled(self):
+        for source in (b'', b'0', b'false', b'FALSE'):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(typed_mask(base64.b64encode(source).decode()))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertEqual(out.skipped, [])
+                self.assertEqual(len(out.brushes), 1)
+                self.assertNotIn('dual', out.brushes[0]['descriptor'].get('behavior', {}))
+        for payload in ('dHJ1ZQ==', 'MQ==', 'eWVz', '@@@', '/w=='):
+            with self.subTest(payload=payload), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(typed_mask(payload))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertFalse(out.brushes)
+                self.assertIn('Unsupported noncanonical MaskingBrush/Enabled', out.skipped[0]['reasons'][0])
 
     def test_bytearray_action_type_decoded_before_public_guard(self):
         for source in (b'1', b'01', b' +1 '):
