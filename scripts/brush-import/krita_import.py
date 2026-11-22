@@ -508,6 +508,11 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate', 'mypaintbrush', 'tangentnormal', 'dynabrush'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
+    # These Krita paintops read an absent PaintOpAction as Wash. Their
+    # Grafetto adapters otherwise assume BuildUp, so do not silently change
+    # composition while the full implicit-Wash path is not implemented.
+    if engine in ('sketchbrush', 'curvebrush', 'particlebrush', 'gridbrush', 'spraybrush') and 'PaintOpAction' not in params:
+        raise ValueError('Implicit Krita Wash for '+engine+' is not supported')
     native_source_time=False
     for pen_key,pen_value in params.items():
         if TIMING195.get()and pen_key=='RateSensor':continue
