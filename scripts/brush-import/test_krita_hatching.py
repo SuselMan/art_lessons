@@ -21,6 +21,14 @@ class HatchingTests(unittest.TestCase):
     def convert(self,extra=''):
         data=kpp(engine='hatchingbrush',resources=extra)
         with tempfile.TemporaryDirectory()as d:return preset(data,'test.kpp',Catalog(Path(d)),{})
+    def test_painting_mode(self):
+        for action in ('', '<param name="PaintOpAction">1</param>'):
+            with self.subTest(action=action):
+                result=self.convert(action)
+                self.assertEqual(result['descriptor']['behavior']['rendering']['accumulation'],'directOver')
+        for value in ('2','0','3','garbage'):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError,'Hatching Wash or unrecognized painting mode'):
+                self.convert('<param name="PaintOpAction">'+value+'</param>')
     def test_text_icc_metadata_does_not_abort_bundle(self):
         source=Image.open(io.BytesIO(kpp(engine='hatchingbrush')))
         metadata=PngImagePlugin.PngInfo()

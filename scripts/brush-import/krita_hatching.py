@@ -8,6 +8,8 @@ from brush_contract import finalize_identity,compatibility
 
 def hatching_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
+    if 'PaintOpAction' in params and params['PaintOpAction'] != '1':
+        raise ValueError('Hatching Wash or unrecognized painting mode is unsupported')
     if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Hatching timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Hatching supports normal compositing only')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
