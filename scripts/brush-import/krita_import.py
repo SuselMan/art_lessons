@@ -1253,6 +1253,32 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 behavior.setdefault('dynamics',{})['angle']={**control,'control':'tiltDirection','curve':mapped}
                 rotation_decoded=True
                 notes.append(compatibility('RotationCurve','Single additive tilt-direction response compiled before native angle strength; raw tilt direction includes neutral zero-tilt orientation.'))
+    def single_rotation_curve(node):
+        # Krita selects the old curve by presence of the literal token in the
+        # sensor XML, and an explicitly empty common curve means identity.
+        definition=params.get('RotationSensor','<params id="pressure"/>')
+        same=params.get('RotationUseSameCurve','true')
+        if not isinstance(same,str) or same.lower() not in ('true','false','1','0'):
+            raise ValueError('Unsupported noncanonical RotationUseSameCurve')
+        use_common=enabled(same)
+        override=use_common and 'RotationcommonCurve' in params
+        custom=params.get('CustomRotation','false')
+        if 'curve' not in definition and not override and (not isinstance(custom,str) or custom.lower() not in ('true','false','1','0')):
+            raise ValueError('Unsupported noncanonical CustomRotation')
+        if override:
+            return params.get('RotationcommonCurve') or '0,0;1,1;'
+        element=node.find('curve')
+        if 'curve' not in definition and enabled(custom):
+            curve=params.get('CurveRotation','0,0;1,1;')
+        elif element is not None:
+            curve=element.text or ''
+        else:
+            curve='0,0;1,1;'
+        if not curve:
+            if use_common:return '0,0;1,1;'
+            raise ValueError('Unsupported empty individual Rotation sensor curve')
+        return curve
+
     # Native fuzzy is additive [-1,1]. C(u) is evaluated in unsigned space,
     # then mapped back before RotationValue. Physical Qt rotation is
     # -pi + strength*pi*(2*C(u)-1); do not turn a shaped distribution into
@@ -1262,7 +1288,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and len(rotation_sensors)==1 and rotation_sensors[0].get('id')=='fuzzy'
             and numeric(params.get('RotationcurveMode'),0)==0 and -1<=strength<=1):
         node=rotation_sensors[0]
-        curve=(params.get('RotationcommonCurve') if enabled(params.get('RotationUseSameCurve','true')) else None) or node.findtext('curve') or (params.get('CurveRotation') if enabled(params.get('CustomRotation')) else None) or '0,0;1,1;'
+        curve=single_rotation_curve(node)
         transfer=native_transfer(curve)
         transform=lambda value:.5+strength*(value-.5)
         if isinstance(transfer,list): mapped=[[x,transform(y)] for x,y in transfer]
@@ -1277,20 +1303,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and rotation_sensors[0].get('id')=='drawingangle'
             and numeric(params.get('RotationcurveMode'),0)==0):
         node=rotation_sensors[0]
-        # Legacy sensor curves apply only when no curve is in the sensor XML.
-        sensor_definition=params.get('RotationSensor','<params id="pressure"/>')
-        same_curve=params.get('RotationUseSameCurve','true')
-        if not isinstance(same_curve,str) or same_curve.lower() not in ('true','false','1','0'):
-            raise ValueError('Unsupported noncanonical RotationUseSameCurve')
-        custom=params.get('CustomRotation','false')
-        common_override=enabled(same_curve) and 'RotationcommonCurve' in params
-        if 'curve' not in sensor_definition and not common_override and (not isinstance(custom,str) or custom.lower() not in ('true','false','1','0')):
-            raise ValueError('Unsupported noncanonical CustomRotation')
-        legacy=(params.get('CurveRotation') if 'curve' not in sensor_definition and enabled(params.get('CustomRotation')) else None)
-        if enabled(params.get('RotationUseSameCurve','true')) and 'RotationcommonCurve' in params:
-            curve=params.get('RotationcommonCurve') or '0,0;1,1;'
-        else:
-            curve=node.findtext('curve') or legacy or '0,0;1,1;'
+        curve=single_rotation_curve(node)
         if native_transfer(curve)==[[0,0],[1,1]] and not enabled(node.get('lockedAngleMode'))and not(COMPONENT190.get()and enabled(node.get('fanCornersEnabled'))):
             offset=numeric(node.get('angleOffset'))
             if -360<=offset<=360:
