@@ -5,7 +5,7 @@ self-authored tiny static masks, not a claim of originalPNG/CAS integration.
 Actual originals/resource hashes are covered by separate stock CAPS PREP.
 """
 from pathlib import Path
-import copy,hashlib,json,tempfile,unittest,sys
+import copy,hashlib,json,tempfile,unittest,sys,zipfile
 from unittest.mock import patch
 import convert,krita_stock
 from krita_import import convert_krita,preset,DEFAULT_NATIVE_INPUT_POLICY
@@ -46,10 +46,16 @@ class NativeDefault127Tests(unittest.TestCase):
      self.assertEqual(behavior['modulations']['size'][0]['control'],'time')
      self.assertTrue(any(note['feature']=='sourceClock' and note['status']=='supported' for note in brush['compatibility']))
      self.assertNotIn('modulations',legacy['descriptor']['behavior'])
- def test_invalid_rate_remains_explicit_unsupported_and_disabled_bad_rate_does_not_activate(self):
+ def test_invalid_rate_is_rejected_and_disabled_bad_rate_does_not_activate(self):
   for rate in ['nan','-1','1001']:
    with self.subTest(rate=rate),tempfile.TemporaryDirectory()as tmp:
-    out,_=self.imported(Path(tmp),{'PaintOpSettings/isAirbrushing':'true','PaintOpSettings/rate':rate});b=out.brushes[0];self.assertNotIn('timing',b['descriptor']['behavior']);self.assertTrue(any(n['feature']=='airbrush'and n['status']=='unsupported'for n in b['compatibility']))
+    root=Path(tmp);bad=authored({'PaintOpSettings/isAirbrushing':'true','PaintOpSettings/rate':rate});path=root/'bad.kpp';path.write_bytes(bad);out=convert.Catalog(root/'out');convert_krita(path,out)
+    self.assertEqual(out.brushes,[]);self.assertEqual(len(out.skipped),1);self.assertIn('Native195 PaintOpSettings/rate outside finite0..1000',out.skipped[0]['reasons'][0]);self.assertEqual(out.assets,{});self.assertEqual(list(out.output.glob('*.bin')),[])
+    disabled=authored({'PaintOpSettings/isAirbrushing':'false','PaintOpSettings/rate':rate});path=root/'disabled.kpp';path.write_bytes(disabled);off=convert.Catalog(root/'off');convert_krita(path,off);self.assertEqual(off.skipped,[]);self.assertEqual(len(off.brushes),1);self.assertNotIn('timing',off.brushes[0]['descriptor']['behavior'])
+    valid=authored({'PaintOpSettings/isAirbrushing':'true','PaintOpSettings/rate':'25'});bundle=root/'mixed.bundle'
+    with zipfile.ZipFile(bundle,'w')as z:z.writestr('bad.kpp',bad);z.writestr('valid.kpp',valid)
+    mixed=convert.Catalog(root/'mixed');convert_krita(bundle,mixed);self.assertEqual([b['source']for b in mixed.brushes],['valid.kpp']);self.assertEqual([s['name']for s in mixed.skipped],['bad']);self.assertIn('Native195 PaintOpSettings/rate outside finite0..1000',mixed.skipped[0]['reasons'][0]);self.assertEqual(mixed.brushes[0]['descriptor']['version'],195);self.assertEqual(mixed.brushes[0]['descriptor']['behavior']['timing']['rate'],25)
+    path=root/'valid.kpp';path.write_bytes(valid);control=convert.Catalog(root/'control');convert_krita(path,control);self.assertEqual(mixed.brushes,control.brushes);self.assertEqual(mixed.assets,control.assets);self.assertEqual({p.name for p in mixed.output.glob('*.bin')},{v['file']for v in control.assets.values()})
  def test_private_foreign_bridge_never_inherits_default_root_authority(self):
   params={'PaintOpSettings/isAirbrushing':'true','PressureRotation':'true','RotationSensor':'<params id="fuzzy"/>'};raw=authored(params)
   with tempfile.TemporaryDirectory()as tmp:
