@@ -2203,6 +2203,16 @@ def preset(data,name,catalog,external,depth=0,**options):
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
     from native_timing195 import TIMING195,lower_timing195,native_params
+    # Inspect the original root before wrappers can reinterpret its engine or
+    # short-circuit a checked Rotation with an unrecognised boolean.
+    if not depth:
+        with Image.open(io.BytesIO(data)) as source:
+            root=xml(source.info.get('preset',''))
+        if root.get('paintopid')=='paintbrush':
+            rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
+            value=rotation_params.get('RotationUseCurve')
+            if enabled(rotation_params.get('PressureRotation')) and value is not None and value.lower() not in ('true','false','1','0'):
+                raise ValueError('Unsupported noncanonical RotationUseCurve')
     if not depth and not TIMING195.get() and options.get('_default_input_policy')==DEFAULT_NATIVE_INPUT_POLICY and options.get('_allow_texture_material',True):
         image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
         params=native_params(node)
