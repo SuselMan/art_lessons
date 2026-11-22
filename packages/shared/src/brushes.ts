@@ -90,7 +90,7 @@ import{hasExperimentCurrentPattern158Scope,isExperimentDescriptor,type BrushExpe
 export type{BrushExperiment}from'./brushExperiment.js'
 import{isParticleDescriptor,type BrushParticle}from'./brushParticle.js'
 export type{BrushParticle}from'./brushParticle.js'
-import{isGridDescriptor,type BrushGrid}from'./brushGrid.js'
+import{isGridDescriptor,hasGridWash137Scope,type BrushGrid}from'./brushGrid.js'
 export type{BrushGrid}from'./brushGrid.js'
 export{hasGridWash137Scope,hasGridBeginIdentity137}from'./brushGrid.js'
 import{type BrushHatching}from'./brushHatching.js'
@@ -527,6 +527,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    if(d.version===208&&(maskRoot!==undefined||!hasGridWash137Scope(d)))return false
     if(d.version===207&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===206&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===205&&(maskRoot!==undefined||!hasBristleSoak139Scope(d)||!record(d.behavior)||!record(d.behavior.dynamics)||!record(d.behavior.dynamics.angle)||d.behavior.dynamics.angle.control!=='tiltDirection'))return false

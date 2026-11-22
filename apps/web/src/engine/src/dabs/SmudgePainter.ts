@@ -871,7 +871,7 @@ export class SmudgePainter {
           // All finite admission/pins/source/program/temporary resources precede acceptance.
           state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1;owner.acceptedDabs++;acceptedDabs++
           for(const tile of tiles){const entry=owner.entry(tile);for(const region of sprayWashRegions(request.bounds,tile,512,512)){
-            current();owner.assertCurrent();owner.sampleTexel(first.sampleX,first.sampleY,source);patch.clear();batch.paintRequest(request.cells,patch,region.originX,region.originY,source,rect,512)
+            current();owner.assertCurrent();owner.sampleTexel(first.sampleX,first.sampleY,source);patch.clear();batch.paintRequest(request.cells,patch,region.originX,region.originY,source,rect,512,paint.color,brush.grid!.shape,brush.grid!.sampleInput)
             const bottom=tile.buffer.height-region.y-region.height;source.clear();entry.coverage.copyRegionInto(source,region.x,bottom,0,source.height-region.height,region.width,region.height)
             borrowed.kernel.transfer(patch,source,entry.coverage,region,1,1,undefined,true)
           }borrowed.present(tile,request.bounds,entry,brush,owner.opacity)}

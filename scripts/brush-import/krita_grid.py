@@ -43,11 +43,11 @@ def grid_preset(data,root,params,name,catalog,external):
     note=compatibility('grid','Fixed world grid, pressure subdivision, borders, five shapes and per-cell/per-request point colour retained. Source is gathered once before each request, with512px bounded sampling and4096 cell admission. Uses current pre-request canvas rather than a native transaction-old image. GPU edge/line rounding and random streams differ. Captured brush background fill/mix and per-request/cell HSV use deterministic Grafetto streams. Timer/eraser remain rejected.')
     if native_wash:
         from grid_wash137 import grid_wash137_scope
-        d['version']=137;d['grid']['sourcePolicy']='canonical-begin-v1'
+        d['version']=208 if not sample and int(shape)==0 else 137;d['grid']['sourcePolicy']='canonical-begin-v1'
         d['behavior']['rendering']['accumulation']='alphaDarken'
         # Native Grid has no Flow/Opacity option application. Keep its unit
         # response; captured operation opacity belongs to the final Wash only.
         if not grid_wash137_scope(d):raise ValueError('Grid Wash137 requires closed root sampled rectangle canonical-BEGIN scope')
-        note=compatibility('gridWash','Canonical-BEGIN source policy with one captured gesture identity; point sampling and per-request RGBA accumulation use native Grid geometry with unit Flow/Opacity response. External captured operation opacity is applied once. Canonical concurrency ordering, GPU cell-edge/point sampling and native pixel identity are qualified; runtime host/source readiness is required before enabling this staged capability.')
+        note=compatibility('gridWash',('Foreground colour with canonical-BEGIN gesture identity; ' if d['version']==208 else 'Canonical-BEGIN source policy with one captured gesture identity; point sampling and ' )+'per-request RGBA accumulation uses native Grid geometry with unit Flow/Opacity response. External captured operation opacity is applied once. Canonical concurrency ordering, GPU cell-edge/point sampling and native pixel identity are qualified; runtime host/source readiness is required before enabling this staged capability.')
     im=Image.open(io.BytesIO(data));im.load()
     return {'descriptor':finalize_identity(d,data),'name':root.get('name')or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'preview':preset_preview(im),'sourceDefaults':{'sizePx':diameter*scale,'opacity':1,'flow':1},'compatibility':[note],'warnings':[note['feature']+': '+note['detail']]}

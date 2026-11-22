@@ -41,12 +41,12 @@ export function hasGridWash137Scope(value:unknown,policy?:BrushStructurePolicy):
  const n=(v:unknown,a:number,b:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=b
  const unit=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&n(p[0],0,1)&&p[1]===1)
  if(!obj(value)||!isBrushGrid(value.grid)||!obj(value.behavior)||!obj(value.tip)||!obj(value.mixer))return false
- const g=value.grid,b=value.behavior,t=value.tip,m=value.mixer,r=b.rendering
+ const g=value.grid,b=value.behavior,t=value.tip,m=value.mixer,r=b.rendering,foreground=value.version===208
  return Number.isInteger(value.version)&&Number(value.version)>=137&&value.model==='mixer'&&value.paperInteraction===0&&g.sourcePolicy==='canonical-begin-v1'
- &&g.shape===1&&g.sampleInput===true&&g.colorPerCell===false&&g.randomOpacity===false&&g.randomBorder===false&&g.pressureDivision===false&&g.hsv===undefined&&g.fillBackground===undefined&&g.mixBackground===undefined
+ &&g.shape===(foreground?0:1)&&g.sampleInput===!foreground&&g.colorPerCell===false&&g.randomOpacity===false&&g.randomBorder===false&&g.pressureDivision===false&&g.hsv===undefined&&g.fillBackground===undefined&&g.mixBackground===undefined
  &&['spray','sketch','bristle','curveTrace','hatching','particle','deform','experiment','filter','clone','mypaint','tangentNormal','wet','texture','scatter'].every(k=>value[k]===undefined)
  &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
- &&Object.keys(m).every(k=>['load','initialLoad','pickup','strength','source'].includes(k))&&m.load===0&&m.initialLoad===0&&m.pickup===1&&m.strength===1&&m.source==='previousCanvas'
+ &&Object.keys(m).every(k=>['load','initialLoad','pickup','strength','source'].includes(k))&&m.load===(foreground?1:0)&&m.initialLoad===0&&m.pickup===(foreground?0:1)&&m.strength===1&&m.source===(foreground?undefined:'previousCanvas')
  &&value.flow===1&&value.opacity===1&&unit(value.sizeByPressure)&&unit(value.flowByPressure)&&unit(value.opacityByPressure)
  &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'rendering'].includes(k))&&obj(r)&&Object.keys(r).every(k=>['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'].includes(k))
  &&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='alphaDarken'&&(r.wetEdges===undefined||r.wetEdges===0)&&(r.burntEdges===undefined||r.burntEdges===0)&&(r.burntEdgesMode===undefined||r.burntEdgesMode==='multiply')&&(r.opacityCeiling===undefined||r.opacityCeiling==='uniform')

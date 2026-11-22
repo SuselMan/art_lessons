@@ -15,6 +15,13 @@ def authored(action='2',extra=None):
 class GridWash137(unittest.TestCase):
  def native(self,tmp,action='2',extra=None):
   raw=authored(action,extra);file=Path(tmp)/'Own.kpp';file.write_bytes(raw);c=Catalog(Path(tmp)/'native');convert_krita(file,c);self.assertFalse(c.skipped);self.assertEqual(len(c.brushes),1);return c,raw
+ def test_foreground_ellipse_wash208_and_roundtrip(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   c,_=self.native(tmp,extra={'GridShape/shape':'0','ColorOption/sampleInputColor':'false'});d=c.brushes[0]['descriptor']
+   self.assertEqual(d['version'],208);self.assertTrue(grid_wash137_scope(d));self.assertEqual(d['grid']['shape'],0);self.assertFalse(d['grid']['sampleInput']);self.assertEqual(d['mixer']['load'],1);self.assertNotIn('source',d['mixer'])
+   env={'library':c.write(),'assets':{}};file=Path(tmp)/'grid.grafetto-brushes.json';file.write_text(json.dumps(env));good=Catalog(Path(tmp)/'good');portable_bundle(file,good);self.assertEqual(good.brushes,c.brushes)
+   d=env['library']['brushes'][0]['descriptor'];d['version']=137;file.write_text(json.dumps(env));bad=Catalog(Path(tmp)/'bad')
+   with self.assertRaises(ValueError):portable_bundle(file,bad)
  def test_action2_newcanonical_policy_unitresponse_vs_archived48_action1(self):
   rows=[]
   for action,version in [('2',137),('1',48)]:

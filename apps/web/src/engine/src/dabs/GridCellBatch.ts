@@ -30,9 +30,9 @@ export class GridCellBatch{
   try{for(const cell of cells){const x=cell.x-originX,y=cell.y-originY,rx=cell.width/2,ry=cell.height/2,pad=shape>3?6:shape>1?1:0;if(rx<.001||ry<.001||x+rx+pad<0||y+ry+pad<0||x-rx-pad>target.width||y-ry-pad>target.height)continue;if(vertices===1024*6)flush();for(const[a,b]of CORNERS){const at=vertices++*12,d=this.data;d[at]=x+a*(rx+pad);d[at+1]=y+b*(ry+pad);d[at+2]=a*(rx+pad);d[at+3]=b*(ry+pad);d[at+4]=rx;d[at+5]=ry;d[at+6]=(Math.floor(cell.sampleX)+.5-rect.minX)/span;d[at+7]=1-(Math.floor(cell.sampleY)+.5-rect.minY)/span;d[at+8]=replace&&randomOpacity?Math.sqrt(cell.alpha):cell.alpha;d[at+9]=cell.hsv?.[0]??0;d[at+10]=cell.hsv?.[1]??0;d[at+11]=cell.hsv?.[2]??0}}flush()}finally{for(const loc of locations)gl.disableVertexAttribArray(loc);target.endDraw()}
  }
  /** Native rectangle COPY ordering, opacity1; no lazy program in new137. */
- paintRequest(cells:readonly GridCell[],target:AccumulationBuffer,originX:number,originY:number,source:AccumulationBuffer,rect:{minX:number;minY:number},span:number):void{
+ paintRequest(cells:readonly GridCell[],target:AccumulationBuffer,originX:number,originY:number,source:AccumulationBuffer,rect:{minX:number;minY:number},span:number,color:readonly number[]=[0,0,0,0],shape=1,sample=true):void{
   if(source.texture===target.texture)throw Error('Grid request source aliases target')
-  this.assertPrepared();this.paint(cells,target,originX,originY,source,rect,span,[0,0,0,0],1,true,false,1,undefined,-1,true,true)
+  this.assertPrepared();this.paint(cells,target,originX,originY,source,rect,span,color,shape,sample,false,1,undefined,-1,true,true)
  }
  /** A request is composited once, after background and all ordered cells.
   * Target-sized scratch has the same top-down origin; no readback or feedback. */
