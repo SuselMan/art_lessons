@@ -10,9 +10,23 @@ class DynaImport(unittest.TestCase):
   with tempfile.TemporaryDirectory()as tmp:
    root=Path(tmp);path=root/'own.kpp'
    def write(action):
-    p=PngImagePlugin.PngInfo();p.add_text('preset','<Preset name="Dyna" paintopid="dynabrush"><param name="Dyna/action">'+action+'</param><param name="Dyna/diameter">3</param><param name="Dyna/drag">0.65</param><param name="Dyna/mass">0</param></Preset>');Image.new('RGB',(2,2)).save(path,format='PNG',pnginfo=p)
+    p=PngImagePlugin.PngInfo();p.add_text('preset','<Preset name="Dyna" paintopid="dynabrush"><param name="PaintOpAction">1</param><param name="Dyna/action">'+action+'</param><param name="Dyna/diameter">3</param><param name="Dyna/drag">0.65</param><param name="Dyna/mass">0</param></Preset>');Image.new('RGB',(2,2)).save(path,format='PNG',pnginfo=p)
    write('0');c=Catalog(root/'native');convert_krita(path,c);self.assertFalse(c.skipped);self.assertEqual(c.brushes[0]['descriptor']['version'],210)
    env={'library':c.write(),'assets':{}};f=root/'portable.json';f.write_text(json.dumps(env));out=Catalog(root/'out');portable_bundle(f,out);self.assertEqual(out.brushes,c.brushes)
    bad=copy.deepcopy(env);bad['library']['brushes'][0]['descriptor']['dyna']['diameter']=2;f.write_text(json.dumps(bad))
    with self.assertRaises(ValueError):portable_bundle(f,Catalog(root/'bad'))
    write('1');rejected=Catalog(root/'rejected');convert_krita(path,rejected);self.assertTrue(rejected.skipped);self.assertFalse(rejected.brushes)
+
+ def test_painting_mode_requires_explicit_buildup(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp)
+   for action in (None,'1','2','0','3','garbage'):
+    with self.subTest(action=action):
+     node='' if action is None else '<param name="PaintOpAction">'+action+'</param>'
+     info=PngImagePlugin.PngInfo();info.add_text('preset','<Preset name="Dyna" paintopid="dynabrush"><param name="Dyna/action">0</param><param name="Dyna/diameter">3</param>'+node+'</Preset>')
+     path=root/('mode-'+str(action)+'.kpp');Image.new('RGB',(2,2)).save(path,format='PNG',pnginfo=info)
+     catalog=Catalog(root/('out-'+str(action)));convert_krita(path,catalog)
+     if action=='1':
+      self.assertEqual(catalog.skipped,[]);self.assertEqual(catalog.brushes[0]['descriptor']['behavior']['rendering']['accumulation'],'directOver')
+     else:
+      self.assertFalse(catalog.brushes);self.assertIn('DynaDraw Wash or unrecognized painting mode is unsupported',str(catalog.skipped))
