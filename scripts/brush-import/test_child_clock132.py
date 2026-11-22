@@ -52,6 +52,36 @@ class ChildClock132(unittest.TestCase):
   for flag in(0,1,'true',None,{},[]):
    with self.subTest(flag=flag),self.assertRaisesRegex(ValueError,'Private primary clock read must be boolean'):
     preset(b'', 'invalid.kpp', None, {}, _primary_clock_read=flag)
+ def test_internal_clock_boolean_values_accept_valid_kpp(self):
+  from test_krita import kpp
+  raw=kpp()
+  with tempfile.TemporaryDirectory() as tmp:
+   for flag in (False,True):
+    with self.subTest(flag=flag):
+     result=preset(raw,'good.kpp',convert.Catalog(Path(tmp)/str(flag)),{},_primary_clock_read=flag)
+     self.assertEqual(result['descriptor']['version'],27)
+ def test_invalid_clock_flag_keeps_existing_source_scope(self):
+  from krita_import import _SOURCE_SCOPE
+  token=_SOURCE_SCOPE.set(('spraybrush','1'))
+  try:
+   with self.assertRaisesRegex(ValueError,'Private primary clock read must be boolean'):
+    preset(b'', 'invalid.kpp', None, {}, _primary_clock_read=1, _adapter_private=True)
+   self.assertEqual(_SOURCE_SCOPE.get(),('spraybrush','1'))
+  finally:_SOURCE_SCOPE.reset(token)
+ def test_public_invalid_kpp_does_not_poison_next_bundle_entry(self):
+  import zipfile
+  from test_krita import kpp
+  from krita_import import _SOURCE_SCOPE
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);bad=root/'bad.kpp';bad.write_bytes(b'')
+   single=convert.Catalog(root/'single');convert_krita(bad,single)
+   self.assertFalse(single.brushes);self.assertFalse(single.assets);self.assertEqual(len(single.skipped),1)
+   bundle=root/'pair.bundle'
+   with zipfile.ZipFile(bundle,'w') as archive:
+    archive.writestr('bad.kpp',b'');archive.writestr('good.kpp',kpp())
+   output=convert.Catalog(root/'bundle');convert_krita(bundle,output)
+   self.assertEqual(len(output.skipped),1);self.assertEqual(len(output.brushes),1)
+   self.assertIsNone(_SOURCE_SCOPE.get())
  def test_invalid_child_Time_period_retains_baseline_warning_without_fake132_or_hard_rejection(self):
   for duration in('0','2147483648','not-an-int'):
    with self.subTest(duration=duration),tempfile.TemporaryDirectory()as tmp:
