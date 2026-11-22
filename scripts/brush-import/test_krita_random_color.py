@@ -18,6 +18,17 @@ class RandomOptionTests(unittest.TestCase):
             catalog=convert.Catalog(Path(tmp)/'out');convert_krita(p,catalog)
             self.assertEqual(catalog.skipped,[]);return catalog.brushes[0]
 
+    def test_darken_combines_pressure_and_fuzzy(self):
+        result=self.brush({'PressureDarken':'true','DarkenValue':'1','DarkenUseCurve':'true','DarkenSensor':'<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="pressure"/></params>'})
+        descriptor=result['descriptor'];control=descriptor['behavior']['dynamics']['brightness']
+        self.assertEqual(control['combine']['policy'],'native-darken-v1')
+        self.assertEqual(control['combine']['scaling'][0]['control'],'pressure')
+        self.assertEqual(control['combine']['additive'][0]['control'],'random')
+        self.assertFalse(any(n['status']=='unsupported' for n in result['compatibility']))
+        convert.validate_portable_profile(descriptor)
+        forged=copy.deepcopy(descriptor);dynamics=forged['behavior']['dynamics'];dynamics['size']=dynamics.pop('brightness')
+        with self.assertRaisesRegex(ValueError,'Native darken'):convert.validate_portable_profile(forged)
+
     def test_pressure_and_fuzzy_responses_are_not_collapsed_into_pressure(self):
         sensor='<params id="sensorslist"><ChildSensor id="fuzzy"><curve>0,.2;1,1;</curve></ChildSensor><ChildSensor id="pressure"><curve>0,.2;1,1;</curve></ChildSensor></params>'
         b=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false'})['descriptor']

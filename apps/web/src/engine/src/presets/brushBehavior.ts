@@ -262,6 +262,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
     const values=c.scaling.map((control,i)=>brushDynamicValue(control,dab,state,brushDabRandom(seed,0x51000+i),absolutePolicy))
     const scaling=!values.length?1:values.length===1?values[0]:c.mode==='sum'?values.reduce((a,b)=>a+b,0):c.mode==='max'?Math.max(...values):c.mode==='min'?Math.min(...values):c.mode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
     const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i),absolutePolicy)-1,0)):1
+    if(c.policy==='native-darken-v1')return 1-clamp((c.constant??1)*scaling*additive)
     if(c.policy==='native-hsv-strength-v1'){
       const strength=c.constant??1
       return (1-strength)/2+strength*clamp(strength*scaling*additive)

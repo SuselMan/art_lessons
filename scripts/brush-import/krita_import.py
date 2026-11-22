@@ -1543,13 +1543,18 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
     darken_decoded=False
-    if COMPONENT190.get() and engine=='paintbrush' and enabled(params.get('PressureDarken')) and enabled(params.get('DarkenUseCurve','true')):
+    if engine=='paintbrush' and enabled(params.get('PressureDarken')) and enabled(params.get('DarkenUseCurve','true')):
         strength=numeric(params.get('DarkenValue'),1);local=[]
         controls=size_like_controls(params,'Darken',local,allow_time=timed_input)
-        # Existing brightness modulation implements 1-strength*response.
-        # Preserve only one bounded sensor; compound and color-image cases
-        # retain their explicit unsupported diagnostics.
-        if (0<=strength<=1 and len(controls)==1 and not any(n['status']=='unsupported' for n in local)
+        # Native darkening multiplies RGB by 1 - computeSizeLikeValue().
+        # Admit pressure+fuzzy explicitly; other compound and color-image
+        # cases retain their unsupported diagnostics.
+        if (0<=strength<=1 and len(controls)==2 and {c.get('control') for c in controls}=={'pressure','random'} and not any(n['status']=='unsupported' for n in local) and not d['tip'].get('color') and not behavior.get('dynamics',{}).get('brightness')):
+            combined={'control':'off','minimum':0,'jitter':0,'combine':{'mode':'product','policy':'native-darken-v1','constant':strength,'scaling':[next(c for c in controls if c['control']=='pressure')],'additive':[next(c for c in controls if c['control']=='random')]}}
+            behavior.setdefault('dynamics',{})['brightness']=combined
+            notes.extend(local);darken_decoded=True
+            notes.append(compatibility('darken','Pressure and fuzzy responses combine before native darkening; random stream, color space and byte rounding remain approximate.'))
+        elif (COMPONENT190.get() and 0<=strength<=1 and len(controls)==1 and not any(n['status']=='unsupported' for n in local)
                 and 'combine' not in controls[0] and 'strength' not in controls[0]
                 and not d['tip'].get('color') and not behavior.get('dynamics',{}).get('brightness')):
             controls[0]['strength']=-strength

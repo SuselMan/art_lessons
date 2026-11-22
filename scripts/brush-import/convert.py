@@ -466,7 +466,8 @@ def validate_portable_dynamics(controls):
                     or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant','absolute','policy'} or c.get('mode')not in('product','sum','max','min','difference')
                     or not isinstance(c.get('scaling'),list) or not isinstance(c.get('additive'),list)):
                 raise ValueError('Invalid portable combined dynamic')
-            if 'policy'in c and c['policy'] not in ('native-scatter-v1','native-hue-v1','native-hsv-strength-v1'):raise ValueError('Invalid combined dynamic policy')
+            if 'policy'in c and c['policy'] not in ('native-scatter-v1','native-hue-v1','native-hsv-strength-v1','native-darken-v1'):raise ValueError('Invalid combined dynamic policy')
+            if c.get('policy')=='native-darken-v1' and (c['mode']!='product' or not finite(c.get('constant')) or 'absolute'in c or len(c['scaling'])!=1 or len(c['additive'])!=1 or not isinstance(c['scaling'][0],dict) or c['scaling'][0].get('control')!='pressure' or not isinstance(c['additive'][0],dict) or c['additive'][0].get('control')!='random'):raise ValueError('Invalid native darken combination')
             if c.get('policy')=='native-hue-v1' and (c['mode']!='product' or 'constant'in c or 'absolute'in c or len(c['scaling'])>1 or not 1<=len(c['additive'])<=2 or any(not isinstance(v,dict)or v.get('control')not in ('pressure','time','distance') for v in c['scaling']) or any(not isinstance(v,dict)or v.get('control')not in ('random','strokeRandom') for v in c['additive'])):raise ValueError('Invalid native hue combination')
             if c.get('policy')=='native-hsv-strength-v1' and (c['mode']!='product' or not finite(c.get('constant')) or 'absolute'in c or len(c['scaling'])!=1 or len(c['additive'])!=1 or not isinstance(c['scaling'][0],dict) or c['scaling'][0].get('control') not in ('pressure','speed','time','distance') or not isinstance(c['additive'][0],dict) or c['additive'][0].get('control') not in ('random','strokeRandom')):raise ValueError('Invalid native HSV strength combination')
             if 'constant'in c and not finite(c['constant'],0,4 if c.get('policy')=='native-scatter-v1'else 1):raise ValueError('Invalid combined dynamic constant')
@@ -587,6 +588,14 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         behavior=descriptor.get('behavior',{});color=behavior.get('colorAdjustment',{}) if isinstance(behavior,dict) else {}
         if not isinstance(color,dict) or any(v is not color.get('saturation') and v is not color.get('value') for v in native_hsv):raise ValueError('Native HSV strength policy requires saturation/value target')
         validate_portable_dynamics(native_hsv)
+    def darken_policies(v):
+        if isinstance(v,dict):return ([v]if isinstance(v.get('combine'),dict)and v['combine'].get('policy')=='native-darken-v1'else[])+[c for key,child in v.items() if key!='brush' for c in darken_policies(child)]
+        return [c for child in v for c in darken_policies(child)]if isinstance(v,list)else[]
+    native_darken=darken_policies(descriptor)
+    if native_darken:
+        behavior=descriptor.get('behavior',{});dynamics=behavior.get('dynamics',{}) if isinstance(behavior,dict) else {}
+        if len(native_darken)!=1 or not isinstance(dynamics,dict) or dynamics.get('brightness') is not native_darken[0]:raise ValueError('Native darken policy requires brightness target')
+        validate_portable_dynamics(native_darken)
     mix_behavior=descriptor.get('behavior',{})
     render=mix_behavior.get('rendering',{}) if isinstance(mix_behavior,dict) else {}
     if isinstance(render,dict) and 'pixelComposite' in render and descriptor.get('version') not in (198,201):raise ValueError('Pixel composite requires its versioned scope')

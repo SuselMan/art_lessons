@@ -55,6 +55,18 @@ describe('v2 logical brush state', () => {
     sample(0).forEach((v,i)=>expect(v).toBeCloseTo(color[i],10))
     sample(1).forEach((v,i)=>expect(v).toBeCloseTo(color[i]*.6,10))
   })
+  it('combines pressure and fuzzy darkening before inversion', () => {
+    const control={control:'off' as const,minimum:0,jitter:0,combine:{mode:'product' as const,policy:'native-darken-v1' as const,constant:.8,scaling:[{control:'pressure' as const,minimum:0,jitter:0}],additive:[{control:'random' as const,minimum:0,jitter:0}]}}
+    const dab={...dabs[0],pressure:.5},state=beginBrushBehavior(dab)
+    expect(isBrushBehavior({version:2,dynamics:{brightness:control}})).toBe(true)
+    expect(isBrushBehavior({version:2,dynamics:{size:control}})).toBe(false)
+    const first=brushDynamicValue(control,dab,state,.31)
+    expect(first).toBeGreaterThanOrEqual(.6)
+    expect(first).toBeLessThanOrEqual(1)
+    expect(brushDynamicValue(control,{...dab,pressure:0},state,.31)).toBe(1)
+    expect(brushDynamicValue(control,dab,state,.31)).toBe(first)
+    expect(brushDynamicValue(control,dab,state,.72)).not.toBe(first)
+  })
   it('maps raw-axis tilt to a common clockwise flat-tip angle', () => {
     const b:BrushDescriptor={...brush,scatter:undefined,tip:{...brush.tip,angle:-Math.PI/2,rotation:'fixed'},behavior:{version:2,dynamics:{angle:{control:'tiltDirection',minimum:0,jitter:0,curve:[[0,0],[1,1]]}}}}
     // PointerInput's fixed-tip shaping already records the base tip angle.
