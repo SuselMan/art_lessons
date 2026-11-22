@@ -1,7 +1,11 @@
+import base64
+import io
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZipFile
+from PIL import Image, PngImagePlugin
 
 from convert import Catalog
 from krita_import import convert_krita, preset
@@ -18,6 +22,20 @@ def pixel(action='2', mask=None):
     if mask is not None:
         params['MaskingBrush/Enabled'] = mask
     return authored(params)
+
+
+def typed_action(payload):
+    image = Image.open(io.BytesIO(pixel(action='1', mask='yes')))
+    image.load()
+    root = ET.fromstring(image.info['preset'])
+    action = next(p for p in root.findall('param') if p.get('name') == 'PaintOpAction')
+    action.set('type', 'bytearray')
+    action.text = payload
+    meta = PngImagePlugin.PngInfo()
+    meta.add_text('preset', ET.tostring(root, encoding='unicode'))
+    output = io.BytesIO()
+    image.save(output, format='PNG', pnginfo=meta)
+    return output.getvalue()
 
 
 class MaskEnabledBooleanGuard(unittest.TestCase):
@@ -94,3 +112,41 @@ class MaskEnabledBooleanGuard(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result = preset(pixel(mask='yes'), 'private.kpp', Catalog(Path(tmp) / 'out'), {}, _allow_texture_material=False)
             self.assertNotIn('dual', result['descriptor'].get('behavior', {}))
+
+    def test_bytearray_action_type_decoded_before_public_guard(self):
+        for source in (b'1', b'01', b' +1 '):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(typed_action(base64.b64encode(source).decode()))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertFalse(any('Unsupported noncanonical MaskingBrush/Enabled' in str(row) for row in out.skipped))
+                self.assertFalse(any('Unsupported typed PaintOpAction' in str(row) for row in out.skipped))
+        for source in (b'0', b'2', b'3', b'bad'):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(typed_action(base64.b64encode(source).decode()))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertFalse(out.brushes)
+                self.assertIn('Unsupported noncanonical MaskingBrush/Enabled', out.skipped[0]['reasons'][0])
+        for payload in ('@@@', '/w=='):
+            with self.subTest(payload=payload), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(typed_action(payload))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertFalse(out.brushes)
+                self.assertIn('Unsupported typed PaintOpAction', out.skipped[0]['reasons'][0])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / 'typed.bundle'
+            with ZipFile(path, 'w') as archive:
+                archive.writestr('buildup.kpp', typed_action('MQ=='))
+                archive.writestr('wash.kpp', typed_action('Mg=='))
+                archive.writestr('valid.kpp', pixel(mask='true'))
+            out = Catalog(root / 'out')
+            convert_krita(path, out)
+            self.assertTrue(any(row['source'] == 'valid.kpp' for row in out.brushes))
+            self.assertTrue(any(row['name'] == 'wash' and 'Unsupported noncanonical MaskingBrush/Enabled' in row['reasons'][0] for row in out.skipped))
+            self.assertFalse(any(row['name'] == 'buildup' and 'Unsupported noncanonical MaskingBrush/Enabled' in row['reasons'][0] for row in out.skipped))

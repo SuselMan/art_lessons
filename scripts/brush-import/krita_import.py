@@ -2243,6 +2243,14 @@ def preset(data,name,catalog,external,depth=0,**options):
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
             mask=rotation_params.get('MaskingBrush/Enabled')
             action=rotation_params.get('PaintOpAction')
+            action_node=next((p for p in reversed(root.findall('param')) if p.get('name')=='PaintOpAction'),None)
+            if (options.get('_allow_texture_material', True) and mask is not None
+                    and mask.lower() not in ('true','false','1','0') and action_node is not None
+                    and action_node.get('type')=='bytearray'):
+                try:
+                    action=base64.b64decode(''.join((action or '').split()),validate=True).decode('ascii')
+                except (ValueError, UnicodeError):
+                    raise ValueError('Unsupported typed PaintOpAction for noncanonical MaskingBrush/Enabled') from None
             # Present values other than QString integer 1 select Wash in
             # Krita. A missing value selects BuildUp; preserve source bytes.
             wash=action is not None and re.fullmatch(r'\+?0*1', action.strip()) is None
