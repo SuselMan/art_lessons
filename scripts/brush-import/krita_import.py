@@ -2226,6 +2226,13 @@ def preset(data,name,catalog,external,depth=0,**options):
     if not depth:
         with Image.open(io.BytesIO(data)) as source:
             root=xml(source.info.get('preset',''))
+        # Freehand Wash uses the masking painter for both native families;
+        # the 194/195 bridge currently drops the mask. Refuse before wrappers.
+        if root.get('paintopid') in ('sketchbrush','spraybrush'):
+            original_params={p.get('name'):p.text or '' for p in root.findall('param')}
+            mask=original_params.get('MaskingBrush/Enabled','')
+            if original_params.get('PaintOpAction')=='2' and mask.lower() not in ('','false','0'):
+                raise ValueError('Native Sketch/Spray Wash with masking brush is unsupported')
         if root.get('paintopid')=='paintbrush':
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
             value=rotation_params.get('RotationUseCurve')
