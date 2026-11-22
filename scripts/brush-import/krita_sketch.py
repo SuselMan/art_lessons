@@ -11,10 +11,12 @@ import math
 import xml.etree.ElementTree as ET
 from PIL import Image, PngImagePlugin
 from brush_contract import finalize_identity,compatibility
+from brush_numeric import numeric
+from legacy_radius872 import auto_generator_diameter
 
 
 def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
-    from krita_import import preset,enabled,numeric,size_like_controls,gbr,gih,raster,xml,brush_application
+    from krita_import import preset,enabled,size_like_controls,gbr,gih,raster,xml,brush_application
     from sketch_spray194 import COMPONENT194
     whole194=COMPONENT194.get()
     simple=enabled(params.get('Sketch/simpleMode'))
@@ -23,7 +25,10 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         definition=xml(params.get('brush_definition',''))
         if definition.get('type')=='auto_brush':
             g=definition.find('MaskGenerator')
-            if not whole194 and (g is None or g.get('id','default')!='default'or g.get('type','circle')not in('circle','rect')or numeric(g.get('spikes'),2)!=2 or numeric(definition.get('density'),1)!=1 or numeric(definition.get('randomness'),0)!=0 or not .01<=numeric(g.get('diameter'),1)<=256 or not .0625<=numeric(g.get('ratio'),1)<=1):raise ValueError('Sketch173 mask-selected procedural generator outside closed scope')
+            # The closed scope bounds the diameter Krita actually applies, which
+            # for a legacy 2.2 bundle is the "radius" attribute (#872): resolve
+            # it through the shared helper so the bounds cannot be bypassed.
+            if not whole194 and (g is None or g.get('id','default')!='default'or g.get('type','circle')not in('circle','rect')or numeric(g.get('spikes'),2)!=2 or numeric(definition.get('density'),1)!=1 or numeric(definition.get('randomness'),0)!=0 or not .01<=auto_generator_diameter(g,1)<=256 or not .0625<=numeric(g.get('ratio'),1)<=1):raise ValueError('Sketch173 mask-selected procedural generator outside closed scope')
             if not whole194 and any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled','PressureSoftness','PressureSharpness'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch173 outside static root ordinary scope')
             procedural=True
         elif definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')

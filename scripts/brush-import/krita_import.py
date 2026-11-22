@@ -31,6 +31,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
+from brush_numeric import numeric
+from legacy_radius872 import auto_generator_diameter, legacy_radius_generator
 from curve_transfer import native_transfer,scaled_curve
 from sequential_xy import compatible as sequential_xy_compatible
 from stroke_input import source_policy as stroke_input_policy,independent_drawing_angle_pair,validate_independent_pair_assets
@@ -75,14 +77,6 @@ def xml(data):
             visit(child, depth+1)
     visit(root)
     return root
-
-
-def numeric(value, default=0):
-    try:
-        n = float(value)
-        return n if math.isfinite(n) else default
-    except (ValueError, TypeError):
-        return default
 
 
 def enabled(value):
@@ -725,7 +719,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         generator = definition.find('MaskGenerator')
         if generator is None:
             raise ValueError('Missing Krita auto-brush generator')
-        source_size=numeric(generator.get('diameter'),1)
+        source_size=auto_generator_diameter(generator,1)
+        if legacy_radius_generator(generator):
+            notes.append(compatibility('legacyRadius','Krita 2.2 "radius" attribute read as the generator diameter and preferred over "diameter", as the pinned KisAutoBrushFactory does; an unparsable legacy radius is read as 0.0, because the pinned snapshot does not contain kis_dom_utils.cpp and KisDomUtils::toDouble could not be compared against it.','supported'))
         shape = generator.get('type', 'circle')
         # Older authored bundles contain rct; Krita reads non-circle shapes as rectangular.
         if shape == 'rct': shape = 'rect'
@@ -764,7 +760,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['tip']['hardness']=1
             notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with native AA flag; enabled AA uses scale-aware1px fringe/U8 stencil, disabled AA uses one native radial sample without a bitmap halo. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
         elif gaussian:
-            mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
+            mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),auto_generator_diameter(generator,10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
         # Existing radial lookup and spike shader also support the antialiased
@@ -1644,7 +1640,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             child_definition=xml(params.get(prefix+'brush_definition',''))
             parent_generator=definition.find('MaskGenerator');child_generator=child_definition.find('MaskGenerator')
             if parent_generator is not None and child_generator is not None:
-                ratio=numeric(child_generator.get('diameter'),50)/max(1,numeric(parent_generator.get('diameter'),50))
+                ratio=auto_generator_diameter(child_generator,50)/max(1,auto_generator_diameter(parent_generator,50))
             else:
                 notes.append(compatibility('maskingSize','Absolute size of linked masking tip requires calibration; saved master ratio used.'))
         ratio=clamp(ratio,.01,8)
