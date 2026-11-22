@@ -11,6 +11,8 @@ from unittest import mock
 from PIL import Image, PngImagePlugin
 from brush_contract import Catalog
 from krita_import import preset
+from sketch_spray194 import scope194, validate194_portable
+import convert
 
 
 def encoded(image):
@@ -41,9 +43,10 @@ class SprayImageImportTest(unittest.TestCase):
         image=Image.new('RGBA',(4,2));pixels=[(255,0,0,255),(0,255,0,128),(0,0,255,0),(10,20,30,64),(1,2,3,255),(40,50,60,192),(70,80,90,32),(100,110,120,1)];image.putdata(pixels)
         with tempfile.TemporaryDirectory()as tmp:
             c=Catalog(Path(tmp));r=preset(kpp(embedded=encoded(image)),'own.kpp',c,{})
-            d=r['descriptor'];self.assertEqual(d['version'],76);self.assertEqual(d['spray']['particle'],{'shape':'tip','image':True,'width':9,'height':3,'proportional':False});self.assertEqual(d['tip']['aspect'],1)
+            d=r['descriptor'];self.assertEqual(d['version'],194);self.assertTrue(scope194(d));self.assertEqual(d['spray']['particle'],{'shape':'tip','image':True,'width':9,'height':3,'proportional':False});self.assertEqual(d['tip']['aspect'],1)
             self.assertEqual(read_original(c,d),((4,2),pixels));self.assertEqual(d['tip']['maskBounds'],{'x':0,'y':.25,'width':1,'height':.5});self.assertEqual(r['sourceDefaults']['sizePx'],100)
             self.assertTrue(any(n['feature']=='sprayImageParticle'and n['status']=='approximate'for n in r['compatibility']))
+            validate194_portable(d,{k:v['size'] for k,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
 
     def test_opaque_grayscale_is_rgba_not_inverted_coverage(self):
         image=Image.new('L',(1,3));image.putdata([0,128,255])
@@ -85,10 +88,13 @@ class SprayImageImportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory()as tmp:
             r=preset(kpp(embedded=payload,extra={'ColorOption/sampleInputColor':'true','ColorOption/mixBgColor':'true','ColorOption/fillBackground':'true'}),'flags.kpp',Catalog(Path(tmp)),{});d=r['descriptor'];self.assertFalse(any(n['feature']=='spraySourceTiming'for n in r['compatibility']));self.assertEqual(d['version'],76);self.assertNotIn('sourcePolicy',d['spray']['color']);self.assertTrue(d['spray']['particle']['image'])
 
-    def test_erase_image_is_rejected_before_advertising_a_renderer_combination(self):
-        payload=encoded(Image.new('RGBA',(2,2),'red'))
+    def test_erase_image_retains_pixels_and_scoped_composite(self):
+        image=Image.new('RGBA',(2,2));pixels=[(255,0,0,255),(0,255,0,128),(0,0,255,0),(10,20,30,64)];image.putdata(pixels);payload=encoded(image)
         with tempfile.TemporaryDirectory()as tmp:
-            with self.assertRaisesRegex(ValueError,'image shape combination'):preset(kpp(embedded=payload,extra={'CompositeOp':'erase'}),'erase.kpp',Catalog(Path(tmp)),{})
+            c=Catalog(Path(tmp));r=preset(kpp(embedded=payload,extra={'CompositeOp':'erase'}),'erase.kpp',c,{});d=r['descriptor']
+            self.assertEqual(d['version'],194);self.assertTrue(scope194(d));self.assertTrue(d['behavior']['erase']);self.assertEqual(d['behavior']['rendering']['blendMode'],'normal');self.assertEqual(d['behavior']['rendering']['accumulation'],'directOver');self.assertEqual(d['spray']['composite'],'normal')
+            self.assertEqual(d['spray']['particle'],{'shape':'tip','image':True,'width':9,'height':3,'proportional':False});self.assertEqual(read_original(c,d),((2,2),pixels));self.assertEqual(d['tip']['maskBounds'],{'x':0,'y':0,'width':1,'height':1});self.assertEqual(r['sourceDefaults']['sizePx'],100)
+            validate194_portable(d,{k:v['size'] for k,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
 
     def test_captured_pixel_content_changes_real_render_identity_and_missing_does_not_fallback_to_thumbnail(self):
         data=kpp();ids=[]
