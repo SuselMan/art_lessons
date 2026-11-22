@@ -1,0 +1,132 @@
+{
+  "sourceCommit": "793d1617fb",
+  "historicFixtureSha256": "336fb03b9a878ddd48f82585bc1c6f137be276833611a48002449b81a334baa0",
+  "sourceKppSha256": "2d9d66f34a3f8d0b93a739478ce35d79ec9716c4bad859d04d5d51096b11feb7",
+  "resourcePngSha256": "a93c17028d894827813ce3f52be4c7f70b5e33571bd9e51ca8fd2975ef03a1a9",
+  "record": {
+    "descriptor": {
+      "id": "imported-c8cbb622f65163be5b48b529",
+      "version": 27,
+      "model": "stamp",
+      "category": "paint",
+      "tip": {
+        "kind": "bitmap",
+        "mask": "asset:df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+        "hardness": 0.7,
+        "aspect": 1.0,
+        "rotation": "fixed",
+        "angle": 0.0,
+        "maskBounds": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1.0,
+          "height": 1.0
+        }
+      },
+      "paperInteraction": 0,
+      "spacing": 0.1,
+      "flow": 1,
+      "flowPer": "stamp",
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowByPressure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "opacityByPressure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "pressureSmoothingPx": 0,
+      "opacity": 1,
+      "behavior": {
+        "version": 2,
+        "speedInput": {
+          "version": 1,
+          "space": "view",
+          "maximum": 30,
+          "estimator": "grafettoEMA30ms"
+        },
+        "rendering": {
+          "opacityCeiling": "uniform",
+          "mode": "buildUp",
+          "blendMode": "normal",
+          "wetEdges": 0,
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply",
+          "accumulation": "directOver"
+        },
+        "spacing": {
+          "mode": "diameter",
+          "coefficient": 0.1
+        }
+      }
+    },
+    "name": "Own prepared SVG fallback",
+    "source": "stock-fixture.kpp",
+    "warnings": [
+      "kritaEngine: Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+      "svgRasterizer: Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.",
+      "OpacityCurve: Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.",
+      "FlowCurve: Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+    ],
+    "compatibility": [
+      {
+        "feature": "kritaEngine",
+        "status": "approximate",
+        "detail": "Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed."
+      },
+      {
+        "feature": "svgRasterizer",
+        "status": "approximate",
+        "detail": "Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported."
+      },
+      {
+        "feature": "OpacityCurve",
+        "status": "approximate",
+        "detail": "Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+      },
+      {
+        "feature": "FlowCurve",
+        "status": "approximate",
+        "detail": "Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+      }
+    ],
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALKCCjsAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+    "sourceDefaults": {
+      "sizePx": 2.0,
+      "opacity": 1,
+      "flow": 1
+    }
+  },
+  "assets": [
+    {
+      "id": "asset:df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+      "size": 2,
+      "file": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119.bin"
+    }
+  ],
+  "assetDataBase64": {
+    "asset:df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119": "AAAAAA=="
+  }
+}
