@@ -2241,6 +2241,10 @@ def preset(data,name,catalog,external,depth=0,**options):
                 raise ValueError('Native Sketch/Spray Wash with masking brush is unsupported')
         if root.get('paintopid')=='paintbrush':
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
+            mask=rotation_params.get('MaskingBrush/Enabled')
+            if (options.get('_allow_texture_material', True) and rotation_params.get('PaintOpAction')=='2' and mask is not None
+                    and mask.lower() not in ('true','false','1','0')):
+                raise ValueError('Unsupported noncanonical MaskingBrush/Enabled for Pixel Wash')
             value=rotation_params.get('RotationUseCurve')
             if enabled(rotation_params.get('PressureRotation')) and value is not None and value.lower() not in ('true','false','1','0'):
                 raise ValueError('Unsupported noncanonical RotationUseCurve')
