@@ -32,6 +32,19 @@ class RandomOptionTests(unittest.TestCase):
             result=preset(data,'stamp.kpp',convert.Catalog(Path(tmp)),{'tip.png':raw.getvalue()})
             self.assertFalse(any(n['feature']=='colorSource' for n in result['compatibility']))
 
+    def test_gradient_tip_color_source_depends_on_source_class_and_canvas_gradient(self):
+        image=Image.new('RGBA',(2,2),(40,80,160,255));raw=io.BytesIO();image.save(raw,format='PNG')
+        definition='<Brush type="png_brush" filename="tip.png" brushApplication="3"/>'
+        for source in ('gradient','uniform_random','total_random','pattern','lockedpattern'):
+            with self.subTest(source=source),tempfile.TemporaryDirectory() as tmp:
+                data=kpp(definition,resources='<param name="ColorSource/Type">'+source+'</param>')
+                result=preset(data,'gradient.kpp',convert.Catalog(Path(tmp)),{'tip.png':raw.getvalue()})
+                note=next(n for n in result['compatibility'] if n['feature']=='colorSource')
+                self.assertEqual(note['status'],'approximate' if source in ('gradient','uniform_random') else 'unsupported')
+                self.assertIn('Without a valid gradient' if note['status']=='unsupported' else 'without one',note['detail'])
+                self.assertIn('red fallback',note['detail'])
+                self.assertIn('stroke time',note['detail'])
+
     def brush(self,params):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'Generic.kpp'
