@@ -105,6 +105,19 @@ class StrokeInputTests(unittest.TestCase):
             path=Path(tmp)/'bad.kpp';path.write_bytes(authored(params));catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
             self.assertFalse(catalog.brushes);self.assertIn('noncanonical CustomRotation',str(catalog.skipped))
 
+    def test_noncanonical_other_sensor_families_fail_closed_only_when_active(self):
+        from krita_import import sensor_controls
+        for option in ('h','Softness','Texture/Strength/','SmudgeRadius','Rate','Line width','Curves opacity','Angle'):
+            base={option+'Sensor':'<params id="pressure"/>','Custom'+option:'true','Curve'+option:'0,1;1,0;',option+'commonCurve':'0,0;1,1;'}
+            with self.subTest(option=option):
+                with self.assertRaisesRegex(ValueError,'noncanonical'):
+                    sensor_controls({**base,option+'UseSameCurve':'yes'},option,[],allow_time=True)
+                self.assertEqual(sensor_controls({**base,option+'UseSameCurve':'true'},option,[],allow_time=True)[0]['curve'],[[0,0],[1,1]])
+                self.assertEqual(sensor_controls({**base,option+'UseCurve':'false',option+'UseSameCurve':'yes'},option,[],allow_time=True),[])
+                with self.assertRaisesRegex(ValueError,'noncanonical'):
+                    sensor_controls({**base,option+'UseSameCurve':'false','Custom'+option:'yes'},option,[],allow_time=True)
+                self.assertEqual(sensor_controls({**base,option+'UseSameCurve':'true','Custom'+option:'yes'},option,[],allow_time=True)[0]['curve'],[[0,0],[1,1]])
+
     def test_default_off_and_identity(self):
         old=self.brush();self.assertEqual(old,self.brush(stroke_input=False));new=self.brush(stroke_input=True)
         self.assertEqual(new['descriptor']['behavior']['strokeInput'],POLICY)
