@@ -49,6 +49,18 @@ class HatchingTests(unittest.TestCase):
         blank=self.convert('<param name="PressureSeparation">false</param><param name="Hatching/separationintervals"></param>')['descriptor']['hatching']
         self.assertEqual(blank['intervals'],2);self.assertNotIn('separation',blank.get('dynamics',{}))
 
+    def test_noncanonical_separation_flags_are_rejected(self):
+        for flag in ('yes','2',' true ',''):
+            with self.subTest(flag=flag),self.assertRaisesRegex(ValueError,'noncanonical separation flag'):
+                self.convert('<param name="PressureSeparation">'+flag+'</param>')
+        for flag in ('true','1'):
+            with self.subTest(flag=flag),self.assertRaisesRegex(ValueError,'without valid integer intervals'):
+                self.convert('<param name="PressureSeparation">'+flag+'</param>')
+        for flag in ('false','0'):
+            with self.subTest(flag=flag):
+                d=self.convert('<param name="PressureSeparation">'+flag+'</param>')['descriptor']['hatching']
+                self.assertNotIn('separation',d.get('dynamics',{}))
+
     def test_checked_cross_control_keeps_presence(self):
         a=self.convert('<param name="PressureCrosshatching">true</param><param name="CrosshatchingUseCurve">false</param>');self.assertIn('cross',a['descriptor']['hatching']['dynamics']);self.assertFalse(any(n['status']=='unsupported' and 'PressureCrosshatching' in n['detail'] for n in a['compatibility']))
     def test_opaque_background_and_invalid_geometry_rejected(self):
