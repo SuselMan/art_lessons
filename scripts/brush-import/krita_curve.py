@@ -8,6 +8,8 @@ from brush_contract import finalize_identity,compatibility
 
 def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls
+    if 'PaintOpAction' in params and params['PaintOpAction'] != '1':
+        raise ValueError('Unsupported Curve PaintOpAction (Wash is not supported)')
     timer=clock_enabled(params, 'PaintOpSettings/isAirbrushing')
     if timer or clock_enabled(params, 'AirbrushOption/isAirbrushing'):
         if not timer or not timed_input:raise ValueError('Curve timed input requires closed167 opt-in')
