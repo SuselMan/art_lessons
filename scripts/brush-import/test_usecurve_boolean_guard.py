@@ -8,6 +8,7 @@ from krita_import import convert_krita
 from test_krita_size_strength import authored
 from test_sketch_spray194 import native194
 from test_child_clock132 import params132, resources132
+from test_tangent_wash136 import authored as tangent_authored
 
 class UseCurveBooleanGuard(unittest.TestCase):
     def exercise(self, tmp, raw, resources=None, bundle=False):
@@ -73,6 +74,30 @@ class UseCurveBooleanGuard(unittest.TestCase):
                             if child: desc=desc['behavior']['dual']['brush']
                             curve=desc[option.lower()+'ByPressure']
                             self.assertEqual(curve, [[0,1],[1,1]] if flag=='false' else [[0,0],[1,1]])
+
+    def test_child_guard_for_present_non_buildup_actions(self):
+        for action in ('0','2','3','02','-1','invalid','1',None):
+            values={**params132(),'MaskingBrush/Preset/PressureSize':'true','MaskingBrush/Preset/SizeUseCurve':'yes'}
+            if action is None: values.pop('PaintOpAction',None)
+            else: values['PaintOpAction']=action
+            with self.subTest(action=action),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                result=self.exercise(tmp,authored(values),resources132())
+                if action not in ('1',None): self.assertIn('Unsupported noncanonical MaskingBrush/Preset/SizeUseCurve',str(result.skipped))
+                else: self.assertNotIn('Unsupported noncanonical MaskingBrush/Preset/SizeUseCurve',str(result.skipped))
+
+    def test_tangent_flow_buildup_and_wash_pressure_guard(self):
+        for action in ('1','2'):
+            for flag in ('true','false','yes'):
+                for checked in (None,'false','true'):
+                    values={'PaintOpAction':action,'FlowUseCurve':flag,'FlowSensor':'<params id="pressure"/>'}
+                    if checked is not None: values['PressureFlow']=checked
+                    with self.subTest(action=action,flag=flag,checked=checked),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                        result=self.exercise(tmp,tangent_authored(action,values))
+                        if flag=='yes': self.assertIn('Unsupported noncanonical FlowUseCurve',str(result.skipped))
+                        elif action=='2' and flag=='true': self.assertIn('Tangent Wash pressure Flow requires a new renderer',str(result.skipped))
+                        else:
+                            self.assertEqual(result.skipped,[])
+                            self.assertEqual(result.brushes[0]['descriptor']['flowByPressure'],[[0,0],[1,1]] if flag=='true' else [[0,1],[1,1]])
 
     def test_other_confirmed_opacity_consumers(self):
         for engine in ('deformbrush','colorsmudge','duplicate','tangentnormal'):

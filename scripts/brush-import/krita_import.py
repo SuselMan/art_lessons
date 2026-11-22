@@ -86,7 +86,7 @@ _SOURCE_ENGINE = ContextVar('krita_source_engine', default=None)
 
 def _not_checkable(option):
     source = _SOURCE_ENGINE.get()
-    return option in ('Opacity', 'Flow') and source == 'paintbrush' or option == 'Opacity' and source in ('sketchbrush', 'spraybrush', 'deformbrush', 'colorsmudge', 'duplicate', 'tangentnormal')
+    return option in ('Opacity', 'Flow') and source in ('paintbrush', 'tangentnormal') or option == 'Opacity' and source in ('sketchbrush', 'spraybrush', 'deformbrush', 'colorsmudge', 'duplicate', 'tangentnormal')
 
 
 def enabled(value):
@@ -539,7 +539,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         # These native paintops never consume Flow/Mirror; their adapters strip
         # the captured fields. Do not parse stale, potentially invalid sensors
         # before that family-specific filtering has happened.
-        if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush','gridbrush','tangentnormal') and pen_key=='FlowSensor':continue
+        if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush','gridbrush') and pen_key=='FlowSensor':continue
         if engine=='gridbrush' and pen_key=='OpacitySensor':continue
         if pen_key=='RotationSensor' and (engine in ('hatchingbrush','curvebrush') or engine=='sketchbrush' and enabled(params.get('Sketch/simpleMode'))):continue
         if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush') and pen_key=='MirrorSensor':continue
@@ -2274,16 +2274,21 @@ def _preset_with_source(data,name,catalog,external,depth=0,**options):
         if engine=='paintbrush' and _SOURCE_ENGINE.get()=='paintbrush':
             candidates.append(('', 'Size'))
             candidates.extend(('', option) for option in ('Opacity', 'Flow'))
-            if (original_params.get('PaintOpAction')=='2' and
-                enabled(original_params.get('MaskingBrush/Enabled'))):
+            # Krita selects Wash for any present integer action other than 1;
+            # missing action remains BuildUp for brush-based Pixel settings.
+            action=original_params.get('PaintOpAction')
+            try: native_wash=action is not None and int(action.strip())!=1
+            except ValueError: native_wash=action is not None  # QVariant.toInt() falls back to 0
+            if native_wash and enabled(original_params.get('MaskingBrush/Enabled')):
                 candidates.extend(('MaskingBrush/Preset/', option) for option in ('Size','Opacity','Flow'))
         elif engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal') and _SOURCE_ENGINE.get()==engine:
             candidates.append(('', 'Opacity'))
+            if engine=='tangentnormal': candidates.append(('', 'Flow'))
             if engine=='sketchbrush': candidates.append(('', 'Line width'))
         for prefix, option in candidates:
             value=original_params.get(prefix+option+'UseCurve')
             if (((((not prefix) or prefix=='MaskingBrush/Preset/') and ((engine=='paintbrush' and option in ('Opacity','Flow')) or
-                                  (engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal') and option=='Opacity'))) or
+                                  (engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal') and option=='Opacity') or (engine=='tangentnormal' and option=='Flow'))) or
                  enabled(original_params.get(prefix+'Pressure'+option))) and
                 value is not None and value.lower() not in ('true','false','1','0')):
                 raise ValueError('Unsupported noncanonical '+prefix+option+'UseCurve')
