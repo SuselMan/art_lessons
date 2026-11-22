@@ -11,6 +11,7 @@ import zipfile
 from brush_contract import Catalog
 from krita_import import convert_krita
 from mypaint_import import mypaint_preset
+from convert import validate_portable_profile
 from test_krita import kpp
 
 
@@ -60,6 +61,32 @@ class MybKoResourceTests(unittest.TestCase):
             manifest=json.loads((root/'out'/'manifest.json').read_text())
             expected=mypaint_preset(path.read_bytes(),path.name,Catalog(root/'direct'))
             self.assertEqual(manifest['brushes'],[expected])
+
+    def test_bundle_raw_json_krita_policy_and_invalid_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);bundle=root/'cases.bundle'
+            normal=self.document();paint=self.document(True)
+            active=self.document();active['settings']['lock_alpha']={'base_value':1,'inputs':{'pressure':[[0,0],[1,1]]}}
+            neutral=self.document();neutral['settings']['lock_alpha']={'base_value':0,'inputs':{'pressure':[]}}
+            combined=self.document(True);combined['settings']['lock_alpha']=active['settings']['lock_alpha']
+            with zipfile.ZipFile(bundle,'w') as z:
+                for name,doc in [('normal',normal),('paint',paint),('active',active),('neutral',neutral),('combined',combined)]:
+                    z.writestr('paintoppresets/'+name+'.myb',json.dumps(doc))
+                z.writestr('paintoppresets/bad.myb',b'{invalid')
+            c=Catalog(root/'out');convert_krita(bundle,c)
+            self.assertEqual(len(c.brushes),5);self.assertEqual(len(c.skipped),1)
+            records={b['source']:b for b in c.brushes}
+            self.assertEqual(records['paint.myb']['descriptor']['mypaint']['surfacePolicy'],'krita-legacy-v1')
+            self.assertFalse(any(s['id']==41 for s in records['active.myb']['descriptor']['mypaint']['settings']))
+            self.assertTrue(any(s['id']==41 for s in records['neutral.myb']['descriptor']['mypaint']['settings']))
+            self.assertEqual(records['combined.myb']['descriptor']['mypaint']['surfacePolicy'],'krita-legacy-v1')
+            self.assertFalse(any(s['id']==41 for s in records['combined.myb']['descriptor']['mypaint']['settings']))
+            for name,doc in [('normal',normal),('neutral',neutral)]:
+                original=mypaint_preset(json.dumps(doc).encode(),name+'.myb',Catalog(root/('direct-'+name)))
+                self.assertEqual(records[name+'.myb']['descriptor'],original['descriptor'])
+            for record in records.values():validate_portable_profile(record['descriptor'])
+            with self.assertRaises(ValueError):
+                mypaint_preset(json.dumps(paint).encode(),'standalone.myb',Catalog(root/'standalone'))
 
     def test_png_without_json_uses_mypaint_defaults_in_bundle_and_cli(self):
         with tempfile.TemporaryDirectory() as tmp:
