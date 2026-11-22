@@ -15,6 +15,8 @@ def hatching_preset(data,root,params,name,catalog,external):
         raw_intervals=params.get('Hatching/separationintervals')
         if not isinstance(raw_intervals,str) or not re.fullmatch(r'[+-]?[0-9]+',raw_intervals.strip()):
             raise ValueError('Hatching checked separation without valid integer intervals is unsupported')
+    if 'PaintOpAction' in params and params['PaintOpAction'] != '1':
+        raise ValueError('Hatching Wash or unrecognized painting mode is unsupported')
     if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Hatching timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Hatching supports normal compositing only')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
