@@ -2245,7 +2245,7 @@ def preset(data,name,catalog,external,depth=0,**options):
         engine=root.get('paintopid')
         candidates=[]
         if engine=='paintbrush':
-            candidates.append(('', 'Size'))
+            candidates.extend(('', option) for option in ('Size', 'Opacity', 'Flow'))
             if (original_params.get('PaintOpAction')=='2' and
                 enabled(original_params.get('MaskingBrush/Enabled'))):
                 candidates.append(('MaskingBrush/Preset/', 'Size'))

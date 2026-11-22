@@ -25,6 +25,8 @@ class UseCurveBooleanGuard(unittest.TestCase):
     def test_public_options_and_bundle(self):
         families=(
             ('SizeUseCurve',lambda v: authored({'PressureSize':'true','SizeUseCurve':v,'SizeSensor':'<params id="pressure"/>'}),{}),
+            ('OpacityUseCurve',lambda v: authored({'PressureOpacity':'true','OpacityUseCurve':v,'OpacitySensor':'<params id="pressure"/>'}),{}),
+            ('FlowUseCurve',lambda v: authored({'PressureFlow':'true','FlowUseCurve':v,'FlowSensor':'<params id="pressure"/>'}),{}),
             ('Line widthUseCurve',lambda v: native194(params={'PressureLine width':'true','Line widthUseCurve':v,'Line widthSensor':'<params id="pressure"/>'}),{}),
             ('MaskingBrush/Preset/SizeUseCurve',lambda v: authored({**params132(),'MaskingBrush/Preset/SizeUseCurve':v,'MaskingBrush/Preset/SizeSensor':'<params id="pressure"/>'}),resources132()),
         )
@@ -43,6 +45,8 @@ class UseCurveBooleanGuard(unittest.TestCase):
     def test_inactive_controls_do_not_cause_rejection(self):
         child={**params132(),'MaskingBrush/Preset/SizeUseCurve':'yes','MaskingBrush/Preset/PressureSize':'false'}
         cases=(authored({'PressureSize':'false','SizeUseCurve':'yes'}),
+               authored({'PressureOpacity':'false','OpacityUseCurve':'yes'}),
+               authored({'PressureFlow':'false','FlowUseCurve':'yes'}),
                native194(params={'PressureLine width':'false','Line widthUseCurve':'yes'}),
                authored(child),
                authored({**child,'MaskingBrush/Enabled':'false','MaskingBrush/Preset/PressureSize':'true'}),
