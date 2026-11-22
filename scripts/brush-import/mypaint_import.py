@@ -36,8 +36,7 @@ def mypaint_preset(data,name,catalog,preview=None,erase=False,*,surface_policy=N
     if total>4096:raise ValueError('MyPaint sensor budget exceeded')
     radius=math.exp(doc['settings'].get('radius_logarithmic',{}).get('base_value',SETTINGS['radius_logarithmic']['default']))
     if not .0<radius<=800:raise ValueError('MyPaint base radius outside supported range')
-    is_eraser=erase or doc['settings'].get('eraser',{}).get('base_value',0)>=.5
-    d={'id':'pending','version':55,'model':'stamp','category':'erase'if is_eraser else'paint','tip':{'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0},'paperInteraction':0,'spacing':.1,'flow':1,'flowPer':'stamp','sizeByPressure':[[0,1],[1,1]],'flowByPressure':[[0,1],[1,1]],'opacityByPressure':[[0,1],[1,1]],'pressureSmoothingPx':0,'opacity':1,'behavior':{'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}},'mypaint':{'version':1,'kernel':'libmypaint-1.6.1','settings':values,'baseRadius':radius,'erase':erase}}
+    d={'id':'pending','version':55,'model':'stamp','category':'paint','tip':{'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0},'paperInteraction':0,'spacing':.1,'flow':1,'flowPer':'stamp','sizeByPressure':[[0,1],[1,1]],'flowByPressure':[[0,1],[1,1]],'opacityByPressure':[[0,1],[1,1]],'pressureSmoothingPx':0,'opacity':1,'behavior':{'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}},'mypaint':{'version':1,'kernel':'libmypaint-1.6.1','settings':values,'baseRadius':radius,'erase':erase}}
     if ignored_paint:
         d['version']=156;d['mypaint']['surfacePolicy']='krita-legacy-v1'
     from krita_import import preset_preview
