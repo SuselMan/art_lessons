@@ -40,6 +40,34 @@ class StrokeInputTests(unittest.TestCase):
                 catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
                 self.assertFalse(catalog.brushes);self.assertIn('noncanonical',str(catalog.skipped))
 
+    def test_single_rotation_empty_and_legacy_curve_matrix(self):
+        curved='0,0;0.5,0.1;1,1;'
+        scenarios=(
+            ({'CustomRotation':'true','CurveRotation':curved},'curved'),
+            ({'CustomRotation':'false','CurveRotation':curved},'identity'),
+            ({'CustomRotation':'true','CurveRotation':curved,'RotationcommonCurve':''},'identity'),
+            ({'CustomRotation':'true','CurveRotation':curved,'RotationcommonCurve':'0,0;1,1;'},'identity'),
+            ({'CustomRotation':'true','CurveRotation':curved,'RotationSensor':'<params id="SENSOR"><curve/></params>'},'identity'),
+            ({'CustomRotation':'true','CurveRotation':curved,'RotationUseSameCurve':'false','RotationSensor':'<params id="SENSOR"><curve/></params>'},'reject'),
+        )
+        for sensor in ('fuzzy','drawingangle'):
+            for patch,expected in scenarios:
+                with self.subTest(sensor=sensor,patch=patch):
+                    params={**PARAMS,'RotationSensor':f'<params id="{sensor}"/>',**patch}
+                    params['RotationSensor']=params['RotationSensor'].replace('SENSOR',sensor)
+                    if expected=='reject':
+                        with tempfile.TemporaryDirectory() as tmp:
+                            path=Path(tmp)/'bad.kpp';path.write_bytes(authored(params));catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+                            self.assertFalse(catalog.brushes);self.assertIn('empty individual Rotation',str(catalog.skipped))
+                        continue
+                    desc=self.brush(params)['descriptor'];behavior=desc['behavior']
+                    if sensor=='drawingangle':
+                        rotation=behavior['rotation']
+                        self.assertEqual('absolute' in rotation.get('composition',{}),expected=='curved')
+                    else:
+                        curve=behavior['dynamics']['angle']['curve']
+                        self.assertEqual(curve!=[[0,0],[1,1]],expected=='curved')
+
     def test_default_off_and_identity(self):
         old=self.brush();self.assertEqual(old,self.brush(stroke_input=False));new=self.brush(stroke_input=True)
         self.assertEqual(new['descriptor']['behavior']['strokeInput'],POLICY)
