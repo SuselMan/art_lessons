@@ -126,6 +126,42 @@ it('reuses an unchanged conversion but reruns after converter code changes', asy
   } finally {await server.close()}
 })
 
+it('reimports changed source defaults through the job route without rewriting room history', async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'brush-reimport-default-'));directories.push(directory)
+  const script=join(directory,'converter.cjs'),receipt=join(directory,'runs.txt')
+  const library=empty()
+  library.brushes.push({name:'Authored',source:'same.kpp',warnings:[],sourceDefaults:{sizePx:8,opacity:1,flow:1},descriptor:{
+    id:'imported-'+'d'.repeat(16),version:1,model:'stamp',category:'paint',
+    tip:{kind:'round',hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'stamp',opacity:1,pressureSmoothingPx:0,
+    sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],
+  }})
+  const converter=(size:number)=>`const fs=require('node:fs'),path=require('node:path');fs.appendFileSync(${JSON.stringify(receipt)},'run\\n');const m=${JSON.stringify(library)};m.brushes[0].sourceDefaults.sizePx=${size};fs.writeFileSync(path.join(process.argv.at(-1),'manifest.json'),JSON.stringify(m))`
+  await writeFile(script,converter(8));vi.stubEnv('GRAFETTO_BRUSH_IMPORT_PYTHON',process.execPath);vi.stubEnv('GRAFETTO_BRUSH_IMPORT_SCRIPT',script)
+  const server=await app()
+  try{
+    const upload=async()=>{
+      const response=await server.inject({method:'POST',url:'/api/brush-library/imports',headers:{'content-type':'application/octet-stream','x-brush-filename':'same.kpp'},payload:Buffer.from('same-source')})
+      expect(response.statusCode).toBe(202);const {id}=response.json() as {id:string}
+      let job:{status:string;library?:typeof library}={status:'queued'}
+      for(let i=0;i<200&&['queued','running'].includes(job.status);i++){
+        await new Promise(r=>setTimeout(r,20));job=(await server.inject(`/api/brush-library/imports/${id}`)).json()
+      }
+      expect(job.status).toBe('complete');return job.library!
+    }
+    const first=await upload();expect(first.brushes[0].sourceDefaults!.sizePx).toBe(8)
+    const storage=new BrushStorage(process.env.GRAFETTO_BRUSH_STORAGE_DIR!)
+    storage.pin('room','alice',[`brush:${library.brushes[0].descriptor.id}@1`])
+    const pinned=await readFile(storage.path('rooms','room'))
+    await writeFile(script,converter(16))
+    const second=await upload();expect(second.brushes[0].descriptor).toEqual(first.brushes[0].descriptor)
+    expect(second.brushes[0].sourceDefaults!.sizePx).toBe(16)
+    expect((await server.inject('/api/brush-library')).json().brushes[0].sourceDefaults.sizePx).toBe(16)
+    expect(storage.library('rooms','room').brushes[0].sourceDefaults!.sizePx).toBe(8)
+    expect(await readFile(storage.path('rooms','room'))).toEqual(pinned)
+    await upload();expect((await readFile(receipt,'utf8')).trim().split('\n')).toHaveLength(2)
+  }finally{await server.close()}
+})
+
 it('shutdown terminates active decoder descendants before removing importer work', async()=>{
   const directory=await mkdtemp(join(tmpdir(),'brush-route-process-'));directories.push(directory)
   const script=join(directory,'own-importer.cjs'),receipt=join(directory,'pids.json')
