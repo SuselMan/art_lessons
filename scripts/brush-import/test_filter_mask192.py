@@ -41,6 +41,12 @@ def fixtures192():
     return rows
 
 class Filter192Tests(unittest.TestCase):
+    def test_hard_circular_blur_radius_10(self):
+        config='<filterconfig><param name="halfWidth">10</param><param name="halfHeight">10</param><param name="shape">0</param><param name="strength">100</param><param name="rotate">0</param></filterconfig>'
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(kpp(resources='<param name="Filter/id">blur</param>'+config,engine='filter'),'blur.kpp',Catalog(Path(tmp)/'native'),{})
+            descriptor=result['descriptor'];self.assertTrue(scope192(descriptor));self.assertEqual(descriptor['filter']['kind'],'hardBlur')
+            bad=copy.deepcopy(descriptor);bad['filter']['radiusX']=11;bad['filter']['radiusY']=11;self.assertFalse(scope192(bad))
     def test_default_gray_law(self):
         image=Image.new('RGBA',(4,1));image.putdata([(255,0,0,255),(0,255,0,255),(0,0,255,255),(255,255,255,128)])
         self.assertEqual(image_coverage192(image).tobytes(),bytes([127,220,76,128]))

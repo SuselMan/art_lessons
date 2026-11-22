@@ -24,8 +24,8 @@ def scope192(d,*,clock195=False):
     common={'version','kind','maskPolicy','sourcePolicy','smudgeMode','composite'}
     if f.get('maskPolicy')!='native-dab-v1'or f.get('sourcePolicy')!='canonical-begin-v1'or type(f.get('smudgeMode'))is not bool or f.get('composite')not in COMPOSITES:return False
     kind=f.get('kind')
-    if kind=='softBlur':
-        if type(f.get('version'))is not int or f['version']!=3 or set(f)!=common|{'radiusX','radiusY'} or type(f.get('radiusX'))is not int or not 1<=f['radiusX']<=64 or f.get('radiusY')!=f['radiusX']:return False
+    if kind in ('softBlur','hardBlur'):
+        if type(f.get('version'))is not int or f['version']!=3 or set(f)!=common|{'radiusX','radiusY'} or type(f.get('radiusX'))is not int or not 1<=f['radiusX']<=64 or f.get('radiusY')!=f['radiusX'] or kind=='hardBlur' and f['radiusX']!=10:return False
     elif kind=='noise':
         if type(f.get('version'))is not int or f['version']!=3 or set(f)!=common|{'level','opacity','grayscale','seeds'} or type(f.get('grayscale'))is not bool or any(type(f.get(k))is not int or not 0<=f[k]<=100 for k in ('level','opacity')) or not isinstance(f.get('seeds'),list) or len(f['seeds'])!=4 or any(type(x)is not int or not 0<=x<=2147483647 for x in f['seeds']):return False
     elif kind=='hsvSaturation':

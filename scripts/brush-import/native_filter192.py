@@ -31,11 +31,12 @@ def lower_filter192(data,root,params,name,catalog,external):
         config={p.get('name'):p.text or '' for p in cfg.iter('param')} if cfg is not None else {}
         if cfg is not None and len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
         if set(config)-{'halfWidth','halfHeight','shape','rotate','strength','lockAspect'}:raise ValueError('Unknown Blur setting')
-        if config.get('shape','0')!='0' or config.get('rotate','0')!='0' or config.get('strength','0')!='0':raise ValueError('Unsupported Blur shape or strength')
+        if config.get('shape','0')!='0' or config.get('rotate','0')!='0' or config.get('strength','0') not in ('0','100'):raise ValueError('Unsupported Blur shape or strength')
         try:radius=int(config.get('halfWidth','5'));height=int(config.get('halfHeight','5'))
         except (ValueError,TypeError):raise ValueError('Invalid Blur radius')from None
         if not 1<=radius<=64 or height!=radius:raise ValueError('Unsupported Blur radius or aspect')
-        f={'version':3,'kind':'softBlur','radiusX':radius,'radiusY':radius}
+        if config.get('strength','0')=='100' and radius!=10:raise ValueError('Unsupported hard Blur radius')
+        f={'version':3,'kind':'hardBlur' if config.get('strength','0')=='100' else 'softBlur','radiusX':radius,'radiusY':radius}
     elif params.get('Filter/id')=='noise':
         configs=root.findall('filterconfig')
         if len(configs)>1:raise ValueError('Duplicate Filter configuration')
@@ -129,6 +130,7 @@ def lower_filter192(data,root,params,name,catalog,external):
     if bad:raise ValueError('Unlowered native Filter192 settings: '+', '.join(bad))
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']
     result['compatibility'].append(compatibility('filterMask192','Native Filter five existing kernels use canonical BEGIN, true OVER/false COPY temporary updates, complete alpha8 dab and destination composite. IMAGE/PIPE_IMAGE bake default-sRGB linear709 then sRGB GrayA times alpha offline; native ICC/Qt/RNG and byte identity are qualified. Pixel-only saved options are ignored by native FilterOp: '+(', '.join(ignored)or'none')+'.'))
+    if f['kind']=='hardBlur':result['compatibility'].append(compatibility('hardBlurFilter','Native circular radius10 convolution with antialiased edge; color-space conversion and byte rounding remain approximate.'))
     if f['kind']=='softBlur':result['compatibility'].append(compatibility('softBlurFilter','Circular native Blur approximated by a separable Gaussian with matched variance; exact kernel shape and Qt rounding differ.'))
     if f['kind']=='noise':result['compatibility'].append(compatibility('noiseFilter','Native threshold, per-channel seeds and opacity retained with deterministic coordinate noise; Krita uses a different random generator, so its exact speckle pattern differs.'))
     if warning:result['compatibility'].append(compatibility('filterText192',warning))

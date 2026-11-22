@@ -39,3 +39,11 @@ it('admits bounded circular soft blur only inside native filter policy',()=>{
  if(bad.filter?.kind==='softBlur')bad.filter.radiusY=40
  expect(isBrushLibrary(library192(bad))).toBe(false)
 })
+
+it('admits the native radius10 circular hard blur and rejects other radii',()=>{
+ const brush=filter192()
+ brush.filter={version:3,kind:'hardBlur',radiusX:10,radiusY:10,maskPolicy:'native-dab-v1',sourcePolicy:'canonical-begin-v1',smudgeMode:false,composite:'copy'}
+ expect(isBrushLibrary(library192(brush))).toBe(true)
+ brush.filter.radiusX=11;brush.filter.radiusY=11
+ expect(isBrushLibrary(library192(brush))).toBe(false)
+})

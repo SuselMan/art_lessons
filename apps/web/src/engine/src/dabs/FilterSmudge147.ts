@@ -3,7 +3,7 @@ import{hasFilterGaussian153Scope,hasFilterSmudge147Scope,hasFilterUnsharp159Scop
 import { FILTER_COMPOSITE192_GLSL,filterComposite192Code,filterSourceOver192 } from './filterComposite192'
 import{FilterGaussian153Pass}from'./FilterGaussian153'
 
-const spatialFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='gaussian'||brush.filter?.kind==='unsharp'||brush.filter?.kind==='softBlur':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)
+const spatialFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='gaussian'||brush.filter?.kind==='unsharp'||(brush.filter?.kind==='softBlur'||brush.filter?.kind==='hardBlur'):hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)
 const unsharpFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='unsharp':hasFilterUnsharp159Scope(brush)
 import{type BrushDescriptor,type BrushFilter}from'@grafetto/shared'
 import type{PaintTarget}from'../buffers/ILayerBuffer'
@@ -68,7 +68,7 @@ export class FilterSmudge147Pass{
  private readonly sampler:CanvasProjectionSampler
  private readonly gl:WebGLRenderingContext
  constructor(gl:WebGLRenderingContext){this.gl=gl;this.sampler=new CanvasProjectionSampler(gl,()=>this.geometry!)}
- prepare(brush?:BrushDescriptor,validated192=false):void{this.geometry??=createFullscreenQuad(this.gl);this.next??=createProgram(this.gl,VERT,NEXT);this.copy??=createProgram(this.gl,VERT,COPY);this.sampler.prepare();(this.gaussian??=new FilterGaussian153Pass(this.gl)).prepare();if(unsharpFilter(brush,validated192))this.gaussian!.prepareUnsharp159()}
+ prepare(brush?:BrushDescriptor,validated192=false):void{this.geometry??=createFullscreenQuad(this.gl);this.next??=createProgram(this.gl,VERT,NEXT);this.copy??=createProgram(this.gl,VERT,COPY);this.sampler.prepare();(this.gaussian??=new FilterGaussian153Pass(this.gl)).prepare();if(brush?.filter?.kind==='hardBlur')this.gaussian!.prepareHardBlur();if(unsharpFilter(brush,validated192))this.gaussian!.prepareUnsharp159()}
  assertPrepared(brush?:BrushDescriptor,validated192=false):void{if(!this.geometry||!this.next||!this.copy)throw Error('Filter147 programs are not prepared');if(unsharpFilter(brush,validated192)){if(!this.gaussian)throw Error('Spatial programs missing');this.gaussian.assertUnsharp159Prepared()}}
  forget():void{this.geometry=undefined;this.next=undefined;this.copy=undefined;this.sampler.forget();this.gaussian?.forget()}
  destroy():void{if(this.geometry)this.gl.deleteBuffer(this.geometry);if(this.next)this.gl.deleteProgram(this.next);if(this.copy)this.gl.deleteProgram(this.copy);this.sampler.destroy();this.gaussian?.destroy();this.forget()}
