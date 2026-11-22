@@ -1804,7 +1804,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if application==3 and color_source in ('gradient','uniform_random'):
             notes.append(compatibility('colorSource', 'With a valid canvas gradient Krita GRADIENTMAP ignores the uniform '+color_source+' source; without one Krita uses a red fallback. The canvas gradient is selected at stroke time, so this condition cannot be resolved at import.'))
         elif application==3:
-            notes.append(compatibility('colorSource', 'Krita GRADIENTMAP with nonuniform '+color_source+' uses source pixels when a canvas gradient is available; this source is not retained. Without a valid gradient Krita uses a red fallback. The canvas gradient is selected at stroke time.', 'unsupported'))
+            pattern_fallback=' If no canvas pattern is available, Krita falls back to plain color.' if color_source in ('pattern','lockedpattern') else ''
+            notes.append(compatibility('colorSource', 'Krita GRADIENTMAP with nonuniform '+color_source+' uses source pixels when a canvas gradient and the selected source are available; this source is not retained.'+pattern_fallback+' Without a valid gradient Krita uses a red fallback. Canvas resources are selected at stroke time.', 'unsupported'))
         else:
             notes.append(compatibility('colorSource', 'Krita color source '+color_source+' is not retained; the foreground-color approximation is used.', 'unsupported'))
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')

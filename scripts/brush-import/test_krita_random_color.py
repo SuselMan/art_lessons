@@ -44,6 +44,10 @@ class RandomOptionTests(unittest.TestCase):
                 self.assertIn('Without a valid gradient' if note['status']=='unsupported' else 'without one',note['detail'])
                 self.assertIn('red fallback',note['detail'])
                 self.assertIn('stroke time',note['detail'])
+                if source in ('pattern','lockedpattern'):
+                    self.assertIn('If no canvas pattern is available, Krita falls back to plain color.',note['detail'])
+                else:
+                    self.assertNotIn('no canvas pattern',note['detail'])
 
     def brush(self,params):
         with tempfile.TemporaryDirectory() as tmp:
