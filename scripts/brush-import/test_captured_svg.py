@@ -1,6 +1,8 @@
 import io
 import json
 import base64
+import copy
+import hashlib
 import tempfile
 import zipfile
 import unittest
@@ -9,6 +11,42 @@ from unittest import mock
 from captured_svg import captured_svg,sanitize_svg,MAX_INPUT
 
 SVG=b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2"><rect width="2" height="2" fill="#ff0000"/></svg>'
+
+def stock_records(case, root):
+ from brush_contract import Catalog
+ from convert import portable_bundle
+ fixtures=Path(__file__).parent/'fixtures'
+ historical_bytes=(fixtures/'svg_stock_fallback.json').read_bytes()
+ historical=json.loads(historical_bytes)
+ expected=json.loads((fixtures/'svg_stock_793d_expected.json').read_text())
+ raw=base64.b64decode(historical['sourceKppBase64'])
+ resource=base64.b64decode(historical['resourcePngBase64'])
+ case.assertEqual(hashlib.sha256(historical_bytes).hexdigest(),'336fb03b9a878ddd48f82585bc1c6f137be276833611a48002449b81a334baa0')
+ case.assertEqual(hashlib.sha256(raw).hexdigest(),'2d9d66f34a3f8d0b93a739478ce35d79ec9716c4bad859d04d5d51096b11feb7')
+ case.assertEqual(hashlib.sha256(resource).hexdigest(),'a93c17028d894827813ce3f52be4c7f70b5e33571bd9e51ca8fd2975ef03a1a9')
+ case.assertEqual(expected['historicFixtureSha256'],hashlib.sha256(historical_bytes).hexdigest())
+ case.assertEqual(expected['sourceKppSha256'],hashlib.sha256(raw).hexdigest())
+ case.assertEqual(expected['resourcePngSha256'],hashlib.sha256(resource).hexdigest())
+ old=historical['descriptor']; new=expected['record']['descriptor']
+ case.assertEqual(old['id'],'imported-f638a148129d80e986fa5ccc')
+ case.assertEqual(new['id'],'imported-c8cbb622f65163be5b48b529')
+ def reference_id(d):
+  seed={'schemaVersion':1,'importerRenderingVersion':3,'sourceSettingsSha256':hashlib.sha256(raw).hexdigest(),'rendering':{k:v for k,v in d.items() if k!='id'}}
+  return 'imported-'+hashlib.sha256(json.dumps(seed,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()[:24]
+ case.assertEqual(reference_id(old),old['id']);case.assertEqual(reference_id(new),new['id'])
+ updated=copy.deepcopy(old);updated['opacityByPressure']=[[0,0],[1,1]];updated['flowByPressure']=[[0,0],[1,1]];updated['id']=new['id']
+ case.assertEqual(updated,new)
+ old_record=copy.deepcopy(expected['record']);old_record['descriptor']=copy.deepcopy(old);old_record['compatibility']=copy.deepcopy(historical['compatibility']);old_record['warnings']=[n['feature']+': '+n['detail'] for n in historical['compatibility'] if n['status']!='supported']
+ portable=root/'historical.grafetto-brushes.json';portable.write_text(json.dumps({'library':{'schemaVersion':1,'brushes':[old_record],'assets':expected['assets'],'skipped':[]},'assets':expected['assetDataBase64']}))
+ restored=Catalog(root/'historical');portable_bundle(portable,restored)
+ case.assertEqual(restored.brushes,[old_record]);case.assertEqual(list(restored.assets.values()),expected['assets'])
+ for asset in expected['assets']:
+  data=(restored.output/asset['file']).read_bytes();case.assertEqual(hashlib.sha256(data).hexdigest(),asset['id'][6:]);case.assertEqual(base64.b64encode(data).decode(),expected['assetDataBase64'][asset['id']])
+ for payload in ({},{expected['assets'][0]['id']:base64.b64encode(b'bad!').decode()}):
+  portable.write_text(json.dumps({'library':{'schemaVersion':1,'brushes':[old_record],'assets':expected['assets'],'skipped':[]},'assets':payload}))
+  with case.assertRaises(ValueError):portable_bundle(portable,Catalog(root/('invalid-'+str(len(payload)))))
+ return historical, expected, raw, resource
+
 class CapturedSvgTests(unittest.TestCase):
  def test_rgba_image_preserves_size_color_transparency(self):
   im=captured_svg(SVG,'captured-image-v1');self.assertEqual(im.size,(4,2));self.assertEqual(im.getpixel((0,0)),(255,0,0,255));self.assertEqual(im.getpixel((3,0)),(0,0,0,0))
@@ -36,12 +74,13 @@ class CapturedSvgTests(unittest.TestCase):
   for data in [SVG.replace(b'<rect',b'<rect xml:base="file:///x"'),b'<svg width="2" height="2"><g id="a"/><g id="a"/></svg>']:
    with self.assertRaises(ValueError):sanitize_svg(data,'captured-image-v1')
  def test_selfcontained_historical_stock_descriptor_and_notes(self):
-  from krita_import import preset
+  from krita_import import convert_krita
   from brush_contract import Catalog
-  fixture=json.loads((Path(__file__).parent/'fixtures/svg_stock_fallback.json').read_text())
   with tempfile.TemporaryDirectory()as tmp:
-   actual=preset(base64.b64decode(fixture['sourceKppBase64']),'stock-fixture.kpp',Catalog(Path(tmp)),{'own.svg':base64.b64decode(fixture['resourcePngBase64'])})
-  self.assertEqual(actual['descriptor'],fixture['descriptor']);self.assertEqual(actual['compatibility'],fixture['compatibility'])
+   fixture,expected,raw,resource=stock_records(self,Path(tmp));catalog=Catalog(Path(tmp)/'new')
+   path=Path(tmp)/'stock-fixture.kpp';path.write_bytes(raw);convert_krita(path,catalog,{'own.svg':resource})
+   self.assertEqual(catalog.skipped,[]);self.assertEqual(catalog.brushes,[expected['record']]);self.assertEqual(list(catalog.assets.values()),expected['assets'])
+   for asset in expected['assets']:self.assertEqual(base64.b64encode((catalog.output/asset['file']).read_bytes()).decode(),expected['assetDataBase64'][asset['id']])
  def test_stock_prepared_png_path_does_not_invoke_new_decoder(self):
   from PIL import Image
   from krita_import import raster
@@ -80,11 +119,12 @@ class CapturedSvgTests(unittest.TestCase):
  def test_bundle_preserves_explicit_prepared_stock_override_exactly(self):
   from brush_contract import Catalog
   from krita_import import convert_krita
-  fixture=json.loads((Path(__file__).parent/'fixtures/svg_stock_fallback.json').read_text())
   with tempfile.TemporaryDirectory()as tmp:
+   fixture,expected,raw,resource=stock_records(self,Path(tmp))
    path=Path(tmp)/'own.bundle'
-   with zipfile.ZipFile(path,'w')as archive:archive.writestr('stock-fixture.kpp',base64.b64decode(fixture['sourceKppBase64']));archive.writestr('brushes/own.svg',SVG)
-   c=Catalog(Path(tmp)/'out');convert_krita(path,c,{'operator.bundle/brushes/own.svg':base64.b64decode(fixture['resourcePngBase64'])});self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor'],fixture['descriptor']);self.assertEqual(c.brushes[0]['compatibility'],fixture['compatibility'])
+   with zipfile.ZipFile(path,'w')as archive:archive.writestr('stock-fixture.kpp',raw);archive.writestr('brushes/own.svg',SVG)
+   c=Catalog(Path(tmp)/'out');convert_krita(path,c,{'operator.bundle/brushes/own.svg':resource});self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes,[expected['record']]);self.assertEqual(list(c.assets.values()),expected['assets'])
+   for asset in expected['assets']:self.assertEqual(base64.b64encode((c.output/asset['file']).read_bytes()).decode(),expected['assetDataBase64'][asset['id']])
  def test_genuine_embedded_svg_resource_not_external_loader(self):
   import hashlib
   from PIL import Image,PngImagePlugin
