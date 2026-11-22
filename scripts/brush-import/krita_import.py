@@ -2255,6 +2255,8 @@ def _tangent_source_action(root):
 
 
 def preset(data,name,catalog,external,depth=0,**options):
+    if type(options.get('_primary_clock_read',False)) is not bool:
+        raise ValueError('Private primary clock read must be boolean')
     adapter_private=options.pop('_adapter_private',False)
     if _SOURCE_SCOPE.get() is not None:
         return _preset_scoped(data,name,catalog,external,depth,**options)
