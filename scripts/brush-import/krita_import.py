@@ -2239,6 +2239,23 @@ def preset(data,name,catalog,external,depth=0,**options):
             mask=original_params.get('MaskingBrush/Enabled','')
             if original_params.get('PaintOpAction')=='2' and mask.lower() not in ('','false','0'):
                 raise ValueError('Native Sketch/Spray Wash with masking brush is unsupported')
+        # Guard only options consumed by these native roles. Other engines and
+        # disabled/copied fields must not be rejected by a global boolean scan.
+        original_params={p.get('name'):p.text or '' for p in root.findall('param')}
+        engine=root.get('paintopid')
+        candidates=[]
+        if engine=='paintbrush':
+            candidates.append(('', 'Size'))
+            if (original_params.get('PaintOpAction')=='2' and
+                enabled(original_params.get('MaskingBrush/Enabled'))):
+                candidates.append(('MaskingBrush/Preset/', 'Size'))
+        elif engine=='sketchbrush':
+            candidates.append(('', 'Line width'))
+        for prefix, option in candidates:
+            value=original_params.get(prefix+option+'UseCurve')
+            if (enabled(original_params.get(prefix+'Pressure'+option)) and
+                value is not None and value.lower() not in ('true','false','1','0')):
+                raise ValueError('Unsupported noncanonical '+prefix+option+'UseCurve')
         if root.get('paintopid')=='paintbrush':
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
             value=rotation_params.get('RotationUseCurve')
