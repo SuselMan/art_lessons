@@ -22,8 +22,8 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
         value=numeric(params.get(key),default)
         if not math.isfinite(value)or not lo<=value<=hi:raise ValueError('Deform setting outside bounded range: '+key)
         return value
-    diameter=number('Brush/diameter',80,1,1000);scale=number('Brush/scale',1,.01,10);aspect=number('Brush/aspect',1,.01,1)
-    spacing=number('Brush/spacing',.15,.001,10)/(2*scale)
+    diameter=number('Brush/diameter',20,1,1000);scale=number('Brush/scale',1,.01,10);aspect=number('Brush/aspect',1,.01,1)
+    spacing=number('Brush/spacing',.3,.001,10)/(2*scale)
     if spacing>100:raise ValueError('Deform spacing exceeds common sampler bound')
     mode=number('Deform/deformAction',1,1,8)
     if mode!=int(mode):raise ValueError('Deform mode must be integer')
@@ -44,7 +44,7 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     d['mixer']={'load':0,'initialLoad':0,'pickup':1,'strength':1,'source':'previousCanvas','smearAlpha':composite=='copy'}
     b=d['behavior'];b['spacing']={'mode':'diameter','coefficient':spacing,'isotropic':True}
     b['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
-    d['deform']={'version':1,'mode':int(mode),'amount':number('Deform/deformAmount',.05,0,1),'counter':enabled(params.get('Deform/useCounter')),'bilinear':enabled(params.get('Deform/bilinear')),'density':min(1,number('Brush/density',1,0,100)),'jitter':number('Brush/jitterMovement',0,0,10)if enabled(params.get('Brush/jitterMovementEnabled'))else 0,'baseScale':scale}
+    d['deform']={'version':1,'mode':int(mode),'amount':number('Deform/deformAmount',.2,0,1),'counter':enabled(params.get('Deform/useCounter')),'bilinear':enabled(params.get('Deform/bilinear')),'density':min(1,number('Brush/density',1,0,100)),'jitter':number('Brush/jitterMovement',0,0,10)if enabled(params.get('Brush/jitterMovementEnabled'))else 0,'baseScale':scale}
     if old_data:
         d['version']=145
         d['deform']['sourcePolicy']='canonical-begin-v1'

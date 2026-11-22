@@ -10,7 +10,7 @@ PIN='3f6d88ce1edf74e70477e5318beb7dffee9f9283'
 TIMER='<param name="PaintOpSettings/isAirbrushing">true</param>'
 RATE='<param name="PressureRate">true</param><param name="RateSensor">&lt;params id="pressure"&gt;&lt;curve&gt;0,0;1,1;&lt;/curve&gt;&lt;/params&gt;</param><param name="RateValue">0.5</param>'
 class Rate164165Tests(unittest.TestCase):
- def raw(self,family,extra):return kpp(engine={'Sketch':'sketchbrush','Deform':'deformbrush','Particle':'particlebrush'}[family],resources=({'Sketch':'<param name="Sketch/simpleMode">true</param>','Deform':'<param name="Deform/useOldData">true</param>','Particle':''}[family])+extra)
+ def raw(self,family,extra):return kpp(engine={'Sketch':'sketchbrush','Deform':'deformbrush','Particle':'particlebrush'}[family],resources=({'Sketch':'<param name="Sketch/simpleMode">true</param>','Deform':'<param name="Deform/useOldData">true</param><param name="Brush/diameter">80</param><param name="Brush/spacing">0.15</param><param name="Deform/deformAmount">0.05</param>','Particle':''}[family])+extra)
  def test_real_native_dynamic_pressure_strength_and_false_remain_closed(self):
   for family,version in[('Sketch',164),('Deform',165)]:
    raw=self.raw(family,TIMER+RATE)

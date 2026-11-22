@@ -22,3 +22,13 @@ class DeformTests(unittest.TestCase):
         current=self.convert('<param name="Deform/useOldData">false</param>')['descriptor'];self.assertEqual(current['version'],51);self.assertNotIn('sourcePolicy',current['deform'])
     def test_bad_mode_rejected(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.convert('<param name="Deform/deformAction">1.5</param>')
+    def test_missing_fields_use_pinned_krita_defaults(self):
+        result=self.convert();d=result['descriptor']
+        self.assertEqual(d['deform']['amount'],0.2)
+        self.assertEqual(d['behavior']['spacing']['coefficient'],0.15)
+        self.assertEqual(result['sourceDefaults']['sizePx'],20)
+    def test_explicit_deform_fields_override_defaults(self):
+        result=self.convert('<param name="Brush/diameter">42</param><param name="Brush/spacing">0.5</param><param name="Deform/deformAmount">0.7</param>');d=result['descriptor']
+        self.assertEqual(d['deform']['amount'],0.7)
+        self.assertEqual(d['behavior']['spacing']['coefficient'],0.25)
+        self.assertEqual(result['sourceDefaults']['sizePx'],42)
