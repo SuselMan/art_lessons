@@ -1,9 +1,14 @@
 """Canonical false checked flag for native NotCheckable brush controls."""
 import tempfile
+import io
+import xml.etree.ElementTree as ET
+from PIL import Image, PngImagePlugin
 import unittest
 from pathlib import Path
 from zipfile import ZipFile
 from convert import Catalog
+from brush_contract import finalize_identity
+import copy
 from krita_import import convert_krita, _SOURCE_SCOPE
 from test_krita_size_strength import authored
 from test_sketch_spray194 import native194
@@ -78,6 +83,31 @@ class CanonicalNotCheckable(unittest.TestCase):
             self.assertEqual(len(catalog.brushes),1)
             self.assertEqual(catalog.brushes[0]['descriptor']['flowByPressure'],[[0,1],[1,1]])
             self.assertIsNone(_SOURCE_SCOPE.get())
+
+    def test_tangent_typed_action_buildup_and_fail_closed(self):
+        def with_action(action, typ=None):
+            raw=native194('tangentnormal',params={'PressureFlow':'false','FlowUseCurve':'true','FlowSensor':'<params id="pressure"/>'})
+            image=Image.open(io.BytesIO(raw));image.load();root=ET.fromstring(image.info['preset'])
+            node=next(p for p in root.findall('param') if p.get('name')=='PaintOpAction')
+            node.text=action
+            if typ:node.set('type',typ)
+            info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'))
+            out=io.BytesIO();image.save(out,format='PNG',pnginfo=info);return out.getvalue()
+        for value,typ in (('1',None),(' +001 ',None),('MQ==','bytearray')):
+            for bundle in (False,True):
+                with self.subTest(value=value,typ=typ,bundle=bundle):
+                    self.assertEqual(self.load(with_action(value,typ),bundle=bundle)['flowByPressure'],[[0,0],[1,1]])
+        raw=with_action('MQ==','bytearray')
+        descriptor=self.load(raw)
+        self.assertEqual(descriptor['id'],finalize_identity(copy.deepcopy(descriptor),raw)['id'])
+        for value,typ in (('Mg==','bytearray'),('%%%','bytearray'),('0',None),('3',None),('02',None)):
+            with self.subTest(value=value,typ=typ),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                root=Path(tmp);path=root/'pair.bundle'
+                with ZipFile(path,'w') as z:
+                    z.writestr('bad.kpp',with_action(value,typ));z.writestr('good.kpp',authored({'PressureSize':'true','SizeUseCurve':'true'}))
+                catalog=Catalog(root/'out');convert_krita(path,catalog)
+                self.assertEqual(len(catalog.skipped),1);self.assertIn('Unsupported',str(catalog.skipped))
+                self.assertEqual(len(catalog.brushes),1);self.assertIsNone(_SOURCE_SCOPE.get())
 
     def test_unrelated_adapters_do_not_gain_sketch_flow(self):
         for engine in ('sketchbrush','spraybrush'):
