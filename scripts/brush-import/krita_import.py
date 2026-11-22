@@ -536,8 +536,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         option=pen_key[:-6] if pen_key.endswith('Sensor') else ''
         checked=params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
         if not option or not enabled(checked)or not enabled(params.get(option+'UseCurve','true')):continue
-        if engine=='colorsmudge' and pen_key=='ColorRateSensor' and pen_value=='':
-            # Krita treats an empty sensor definition as its pressure fallback.
+        if pen_value=='':
+            # Krita's sensor pack resolves an empty definition to pressure.
             pen_value='<params id="pressure"/>'
         pen_nodes=xml(pen_value);pen_nodes=list(pen_nodes.findall('ChildSensor'))if pen_nodes.get('id')=='sensorslist'else[pen_nodes]
         native_source_time |= any(n.get('id')=='time' for n in pen_nodes)
@@ -1256,7 +1256,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         rotation_decoded=True;rotation_static=True
         notes.append(compatibility('RotationConstant','Checked Rotation with a disabled sensor curve retains its native constant half-turn; saved sensor data is inactive.','supported'))
     if enabled(params.get('PressureRotation')) and enabled(params.get('RotationUseCurve','true')):
-        rotation_sensor=xml(params.get('RotationSensor','<params id="pressure"/>'))
+        rotation_sensor=xml(params.get('RotationSensor') or '<params id="pressure"/>')
         rotation_sensors=list(rotation_sensor.findall('ChildSensor')) if rotation_sensor.get('id')=='sensorslist' else [rotation_sensor]
         strength=numeric(params.get('RotationValue'),1)
         # A single additive direction sensor: C(u) is evaluated BEFORE the
@@ -1282,7 +1282,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     def single_rotation_curve(node):
         # Krita selects the old curve by presence of the literal token in the
         # sensor XML, and an explicitly empty common curve means identity.
-        definition=params.get('RotationSensor','<params id="pressure"/>')
+        definition=params.get('RotationSensor') or '<params id="pressure"/>'
         same=params.get('RotationUseSameCurve','true')
         if not isinstance(same,str) or same.lower() not in ('true','false','1','0'):
             raise ValueError('Unsupported noncanonical RotationUseSameCurve')
@@ -1730,7 +1730,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 # skips its sensors unless at least one native axis is enabled.
                 if option=='Mirror' and not (enabled(params.get('HorizontalMirrorEnabled'))or enabled(params.get('VerticalMirrorEnabled'))):continue
                 if not enabled(params.get('Pressure'+option))or not enabled(params.get(option+'UseCurve','true')):continue
-                sensor=xml(params.get(option+'Sensor','<params id="pressure"/>'))
+                sensor=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
                 sensors=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
                 if any(node.get('id')=='fuzzy'for node in sensors):refresh_random.append(option)
             rate_notes=[]
@@ -2043,7 +2043,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if (depth==0 and engine=='paintbrush'and _allow_texture_material and _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY
             and 'timing'in behavior and isinstance(behavior.get('dual'),dict)):
         child_params={key[len('MaskingBrush/Preset/'):]:value for key,value in params.items()if key.startswith('MaskingBrush/Preset/')}
-        size_sensor=xml(child_params.get('SizeSensor','<params id="pressure"/>')if enabled(child_params.get('PressureSize'))and enabled(child_params.get('SizeUseCurve','true'))else'<params id="pressure"/>')
+        size_sensor=xml((child_params.get('SizeSensor') or '<params id="pressure"/>')if enabled(child_params.get('PressureSize'))and enabled(child_params.get('SizeUseCurve','true'))else'<params id="pressure"/>')
         nodes=list(size_sensor.findall('ChildSensor'))if size_sensor.get('id')=='sensorslist'else[size_sensor]
         if (enabled(child_params.get('PressureSize'))and enabled(child_params.get('SizeUseCurve','true'))
                 and any(node.get('id')=='time'for node in nodes)and not enabled(child_params.get('PaintOpSettings/isAirbrushing'))):
