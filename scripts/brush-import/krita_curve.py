@@ -42,7 +42,7 @@ def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     ET.SubElement(transformed,'param',name='brush_definition').text='<Brush type="auto_brush" spacing="0.1" angle="0"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1" diameter="1"/></Brush>'
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
-    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d['version']=53
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False,_adapter_private=True);d=result['descriptor'];d['version']=53
     d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('rotation','scatter','spacing'):d['behavior'].pop(key,None)

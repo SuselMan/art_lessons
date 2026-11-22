@@ -28,7 +28,7 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
     original_source={}
-    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False,_bristle_source_capture=original_source);d=result['descriptor'];tip=d['tip']
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False,_adapter_private=True,_bristle_source_capture=original_source);d=result['descriptor'];tip=d['tip']
     side=max(1,round(result['sourceDefaults']['sizePx']))
     if side>256:raise ValueError('Bristle initialization mask exceeds256px')
     if tip['kind']=='bitmap':
