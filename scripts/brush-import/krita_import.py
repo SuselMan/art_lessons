@@ -2242,10 +2242,20 @@ def preset(data,name,catalog,external,depth=0,**options):
         if root.get('paintopid')=='paintbrush':
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
             mask=rotation_params.get('MaskingBrush/Enabled')
+            mask_node=next((p for p in reversed(root.findall('param')) if p.get('name')=='MaskingBrush/Enabled'),None)
+            if mask_node is not None and mask_node.get('type')=='bytearray':
+                try:
+                    decoded_mask=base64.b64decode(''.join((mask or '').split()),validate=True).decode('ascii')
+                    # Typed disabled values are also disabled by the importer;
+                    # typed enabled values are not, so they must fail closed.
+                    canonical_mask=decoded_mask.lower() in ('','false','0')
+                except (ValueError, UnicodeError):
+                    canonical_mask=False
+            else:
+                canonical_mask=mask is None or mask.lower() in ('','true','false','1','0')
             action=rotation_params.get('PaintOpAction')
             action_node=next((p for p in reversed(root.findall('param')) if p.get('name')=='PaintOpAction'),None)
-            if (options.get('_allow_texture_material', True) and mask is not None
-                    and mask.lower() not in ('true','false','1','0') and action_node is not None
+            if (options.get('_allow_texture_material', True) and not canonical_mask and action_node is not None
                     and action_node.get('type')=='bytearray'):
                 try:
                     action=base64.b64decode(''.join((action or '').split()),validate=True).decode('ascii')
@@ -2254,8 +2264,7 @@ def preset(data,name,catalog,external,depth=0,**options):
             # Present values other than QString integer 1 select Wash in
             # Krita. A missing value selects BuildUp; preserve source bytes.
             wash=action is not None and re.fullmatch(r'\+?0*1', action.strip()) is None
-            if (options.get('_allow_texture_material', True) and wash and mask is not None
-                    and mask.lower() not in ('true','false','1','0')):
+            if (options.get('_allow_texture_material', True) and wash and not canonical_mask):
                 raise ValueError('Unsupported noncanonical MaskingBrush/Enabled for Pixel Wash')
             value=rotation_params.get('RotationUseCurve')
             if enabled(rotation_params.get('PressureRotation')) and value is not None and value.lower() not in ('true','false','1','0'):
