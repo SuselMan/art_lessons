@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from zipfile import ZipFile
 import convert
 from krita_import import convert_krita
 from stroke_input import validate_policy
@@ -157,18 +158,32 @@ class StrokeInputTests(unittest.TestCase):
         self.assertEqual(curved['behavior']['strokeInput'],POLICY)
         self.assertIn('absolute',curved['behavior']['rotation']['composition'])
     def test_checked_pair120_and_malformed_child_keeps_unsupported_gap(self):
-        for childsensor in ('<params id="drawingangle"/>','<params id="drawingangle" fanCornersEnabled="1" fanCornersStep="91"/>'):
+        for childsensor in ('<params id="drawingangle"/>',):
             p={**PARAMS,'MaskingBrush/Enabled':'true','MaskingBrush/Preset/brush_definition':'<Brush type="auto_brush"><MaskGenerator type="circle" diameter="30" ratio="1"/></Brush>','MaskingBrush/Preset/PressureRotation':'true','MaskingBrush/Preset/RotationSensor':childsensor}
             b=self.brush(p,stroke_input=True);self.assertEqual(b['descriptor']['behavior']['strokeInput'],POLICY)
             if childsensor=='<params id="drawingangle"/>':
                 self.assertEqual(b['descriptor']['version'],120)
                 self.assertEqual(b['descriptor']['behavior']['dual']['brush']['behavior']['strokeInput'],POLICY)
                 self.assertTrue(any(n['feature']=='masking.strokeInput'and n['status']=='supported'for n in b['compatibility']))
-            else:
-                self.assertNotIn('strokeInput',b['descriptor']['behavior']['dual']['brush']['behavior'])
-                self.assertTrue(any(n['feature']=='masking.strokeInput'and n['status']=='unsupported'for n in b['compatibility']))
             p['MaskingBrush/Enabled']='false';b=self.brush(p,stroke_input=True)
             self.assertFalse(any(n['feature']=='masking.strokeInput' for n in b['compatibility']))
+    def test_invalid_child_fan_is_reported_for_file_and_bundle(self):
+        child={'MaskingBrush/Enabled':'true','MaskingBrush/Preset/brush_definition':'<Brush type="auto_brush"><MaskGenerator type="circle" diameter="30" ratio="1"/></Brush>','MaskingBrush/Preset/PressureRotation':'true'}
+        bad={**PARAMS,**child,'MaskingBrush/Preset/RotationSensor':'<params id="drawingangle" fanCornersEnabled="1" fanCornersStep="91"/>'}
+        good={**PARAMS,**child,'MaskingBrush/Preset/RotationSensor':'<params id="drawingangle"/>'}
+        for opts in ({},{'timed_input':False}):
+            with self.subTest(opts=opts), tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp); path=root/'bad.kpp'; path.write_bytes(authored(bad))
+                catalog=convert.Catalog(root/'single');convert_krita(path,catalog,stroke_input=True,**opts)
+                self.assertEqual(catalog.brushes,[])
+                self.assertEqual(catalog.skipped,[{'name':'bad','reasons':['Invalid DrawingAngle fan step']}])
+                path=root/'pair.bundle'
+                with ZipFile(path,'w') as archive:
+                    archive.writestr('bad.kpp',authored(bad));archive.writestr('good.kpp',authored(good))
+                catalog=convert.Catalog(root/'bundle');convert_krita(path,catalog,stroke_input=True,**opts)
+                self.assertEqual(catalog.skipped,[{'name':'bad','reasons':['Invalid DrawingAngle fan step']}])
+                self.assertEqual(len(catalog.brushes),1)
+                self.assertEqual(catalog.brushes[0]['descriptor']['behavior']['dual']['brush']['behavior']['strokeInput'],POLICY)
     def test_portable_primary_valid_and_invalid_atomic(self):
         brush=self.brush(stroke_input=True)
         with tempfile.TemporaryDirectory() as tmp:
