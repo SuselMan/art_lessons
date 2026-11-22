@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "brushes": [
+    {
+      "descriptor": {
+        "id": "imported-8f7db2f04de6c97d45c3b375",
+        "version": 193,
+        "model": "mixer",
+        "category": "paint",
+        "tip": {
+          "kind": "bitmap",
+          "mask": "asset:6d4c12137cc1e5454925aa64cd582a5b6eefd54ee038095b44abec0cf8a44c7a",
+          "hardness": 0.7,
+          "aspect": 1.0,
+          "rotation": "fixed",
+          "angle": 0.0,
+          "maskBounds": {
+            "x": 0.0,
+            "y": 0.0,
+            "width": 1.0,
+            "height": 1.0
+          },
+          "sourceGeometry": {
+            "version": 1,
+            "width": 4,
+            "height": 4
+          }
+        },
+        "paperInteraction": 0,
+        "spacing": 0.1,
+        "flow": 1,
+        "flowPer": "stamp",
+        "sizeByPressure": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "flowByPressure": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "opacityByPressure": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "pressureSmoothingPx": 0,
+        "opacity": 1,
+        "mixer": {
+          "load": 0,
+          "pickup": 1,
+          "strength": 1,
+          "initialLoad": 0,
+          "smearAlpha": true,
+          "source": "previousCanvas",
+          "colorRateComposite": "normal"
+        },
+        "behavior": {
+          "version": 2,
+          "speedInput": {
+            "version": 1,
+            "space": "view",
+            "maximum": 30,
+            "estimator": "grafettoEMA30ms"
+          },
+          "rendering": {
+            "opacityCeiling": "uniform",
+            "mode": "buildUp",
+            "blendMode": "normal",
+            "wetEdges": 0,
+            "burntEdges": 0,
+            "burntEdgesMode": "multiply",
+            "accumulation": "directOver"
+          },
+          "spacing": {
+            "mode": "diameter",
+            "coefficient": 0.1
+          },
+          "strokeInput": {
+            "version": 1,
+            "initialDirection": "cursorHistory"
+          }
+        }
+      },
+      "name": "QA Krita",
+      "source": "fixture.kpp",
+      "warnings": [
+        "kritaEngine: Krita colorsmudge settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+        "OpacityCurve: Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.",
+        "colorSmudge: Legacy normal ALPHAMASK smearing samples previous canvas with optional foreground; native mask/byte quantization require calibration.",
+        "smudgeStaticResampling193: Static raw coverage/pigment uses the common native-geometry sampler. Native Qt integer pyramid/filter/subpixel pixel identity is not claimed."
+      ],
+      "compatibility": [
+        {
+          "feature": "kritaEngine",
+          "status": "approximate",
+          "detail": "Krita colorsmudge settings translated to Grafetto; vendor pixel equivalence is not claimed."
+        },
+        {
+          "feature": "OpacityCurve",
+          "status": "approximate",
+          "detail": "Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+        },
+        {
+          "feature": "colorSmudge",
+          "status": "approximate",
+          "detail": "Legacy normal ALPHAMASK smearing samples previous canvas with optional foreground; native mask/byte quantization require calibration."
+        },
+        {
+          "feature": "colorSmudge193",
+          "status": "supported",
+          "detail": "Whole native Color Smudge keeps existing legacy/modern/unshaded-height feedback. Captured composite applies only to foreground Color Rate; final transfer is unchanged. Native Pixel Flow/Softness/Sharpness are ignored. Original tip geometry, per-request selectors and captured source inputs remain independent. Qt/ICC/U8/native RNG identity is not claimed."
+        },
+        {
+          "feature": "smudgeStaticGeometry193",
+          "status": "supported",
+          "detail": "Original static bitmap width/height and native square padding are retained as explicit geometry; no animation or descriptor proxy."
+        },
+        {
+          "feature": "smudgeStaticResampling193",
+          "status": "approximate",
+          "detail": "Static raw coverage/pigment uses the common native-geometry sampler. Native Qt integer pyramid/filter/subpixel pixel identity is not claimed."
+        }
+      ],
+      "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+      "sourceDefaults": {
+        "sizePx": 4.0,
+        "opacity": 1,
+        "flow": 1
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset:6d4c12137cc1e5454925aa64cd582a5b6eefd54ee038095b44abec0cf8a44c7a",
+      "size": 4,
+      "file": "6d4c12137cc1e5454925aa64cd582a5b6eefd54ee038095b44abec0cf8a44c7a.bin"
+    }
+  ],
+  "skipped": []
+}
