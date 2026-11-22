@@ -1005,7 +1005,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             if kind=='svg_brush':
                 notes.append(compatibility('svgRasterizer','Captured SVG mask rasterized on white at1000px by bounded librsvg policy; Qt edge/indexed-gray rounding may differ. Unsupported external resources/fonts/filters are rejected.'if captured_svg_source else'Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
-        source_size=max(mask.size)*numeric(definition.get('scale'),1)
+        scale=numeric(definition.get('scale'),1)
+        if definition.get('BrushVersion','1')=='1':scale*=2
+        source_size=max(mask.size)*scale
         source_metric=mask.size
         if (COMPONENT193.get()or COMPONENT194.get())and d['tip'].get('kind')=='bitmap'and 'animation'not in d['tip']:
             if any(type(v)is not int or not 1<=v<=2048 for v in source_metric):raise ValueError('Smudge193 static source geometry exceeds existing2048 bound')
