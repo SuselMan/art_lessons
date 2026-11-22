@@ -1,13 +1,37 @@
 """Missing native random options must survive as independent response inputs."""
 from pathlib import Path
 import copy
+import io
 import tempfile
 import unittest
 import convert
 from PIL import Image,PngImagePlugin
-from krita_import import convert_krita
+from krita_import import convert_krita, preset
+from test_krita import kpp
 
 class RandomOptionTests(unittest.TestCase):
+    def test_pixel_color_source_is_reported_only_when_used(self):
+        for source in ('gradient','uniform_random','total_random','pattern','lockedpattern'):
+            with self.subTest(source=source):
+                result=self.brush({'ColorSource/Type':source})
+                notes=[n for n in result['compatibility'] if n['feature']=='colorSource']
+                self.assertEqual(len(notes),1)
+                self.assertEqual(notes[0]['status'],'unsupported')
+                self.assertIn(source,notes[0]['detail'])
+                self.assertTrue(any('colorSource:' in w for w in result['warnings']))
+        for params in ({},{'ColorSource/Type':'plain'},{'ColorSource/Type':'unknown'}):
+            self.assertFalse(any(n['feature']=='colorSource' for n in self.brush(params)['compatibility']))
+        combined=self.brush({'ColorSource/Type':'gradient','PressureMix':'true','MixUseCurve':'true','MixSensor':'<params id="pressure"/>','PaintOpAction':'2'})
+        self.assertTrue(any(n['feature']=='colorSource' and n['status']=='unsupported' for n in combined['compatibility']))
+
+    def test_image_stamp_ignores_selected_color_source(self):
+        image=Image.new('RGBA',(2,2),(40,80,160,255));raw=io.BytesIO();image.save(raw,format='PNG')
+        definition='<Brush type="png_brush" filename="tip.png" brushApplication="1"/>'
+        data=kpp(definition,resources='<param name="ColorSource/Type">gradient</param>')
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(data,'stamp.kpp',convert.Catalog(Path(tmp)),{'tip.png':raw.getvalue()})
+            self.assertFalse(any(n['feature']=='colorSource' for n in result['compatibility']))
+
     def brush(self,params):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'Generic.kpp'
