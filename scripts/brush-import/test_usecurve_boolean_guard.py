@@ -94,10 +94,21 @@ class UseCurveBooleanGuard(unittest.TestCase):
                     with self.subTest(action=action,flag=flag,checked=checked),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
                         result=self.exercise(tmp,tangent_authored(action,values))
                         if flag=='yes': self.assertIn('Unsupported noncanonical FlowUseCurve',str(result.skipped))
-                        elif action=='2' and flag=='true': self.assertIn('Tangent Wash pressure Flow requires a new renderer',str(result.skipped))
+                        elif action=='2' and flag=='true': self.assertIn('Tangent Wash Flow requires a new renderer',str(result.skipped))
                         else:
                             self.assertEqual(result.skipped,[])
                             self.assertEqual(result.brushes[0]['descriptor']['flowByPressure'],[[0,0],[1,1]] if flag=='true' else [[0,1],[1,1]])
+
+    def test_tangent_wash_rejects_nonneutral_flow_and_keeps_neighbor(self):
+        for extra in ({'FlowUseCurve':'false','FlowValue':'.4'},
+                      {'FlowUseCurve':'true','FlowValue':'1'},
+                      {'FlowUseCurve':'yes','FlowValue':'1'},
+                      {'FlowUseCurve':'false','FlowValue':'1_0e-1'}):
+            with self.subTest(extra=extra),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                result=self.exercise(tmp,tangent_authored('2',extra),bundle=True)
+                self.assertEqual(len(result.skipped),1)
+                self.assertEqual(len(result.brushes),1)
+                self.assertTrue(any(x in str(result.skipped) for x in ('Tangent Wash Flow requires a new renderer','Unsupported noncanonical FlowUseCurve')))
 
     def test_other_confirmed_opacity_consumers(self):
         for engine in ('deformbrush','colorsmudge','duplicate','tangentnormal'):

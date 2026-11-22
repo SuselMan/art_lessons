@@ -1,6 +1,6 @@
 """Tangent Normal uses the ordinary mask/sensors with RGB vector encoding."""
 from native_timing195 import clock_enabled
-import io,math
+import io,math,re
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
 from brush_contract import finalize_identity,compatibility
@@ -17,15 +17,14 @@ def tangent_normal_preset(data,root,params,name,catalog,external):
     elevation=number('elevationSensitivity',100,0,100)/100
     mix=number('mixValue',50,0,100)/100
     native_wash=params.get('PaintOpAction','1')=='2'
-    # Legacy Wash descriptors discard flow; reject the demonstrated ordinary
-    # pressure case until a versioned renderer supports it.
-    if native_wash and params.get('FlowUseCurve','true').lower() in ('true','1'):
-        sensor=params.get('FlowSensor','').strip()
-        default_pressure = not sensor or sensor.replace(' ', '') in ('<paramsid="pressure"/>', "<paramsid='pressure'/>")
-        try: strength=float(params.get('FlowValue','1'))
-        except ValueError: strength=float('nan')
-        if default_pressure and params.get('CustomFlow','false').lower() in ('false','0') and 'FlowcommonCurve' not in params and strength>0 and math.isfinite(strength):
-            raise ValueError('Tangent Wash pressure Flow requires a new renderer')
+    # These old Wash descriptor versions discard Flow. Admit only a proven
+    # neutral native value; a new descriptor/runtime is required for the rest.
+    if native_wash:
+        curve=params.get('FlowUseCurve','true').lower()
+        strength=params.get('FlowValue','1').strip()
+        numeric=re.fullmatch(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?',strength)
+        if curve not in ('false','0') or not numeric or float(strength)!=1:
+            raise ValueError('Tangent Wash Flow requires a new renderer')
     # Private Pixel conversion can retain timing only as a warning, so reject the
     # new closed Wash scope from original native flags before descriptor lowering.
     if native_wash and any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Tangent Wash136 timed painting unsupported')
