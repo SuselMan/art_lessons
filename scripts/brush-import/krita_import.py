@@ -2254,6 +2254,47 @@ def _tangent_source_action(root):
     raise ValueError('Unsupported Tangent PaintOpAction encoding or Wash mode')
 
 
+def _qt_guard_text(node):
+    """Read QString or canonical QByteArray; malformed base64 fails closed."""
+    if node is None: return None
+    raw=node.text or ''
+    if node.get('type') != 'bytearray': return raw
+    try: return base64.b64decode(raw,validate=True).decode('latin-1')
+    except (ValueError,UnicodeError): raise ValueError('Unsupported malformed typed '+(node.get('name') or 'property')) from None
+
+
+def _reject_active_usecurve_yes(root):
+    """Prevent confirmed silent loss, only for original public source roles."""
+    nodes={p.get('name'):p for p in root.findall('param')}
+    def text(name): return _qt_guard_text(nodes.get(name))
+    def qt_true(name):
+        value=text(name)
+        return value is not None and value.lower() not in ('','0','false')
+    def yes(name):
+        value=text(name)
+        return value is not None and value.lower()=='yes'
+    engine=root.get('paintopid')
+    candidates=[]
+    if engine=='paintbrush':
+        if yes('SizeUseCurve') and qt_true('PressureSize'): candidates.append('Size')
+        candidates.extend(('Opacity','Flow'))  # NotCheckable in native Pixel
+        child_option='MaskingBrush/Preset/Size'
+        if (child_option+'UseCurve' in nodes and qt_true('MaskingBrush/Enabled')
+                and qt_true('MaskingBrush/Preset/PressureSize') and yes(child_option+'UseCurve')):
+            action=text('PaintOpAction')
+            # Missing action means BuildUp; an unparseable typed value remains
+            # outside this guard rather than rejecting an inactive mask.
+            typed_unknown='PaintOpAction' in nodes and action is None
+            wash=action is not None and re.fullmatch(r'\+?0*1',action.strip()) is None
+            if wash and not typed_unknown:
+                candidates.append(child_option)
+    elif engine=='sketchbrush' and yes('Line widthUseCurve') and qt_true('PressureLine width'):
+        candidates.append('Line width')
+    for option in candidates:
+        if yes(option+'UseCurve'):
+            raise ValueError('Unsupported noncanonical '+option+'UseCurve')
+
+
 def preset(data,name,catalog,external,depth=0,**options):
     if type(options.get('_primary_clock_read',False)) is not bool:
         raise ValueError('Private primary clock read must be boolean')
@@ -2275,6 +2316,7 @@ def preset(data,name,catalog,external,depth=0,**options):
             raise ValueError('KPP must be a bounded PNG')
         source.load()
         root=xml(source.info.get('preset',''))
+    _reject_active_usecurve_yes(root)
     params={p.get('name'):p.text or '' for p in root.findall('param')}
     engine=root.get('paintopid') or ''
     action=_tangent_source_action(root) if engine=='tangentnormal' else params.get('PaintOpAction')
