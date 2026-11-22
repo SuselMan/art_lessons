@@ -33,12 +33,21 @@ class HatchingTests(unittest.TestCase):
     def test_world_configuration(self):
         a=self.convert('<param name="Hatching/bool_nocrosshatching">false</param><param name="Hatching/bool_moirepattern">true</param><param name="Hatching/origin_x">12</param>');self.assertEqual(a['descriptor']['version'],47);self.assertEqual(a['descriptor']['hatching']['style'],'moire');self.assertEqual(a['descriptor']['hatching']['origin'],[12,50])
     def test_missing_intervals_with_checked_separation_is_rejected(self):
-        with self.assertRaisesRegex(ValueError,'checked separation without intervals'):
+        with self.assertRaisesRegex(ValueError,'checked separation without valid integer intervals'):
             self.convert('<param name="PressureSeparation">true</param>')
         explicit=self.convert('<param name="PressureSeparation">true</param><param name="Hatching/separationintervals">2</param>')['descriptor']['hatching']
         self.assertEqual(explicit['intervals'],2);self.assertIn('separation',explicit['dynamics'])
+        for value in ('','garbage','2.0','2e0'):
+            with self.subTest(value=value),self.assertRaisesRegex(ValueError,'checked separation without valid integer intervals'):
+                self.convert('<param name="PressureSeparation">true</param><param name="Hatching/separationintervals">'+value+'</param>')
+        for value in (' 2 ','+2','02'):
+            with self.subTest(value=value):
+                d=self.convert('<param name="PressureSeparation">true</param><param name="Hatching/separationintervals">'+value+'</param>')['descriptor']['hatching']
+                self.assertEqual(d['intervals'],2)
         disabled=self.convert('<param name="PressureSeparation">false</param>')['descriptor']['hatching']
         self.assertEqual(disabled['intervals'],2);self.assertNotIn('separation',disabled.get('dynamics',{}))
+        blank=self.convert('<param name="PressureSeparation">false</param><param name="Hatching/separationintervals"></param>')['descriptor']['hatching']
+        self.assertEqual(blank['intervals'],2);self.assertNotIn('separation',blank.get('dynamics',{}))
 
     def test_checked_cross_control_keeps_presence(self):
         a=self.convert('<param name="PressureCrosshatching">true</param><param name="CrosshatchingUseCurve">false</param>');self.assertIn('cross',a['descriptor']['hatching']['dynamics']);self.assertFalse(any(n['status']=='unsupported' and 'PressureCrosshatching' in n['detail'] for n in a['compatibility']))

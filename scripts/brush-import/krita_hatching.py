@@ -1,6 +1,6 @@
 """World-anchored hatching mask; common tip/dynamics remain in the stamp path."""
 from native_timing195 import clock_enabled
-import io,math
+import io,math,re
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
 from brush_contract import finalize_identity,compatibility
@@ -8,8 +8,10 @@ from brush_contract import finalize_identity,compatibility
 
 def hatching_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
-    if enabled(params.get('PressureSeparation')) and 'Hatching/separationintervals' not in params:
-        raise ValueError('Hatching checked separation without intervals is unsupported')
+    if enabled(params.get('PressureSeparation')):
+        raw_intervals=params.get('Hatching/separationintervals')
+        if not isinstance(raw_intervals,str) or not re.fullmatch(r'[+-]?[0-9]+',raw_intervals.strip()):
+            raise ValueError('Hatching checked separation without valid integer intervals is unsupported')
     if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Hatching timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Hatching supports normal compositing only')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
