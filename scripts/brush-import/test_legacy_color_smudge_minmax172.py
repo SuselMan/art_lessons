@@ -2,6 +2,7 @@ import unittest,tempfile,copy,json,base64
 from pathlib import Path
 from test_krita import kpp
 from krita_import import convert_krita
+from smudge_record_test_helpers import assert_old_portable_and_new_import
 import convert
 class LegacyMinMax172Tests(unittest.TestCase):
  def test_native_both_modes_preserve_legacy_rates_and_portable_closed_scope(self):
@@ -39,7 +40,7 @@ class LegacyMinMax172Tests(unittest.TestCase):
       from color_smudge193 import scope193
       self.assertTrue(scope193(d))
 
- def test_old_full_records_and_physical_resources_unchanged(self):
+ def test_historical_records_portable_and_public_import_expected_changes(self):
   import hashlib
   expected=json.loads((Path(__file__).parent/'fixtures/legacy_foreground_pre172.json').read_text())
   for mode in('normal','multiply','screen','overlay'):
@@ -47,7 +48,7 @@ class LegacyMinMax172Tests(unittest.TestCase):
     with self.subTest(mode=mode,smearAlpha=alpha),tempfile.TemporaryDirectory()as tmp:
      r=Path(tmp);p=r/'Own.kpp';p.write_bytes(kpp(engine='colorsmudge',mode=mode,resources='<param name="SmudgeRateUseNewEngine">false</param><param name="PressureSmudgeRate">true</param><param name="SmudgeRateValue">0.5</param><param name="SmudgeRateSmearAlpha">'+alpha+'</param><param name="PressureColorRate">true</param><param name="ColorRateValue">1</param><param name="PressureSize">true</param>'));out=convert.Catalog(r/'out');convert_krita(p,out,{})
      actual={'brushes':out.brushes,'assets':out.assets,'rawCAS':{aid:hashlib.sha256((out.output/a['file']).read_bytes()).hexdigest()for aid,a in out.assets.items()}}
-     self.assertEqual(actual,expected[mode+'/'+alpha])
+     assert_old_portable_and_new_import(self,expected[mode+'/'+alpha],actual,p.read_bytes(),r)
 
  def test_genuine_bitmap_alpha_mask_cas_and_portable_resources(self):
   import io
