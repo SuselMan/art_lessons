@@ -1277,7 +1277,20 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and rotation_sensors[0].get('id')=='drawingangle'
             and numeric(params.get('RotationcurveMode'),0)==0):
         node=rotation_sensors[0]
-        curve=(params.get('RotationcommonCurve') if enabled(params.get('RotationUseSameCurve','true')) else None) or node.findtext('curve') or '0,0;1,1;'
+        # Legacy sensor curves apply only when no curve is in the sensor XML.
+        sensor_definition=params.get('RotationSensor','<params id="pressure"/>')
+        same_curve=params.get('RotationUseSameCurve','true')
+        if not isinstance(same_curve,str) or same_curve.lower() not in ('true','false','1','0'):
+            raise ValueError('Unsupported noncanonical RotationUseSameCurve')
+        custom=params.get('CustomRotation','false')
+        common_override=enabled(same_curve) and 'RotationcommonCurve' in params
+        if 'curve' not in sensor_definition and not common_override and (not isinstance(custom,str) or custom.lower() not in ('true','false','1','0')):
+            raise ValueError('Unsupported noncanonical CustomRotation')
+        legacy=(params.get('CurveRotation') if 'curve' not in sensor_definition and enabled(params.get('CustomRotation')) else None)
+        if enabled(params.get('RotationUseSameCurve','true')) and 'RotationcommonCurve' in params:
+            curve=params.get('RotationcommonCurve') or '0,0;1,1;'
+        else:
+            curve=node.findtext('curve') or legacy or '0,0;1,1;'
         if native_transfer(curve)==[[0,0],[1,1]] and not enabled(node.get('lockedAngleMode'))and not(COMPONENT190.get()and enabled(node.get('fanCornersEnabled'))):
             offset=numeric(node.get('angleOffset'))
             if -360<=offset<=360:
