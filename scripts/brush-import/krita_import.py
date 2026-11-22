@@ -394,17 +394,16 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
     if not enabled(params.get(option+'UseCurve','true')):
         return []
     sensor_definition=params.get(option+'Sensor') or '<params id="pressure"/>'
-    if option in ('Rotation','Size','Opacity','Flow','Scatter'):
-        same_key=option+'UseSameCurve'
-        same=params.get(same_key,'true')
-        if not isinstance(same,str) or same.lower() not in ('true','false','1','0'):
-            raise ValueError('Unsupported noncanonical '+same_key)
-        custom_key='Custom'+option
-        common_override=enabled(same) and option+'commonCurve' in params
-        if 'curve' not in sensor_definition and not common_override and 'Curve'+option in params and custom_key in params:
-            custom=params[custom_key]
-            if not isinstance(custom,str) or custom.lower() not in ('true','false','1','0'):
-                raise ValueError('Unsupported noncanonical '+custom_key)
+    same_key=option+'UseSameCurve'
+    same=params.get(same_key,'true')
+    if not isinstance(same,str) or same.lower() not in ('true','false','1','0'):
+        raise ValueError('Unsupported noncanonical '+same_key)
+    custom_key='Custom'+option
+    common_override=enabled(same) and option+'commonCurve' in params
+    if 'curve' not in sensor_definition and not common_override and 'Curve'+option in params and custom_key in params:
+        custom=params[custom_key]
+        if not isinstance(custom,str) or custom.lower() not in ('true','false','1','0'):
+            raise ValueError('Unsupported noncanonical '+custom_key)
     sensor=xml(sensor_definition)
     sensors=list(sensor.findall('ChildSensor')) if sensor.get('id')=='sensorslist' else [sensor]
     if len(sensors)>32: raise ValueError('Krita sensor count limit')
