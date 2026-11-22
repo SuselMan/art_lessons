@@ -15,7 +15,7 @@ def source_policy(params, parse_xml, transfer):
     """
     if not _enabled(params.get('PressureRotation')) or not _enabled(params.get('RotationUseCurve', 'true')):
         return None
-    root = parse_xml(params.get('RotationSensor', '<params id="pressure"/>'))
+    root = parse_xml(params.get('RotationSensor') or '<params id="pressure"/>')
     nodes = list(root.findall('ChildSensor')) if root.get('id') == 'sensorslist' else [root]
     if len(nodes) != 1 or nodes[0].get('id') != 'drawingangle':
         return None
