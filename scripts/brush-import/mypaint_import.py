@@ -29,7 +29,7 @@ def mypaint_preset(data,name,catalog,preview=None,erase=False,*,surface_policy=N
             mappings.append({'id':INPUTS[control],'points':points})
         # Krita's MyPaint surface ignores lock_alpha, including its mappings.
         # Validate it fully before omitting it; standalone MyPaint keeps it.
-        if key=='lock_alpha' and surface_policy=='krita-legacy-v1':
+        if key=='lock_alpha' and surface_policy=='krita-legacy-v1' and (base!=0 or any(m['points'] for m in mappings)):
             ignored_lock_alpha=True
         else:
             values.append({'id':meta['id'],'base':base,'inputs':mappings})
