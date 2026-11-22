@@ -84,6 +84,27 @@ class StrokeInputTests(unittest.TestCase):
         angle=self.brush(rotation)['descriptor']['behavior']['dynamics']['angle']
         self.assertEqual(angle['curve'],identity)
 
+    def test_noncanonical_shared_curve_flags_fail_closed(self):
+        from krita_import import sensor_controls
+        for option,sensor in (('Rotation','ascension'),('Size','pressure'),('Opacity','pressure'),('Flow','pressure'),('Scatter','pressure')):
+            base={option+'Sensor':f'<params id="{sensor}"/>','Custom'+option:'true','Curve'+option:'0,1;1,0;'}
+            for key in (option+'UseSameCurve','Custom'+option):
+                for value in ('yes','no',' true ',''):
+                    with self.subTest(option=option,key=key,value=value),self.assertRaisesRegex(ValueError,'noncanonical'):
+                        sensor_controls({**base,key:value},option,[],allow_time=True)
+            for value in ('true','false','1','0'):
+                with self.subTest(option=option,value=value):
+                    self.assertEqual(len(sensor_controls({**base,option+'UseSameCurve':value},option,[],allow_time=True)),1)
+                    self.assertEqual(len(sensor_controls({**base,'Custom'+option:value},option,[],allow_time=True)),1)
+            controls=sensor_controls({**base,'Custom'+option:'yes',option+'UseSameCurve':'true',option+'commonCurve':'0,0;1,1;'},option,[],allow_time=True)
+            self.assertEqual(controls[0]['curve'],[[0,0],[1,1]])
+
+    def test_noncanonical_ascension_flag_skips_kpp(self):
+        params={**PARAMS,'RotationSensor':'<params id="ascension"/>','CustomRotation':'yes','CurveRotation':'0,1;1,0;'}
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'bad.kpp';path.write_bytes(authored(params));catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+            self.assertFalse(catalog.brushes);self.assertIn('noncanonical CustomRotation',str(catalog.skipped))
+
     def test_default_off_and_identity(self):
         old=self.brush();self.assertEqual(old,self.brush(stroke_input=False));new=self.brush(stroke_input=True)
         self.assertEqual(new['descriptor']['behavior']['strokeInput'],POLICY)
