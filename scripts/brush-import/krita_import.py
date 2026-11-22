@@ -89,6 +89,22 @@ def _not_checkable(option):
     return option in ('Opacity', 'Flow') and source in ('paintbrush', 'tangentnormal') or option == 'Opacity' and source in ('sketchbrush', 'spraybrush', 'deformbrush', 'colorsmudge', 'duplicate', 'tangentnormal')
 
 
+def native_paintop_wash(root):
+    """Krita brush-based action: absent means BuildUp; present int != 1 Wash."""
+    node=next((p for p in reversed(root.findall('param')) if p.get('name')=='PaintOpAction'),None)
+    if node is None:
+        return False
+    value=node.text or ''
+    if node.get('type')=='bytearray':
+        try: value=base64.b64decode(''.join(value.split()),validate=True).decode('ascii')
+        except (ValueError,UnicodeError): raise ValueError('Unsupported typed PaintOpAction') from None
+    value=value.strip()
+    if not re.fullmatch(r'[+-]?[0-9]+',value): return True
+    try: number=int(value)
+    except ValueError: return True
+    return number != 1 if -(2**31)<=number<2**31 else True
+
+
 def enabled(value):
     return str(value).lower() in ('true', '1')
 
@@ -2276,10 +2292,7 @@ def _preset_with_source(data,name,catalog,external,depth=0,**options):
             candidates.extend(('', option) for option in ('Opacity', 'Flow'))
             # Krita selects Wash for any present integer action other than 1;
             # missing action remains BuildUp for brush-based Pixel settings.
-            action=original_params.get('PaintOpAction')
-            try: native_wash=action is not None and int(action.strip())!=1
-            except ValueError: native_wash=action is not None  # QVariant.toInt() falls back to 0
-            if native_wash and enabled(original_params.get('MaskingBrush/Enabled')):
+            if enabled(original_params.get('MaskingBrush/Enabled')) and native_paintop_wash(root):
                 candidates.extend(('MaskingBrush/Preset/', option) for option in ('Size','Opacity','Flow'))
         elif engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal') and _SOURCE_ENGINE.get()==engine:
             candidates.append(('', 'Opacity'))

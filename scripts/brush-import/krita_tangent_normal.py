@@ -6,7 +6,7 @@ from PIL import Image,PngImagePlugin
 from brush_contract import finalize_identity,compatibility
 
 def tangent_normal_preset(data,root,params,name,catalog,external):
-    from krita_import import preset,enabled
+    from krita_import import preset,enabled,native_paintop_wash
     def number(key,default,low,high,integer=False):
         value=float(params.get('Tangent/'+key,default))
         if not math.isfinite(value)or not low<=value<=high or integer and int(value)!=value:raise ValueError('Invalid Tangent '+key)
@@ -16,14 +16,15 @@ def tangent_normal_preset(data,root,params,name,catalog,external):
     channels=[number('swizzle'+key,default,0,5,True)for key,default in [('Red',0),('Green',2),('Blue',4)]]
     elevation=number('elevationSensitivity',100,0,100)/100
     mix=number('mixValue',50,0,100)/100
-    native_wash=params.get('PaintOpAction','1')=='2'
+    native_wash=native_paintop_wash(root)
     # These old Wash descriptor versions discard Flow. Admit only a proven
     # neutral native value; a new descriptor/runtime is required for the rest.
     if native_wash:
         curve=params.get('FlowUseCurve','true').lower()
         strength=params.get('FlowValue','1').strip()
         numeric=re.fullmatch(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?',strength)
-        if curve not in ('false','0') or not numeric or float(strength)!=1:
+        typed=any(p.get('type')=='bytearray' and p.get('name') in ('FlowUseCurve','FlowValue') for p in root.findall('param'))
+        if typed or curve not in ('false','0') or not numeric or float(strength)!=1:
             raise ValueError('Tangent Wash Flow requires a new renderer')
     # Private Pixel conversion can retain timing only as a warning, so reject the
     # new closed Wash scope from original native flags before descriptor lowering.
@@ -49,14 +50,13 @@ def tangent_normal_preset(data,root,params,name,catalog,external):
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note]
     if native_wash:
         from tangent_wash136 import tangent_wash136_scope
-        # Native paintAt applies Opacity, never the constructed Flow option.
-        # New imports correct unused Flow only in this versioned Wash branch.
+        # This legacy Wash descriptor supports only the neutral Flow admitted above.
         point=d['tip'].get('kind')=='procedural' and d['tip'].get('alphaThreshold')=={'value':1,'softness':0} and enabled(params.get('PressureSharpness'))
         d['version']=209 if point else 207 if d['tip'].get('kind')=='bitmap' else 206 if d['tip'].get('aspect')!=1 else 136;d['flow']=1;d['flowByPressure']=[[0,1],[1,1]]
         if point:d['tangentNormal']['sharpnessChecked']=True
         rendering['accumulation']='alphaDarken'
         if enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or not tangent_wash136_scope(d):raise ValueError('Tangent Wash136 requires root static standard alpha generator')
-        if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','Native Tangent Normal applies Opacity, not Flow; unused captured Flow settings do not alter the new Wash output.','supported'))
+        if ignored_flow:result['compatibility'].append(compatibility('neutralNativeFlow','Tangent Wash accepts only neutral Flow; non-neutral native Flow requires a new renderer.','supported'))
         result['compatibility'].append(compatibility('tangentNormalWash','Existing ordinary alpha-darken uses previous-pixel RGB feedback for each changing normal, pressure opacity per placed dab and captured global opacity once. No native ICC/U8/filter identity or composited-vector renormalization is claimed.'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)

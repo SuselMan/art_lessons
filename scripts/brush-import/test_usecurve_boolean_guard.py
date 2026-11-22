@@ -1,5 +1,8 @@
 """Reject ambiguous active curve flags before their controls are dropped."""
 import tempfile
+import io
+import xml.etree.ElementTree as ET
+from PIL import Image, PngImagePlugin
 import unittest
 from pathlib import Path
 from zipfile import ZipFile
@@ -109,6 +112,34 @@ class UseCurveBooleanGuard(unittest.TestCase):
                 self.assertEqual(len(result.skipped),1)
                 self.assertEqual(len(result.brushes),1)
                 self.assertTrue(any(x in str(result.skipped) for x in ('Tangent Wash Flow requires a new renderer','Unsupported noncanonical FlowUseCurve')))
+
+    def test_typed_actions_and_tangent_wash_note(self):
+        def typed(raw, value):
+            image=Image.open(io.BytesIO(raw));image.load()
+            node=ET.fromstring(image.info['preset'])
+            action=next(p for p in node.findall('param') if p.get('name')=='PaintOpAction')
+            action.set('type','bytearray');action.text=value
+            meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(node,encoding='unicode'))
+            out=io.BytesIO();image.save(out,format='PNG',pnginfo=meta);return out.getvalue()
+        for raw,expect_guard in (('MQ==',False),('Mg==',True)):
+            values={**params132(),'MaskingBrush/Preset/PressureSize':'true','MaskingBrush/Preset/SizeUseCurve':'yes'}
+            with self.subTest(child=raw),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                result=self.exercise(tmp,typed(authored(values),raw),resources132())
+                self.assertEqual('Unsupported noncanonical MaskingBrush/Preset/SizeUseCurve' in str(result.skipped),expect_guard)
+        for action in ('0','2','3','02','-1'):
+            for curve in ('true','false'):
+                with self.subTest(action=action,curve=curve),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                    result=self.exercise(tmp,tangent_authored(action,{'FlowUseCurve':curve,'FlowValue':'1'}))
+                    if curve=='true': self.assertIn('Tangent Wash Flow requires a new renderer',str(result.skipped))
+                    else:
+                        self.assertEqual(result.skipped,[])
+                        self.assertEqual(result.brushes[0]['descriptor']['behavior']['rendering']['accumulation'],'alphaDarken')
+                        self.assertNotIn('unused captured Flow',str(result.brushes[0]['compatibility']))
+        for value,wash in (('MQ==',False),('Mg==',True)):
+            with self.subTest(tangent=value),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                result=self.exercise(tmp,typed(tangent_authored('1',{'FlowUseCurve':'true'}),value))
+                if wash: self.assertIn('Tangent Wash Flow requires a new renderer',str(result.skipped))
+                else: self.assertEqual(result.skipped,[])
 
     def test_other_confirmed_opacity_consumers(self):
         for engine in ('deformbrush','colorsmudge','duplicate','tangentnormal'):
