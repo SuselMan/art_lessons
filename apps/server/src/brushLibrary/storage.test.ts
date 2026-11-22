@@ -133,6 +133,23 @@ describe('CAS-only operator provisioning', () => {
 
 
 describe('rendering identity versus import metadata', () => {
+  it('updates reimported source size for the owner without changing a pinned room', () => {
+    const { dir, storage } = fixture(), original = resource(1, 'a')
+    original.library.brushes[0].sourceDefaults = { sizePx: 8, opacity: 1, flow: 1 }
+    storage.install('alice', original.library, original.assets)
+    storage.pin('room', 'alice', [original.token])
+    const pinned = readFileSync(storage.path('rooms', 'room'))
+    const revised = structuredClone(original.library)
+    revised.brushes[0].sourceDefaults!.sizePx = 16
+    expect(merge(original.library, revised).brushes[0].sourceDefaults!.sizePx).toBe(8)
+    expect(merge(revised, original.library).brushes[0].sourceDefaults!.sizePx).toBe(16)
+    storage.install('alice', revised, original.assets)
+    const restarted = new BrushStorage(dir)
+    expect(restarted.library('owners', 'alice').brushes[0]).toEqual(revised.brushes[0])
+    expect(restarted.library('rooms', 'room').brushes[0]).toEqual(original.library.brushes[0])
+    expect(readFileSync(storage.path('rooms', 'room'))).toEqual(pinned)
+  })
+
   it('merges revised diagnostics with first-source metadata without changing inputs', () => {
     const old = resource(1, 'a').library, current = structuredClone(old)
     current.brushes[0].name = 'Updated label'

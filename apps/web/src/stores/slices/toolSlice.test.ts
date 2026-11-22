@@ -230,6 +230,29 @@ describe('the selectable tools all have a panel to show (#405)', () => {
 describe('imported source size on brush selection', () => {
   beforeEach(() => { resetRoomStore() })
 
+  it('retains a chosen size after the same brush refreshes its source default', async () => {
+    const { installBrushLibrary, retainImportedBrushResources } = await import('../../engine/brushLibrary')
+    const { DIGITAL_BRUSHES } = await import('../../engine')
+    const descriptor = { ...structuredClone(DIGITAL_BRUSHES[0]), id: 'imported-1234123412341234', version: 1 }
+    const library = (sizePx: number) => ({ schemaVersion: 1 as const, assets: [], skipped: [], brushes: [{ descriptor, name: 'Preset', source: 'preset.kpp', warnings: [], sourceDefaults: { sizePx, opacity: 1, flow: 1 } }] })
+    try {
+      installBrushLibrary(library(8))
+      const set = useRoomStore.getState().setToolSetting
+      set('digitalBrush', 'brush', descriptor.id)
+      expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(8)
+      set('digitalBrush', 'size', 23)
+      installBrushLibrary(library(16))
+      set('digitalBrush', 'brush', descriptor.id)
+      expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(23)
+      set('digitalBrush', 'brush', 'native')
+      set('digitalBrush', 'brush', descriptor.id)
+      expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(23)
+      resetRoomStore()
+      useRoomStore.getState().setToolSetting('digitalBrush', 'brush', descriptor.id)
+      expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(16)
+    } finally { retainImportedBrushResources([]) }
+  })
+
   it('restores the source diameter without applying opacity twice or resetting a customized size on reselection', async () => {
     const { installBrushLibrary, retainImportedBrushResources } = await import('../../engine/brushLibrary')
     const { DIGITAL_BRUSHES } = await import('../../engine')
