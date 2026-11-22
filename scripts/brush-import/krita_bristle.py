@@ -12,6 +12,8 @@ from brush_contract import finalize_identity,compatibility
 def bristle_preset(data,root,params,name,catalog,external,*,_allow_initialization=True):
     from krita_import import preset,enabled,numeric
     if type(_allow_initialization)is not bool:raise ValueError('Private Bristle initialization origin must be boolean')
+    if params.get('PaintOpAction','1') not in ('1','2'):
+        raise ValueError('Unsupported noncanonical Bristle painting mode')
     ink_enabled=enabled(params.get('HairyInk/enabled'))
     soak=ink_enabled and enabled(params.get('HairyInk/soak'))
     if soak and(params.get('PaintOpAction','1')!='1'or enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))):raise ValueError('Bristle Soak139 requires normal directOver untimed input')
