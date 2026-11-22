@@ -18,6 +18,28 @@ class StrokeInputTests(unittest.TestCase):
             path=Path(tmp)/'Arbitrary authored name.kpp';path.write_bytes(authored(PARAMS if params is None else params))
             catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog,**flags)
             self.assertEqual(catalog.skipped,[]);return catalog.brushes[0]
+    def test_legacy_drawingangle_curve_precedence(self):
+        curved='0,0;0.5,0.1;1,1;'
+        for custom in ('false','true'):
+            identity=self.brush({**PARAMS,'CustomRotation':custom,'CurveRotation':'0,0;1,1;'})
+            self.assertEqual(identity['descriptor']['behavior']['rotation']['follow'],1)
+        absent=self.brush({**PARAMS,'CurveRotation':curved})
+        disabled=self.brush({**PARAMS,'CustomRotation':'false','CurveRotation':curved})
+        self.assertEqual(absent['descriptor']['behavior']['rotation']['follow'],1)
+        self.assertEqual(disabled['descriptor']['behavior']['rotation']['follow'],1)
+        for same in ('true','false'):
+            active=self.brush({**PARAMS,'CustomRotation':'true','CurveRotation':curved,'RotationUseSameCurve':same})
+            self.assertIn('absolute',active['descriptor']['behavior']['rotation']['composition'])
+        override=self.brush({**PARAMS,'CustomRotation':'true','CurveRotation':curved,'RotationcommonCurve':'0,0;1,1;'})
+        self.assertEqual(override['descriptor']['behavior']['rotation']['follow'],1)
+        empty=self.brush({**PARAMS,'CustomRotation':'true','CurveRotation':curved,'RotationcommonCurve':''})
+        self.assertEqual(empty['descriptor']['behavior']['rotation']['follow'],1)
+        for key in ('CustomRotation','RotationUseSameCurve'):
+            with tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'bad.kpp';path.write_bytes(authored({**PARAMS,key:'yes','CurveRotation':curved}))
+                catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+                self.assertFalse(catalog.brushes);self.assertIn('noncanonical',str(catalog.skipped))
+
     def test_default_off_and_identity(self):
         old=self.brush();self.assertEqual(old,self.brush(stroke_input=False));new=self.brush(stroke_input=True)
         self.assertEqual(new['descriptor']['behavior']['strokeInput'],POLICY)
