@@ -663,6 +663,9 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
+    if descriptor.get('version')==210 or 'dyna'in descriptor:
+        from dyna_scope import dyna210_scope
+        if parent is not None or not dyna210_scope(descriptor):raise ValueError('Invalid DynaDraw210 scope')
     if descriptor.get('version')==209:
         from tangent_wash136 import tangent_wash136_scope
         if parent is not None or not tangent_wash136_scope(descriptor):raise ValueError('Invalid point Tangent Wash209 scope')

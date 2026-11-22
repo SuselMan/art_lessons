@@ -1,3 +1,4 @@
+import{dynaStamps,type DynaState}from'./brushDyna'
 import{tangentConstructorIsPoint195}from'./tangentConstructor195'
 import{usesNativeFilterMask,usesNativeSketchSpray,usesNativeSmudgeFeatures}from'./nativeBrushFeatures'
 import { independentChildFan190Requests, type IndependentChildFan190State } from '../input/independentChildFan190'
@@ -27,6 +28,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  dyna?:DynaState
   tangentPoint209?:boolean
   maxPressure?:number
   sprayPainterOpacity?:number
@@ -624,6 +626,12 @@ function behaviorStampsForDabCore(brush: BrushDescriptor, dab: Dab, state: Brush
     const previous=state.previous,dx=dab.x-previous.x,dy=dab.y-previous.y,length=Math.hypot(dx,dy),group=state.dabSequence??0
     state.previous={...dab};state.dabSequence=group+1
     return[{x:(previous.x+dab.x)*.5,y:(previous.y+dab.y)*.5,size:1,aspect:length+1,angle:Math.atan2(dy,dx),segmentLength:length,group,flowScale:1,color:adjustedColor,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}]
+  }
+  if(brush.dyna){
+    const dyna=state.dyna??={x:0,y:0,vx:0,vy:0,initialized:false}
+    const stamps=dynaStamps(brush.dyna,dab,dyna,adjustedColor)
+    state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
+    return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
   }
   if(brush.experiment){
     const experiment=state.experiment??={points:[],firstLine:true,speedCoeff:0,smoothDistance:0}

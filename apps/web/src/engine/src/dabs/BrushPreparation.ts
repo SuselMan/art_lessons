@@ -145,7 +145,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(usesNativeSketchSpray(brush)){capabilities.add('native194');if(brush.spray)capabilities.add('nativeSpray194')}
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.behavior?.rendering?.pixelComposite==='greater'||brush.behavior?.rendering?.pixelComposite==='dissolve')capabilities.add('greater198')
-  if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
+  if(brush.experiment||brush.dyna){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(bristleWash||usesNativeSketchSpray(brush)&&brush.sketch&&brush.behavior?.rendering?.accumulation==='alphaDarken')capabilities.add('bristleWash')
   if(particleWash)capabilities.add('requestWash')
   else if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}

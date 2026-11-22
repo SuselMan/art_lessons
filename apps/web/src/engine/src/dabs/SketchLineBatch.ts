@@ -44,11 +44,11 @@ export class SketchLineBatch{
  }
  /** Replace gesture coverage with its latest closed shape. Dirty bounds
   * include the previous shape, so shrinking/moving contours restore original. */
- paintPolygon(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,polygons:PolygonFillBatch,pattern?:{pattern:BrushPattern;view?:PreparedBrushImageView}):void{
+ paintPolygon(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,polygons:PolygonFillBatch,pattern?:{pattern:BrushPattern;view?:PreparedBrushImageView},replace=true):void{
   const last=stamps.at(-1);if(!last?.polygon)return
   if(pattern)this.assertPatternPrepared();else this.prepare()
   if(pattern?.pattern.kind==='rgba'){if(!pattern.view)throw Error('Missing prepared pattern view');pattern.view.assertCurrent()}
-  polygons.paintMask(temporary,last.polygon,originX,originY);coverage.clear()
+  polygons.paintMask(temporary,last.polygon,originX,originY);if(replace)coverage.clear()
   if(pattern?.pattern.kind==='none')return
   const gl=this.gl,program=pattern?this.patternComposite!:this.composite!
   coverage.beginDraw();gl.useProgram(program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,temporary.texture)

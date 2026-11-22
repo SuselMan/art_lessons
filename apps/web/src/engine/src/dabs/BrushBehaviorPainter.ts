@@ -778,7 +778,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
     const tangentLine195=(brush.version===195||brush.version===209)&&!!brush.tangentNormal?.sharpnessChecked
     const requestBatch=tangentLine195||usesNativeSketchSpray(brush)||brush.particle||brush.clone?1:4
-    if((tangentLine195||brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>requestBatch){
+    if((tangentLine195||brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment||brush.dyna) && dabs.length>requestBatch){
       for(let i=0;i<dabs.length;i+=requestBatch){const last=i+requestBatch>=dabs.length;this.paint(target,dabs.slice(i,i+requestBatch),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase,runtime,undefined,undefined,maskResourceRoot190)}
       return
     }
@@ -797,7 +797,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(textureLightness&&!(filteredGradient?this.materialTipGradientStamps.has('lightness'):this.lightnessStamp))throw Error('Texture Lightness108 program was not prepared')
     if(textureGradient&&!(filteredGradient?this.materialTipGradientStamps.has('gradient'):this.textureGradientStamp))throw Error('Texture Gradient111 program was not prepared')
     // Sketch173 line width is already in world pixels; tip aspect only sizes its selector.
-    const placedSizeMultiplier=usesNativeSketchSpray(brush)&&brush.sketch||brush.sketch?.maskSignal==='procedural-standard-v1'?1:preset.sizeMultiplier
+    const placedSizeMultiplier=brush.dyna||usesNativeSketchSpray(brush)&&brush.sketch||brush.sketch?.maskSignal==='procedural-standard-v1'?1:preset.sizeMultiplier
     const nativePlan194=usesNativeSketchSpray(brush)?(()=>{const old=scratch.brushNative;if(old instanceof NativeTipPlan194){old.assertCurrent(brush);return old}const plan=new NativeTipPlan194(brush,execution);if(isRegisteredBrushDescriptor(brush))scratch.brushNative=plan;return plan})():undefined
     const gihFrames=filterRequest?.gihFrames??(usesNativeSketchSpray(brush)?nativePlan194?.spray?.frames:usesVariableGih(brush.tip)?prepareVariableGih(brush,mask190):undefined)
     const sketchMask=brush.sketch?.mode==='mask'?(nativePlan194?.sketch??prepareSketchMask(brush,execution)):undefined
@@ -1345,6 +1345,10 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         if((brush.version===195||brush.version===209)&&brush.tangentNormal&&list[0]?.segmentLength!==undefined){
           if(!this.sketchBatch)throw Error('Tangent195 line programs were not prepared')
           this.sketchBatch.paint(list,coverage,ceiling,tile.originX,tile.originY,false)
+          return
+        }
+        if(brush.dyna){
+          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl),undefined,false)
           return
         }
         if(brush.experiment){

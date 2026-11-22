@@ -505,7 +505,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if root.tag != 'Preset':
         raise ValueError('Invalid Krita preset root')
     engine = root.get('paintopid')
-    if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate', 'mypaintbrush', 'tangentnormal'):
+    if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate', 'mypaintbrush', 'tangentnormal', 'dynabrush'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
     native_source_time=False
@@ -666,6 +666,10 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if engine == 'deformbrush':
         from krita_deform import deform_preset
         return with_resource_notes(deform_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY)))
+    if engine == 'dynabrush':
+        if depth:raise ValueError('DynaDraw requires root preset')
+        from krita_dyna import dyna_preset
+        return with_resource_notes(dyna_preset(data,root,params,name,catalog,external))
     if engine == 'experimentbrush':
         if depth and numeric(params.get('Experiment/fillType'),0)==1:raise ValueError('Canvas Pattern158 requires root Experiment')
         from krita_experiment import experiment_preset

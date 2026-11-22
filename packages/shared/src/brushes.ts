@@ -87,6 +87,9 @@ import{hasDeformTimer160Scope,hasDeformOldData145Scope,isDeformDescriptor,type B
 export type{BrushDeform}from'./brushDeform.js'
 export{hasDeformTimer160Scope,hasDeformOldData145Scope}from'./brushDeform.js'
 import{hasExperimentCurrentPattern158Scope,isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
+import{hasDyna210Scope,type BrushDyna}from'./brushDyna.js'
+export{hasDyna210Scope}from'./brushDyna.js'
+export type{BrushDyna}from'./brushDyna.js'
 export type{BrushExperiment}from'./brushExperiment.js'
 import{isParticleDescriptor,type BrushParticle}from'./brushParticle.js'
 export type{BrushParticle}from'./brushParticle.js'
@@ -351,6 +354,7 @@ export interface BrushDescriptor {
   /** (#573) Several stamps per dab, each jittered. Absent = one stamp exactly
    *  on the dab. */
   experiment?:BrushExperiment
+  dyna?:BrushDyna
   particle?:BrushParticle
   tangentNormal?:BrushTangentNormal
   mypaint?:BrushMyPaint
@@ -527,6 +531,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    if((d.version===210||d.dyna!==undefined)&&(maskRoot!==undefined||!hasDyna210Scope(d)))return false
     if(d.version===209&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===208&&(maskRoot!==undefined||!hasGridWash137Scope(d)))return false
     if(d.version===207&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
@@ -613,7 +618,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     }
     if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixPhotoshopAlpha'&&!hasPixelAlphaDual170Scope(d)&&!mask190)return false
     if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixSofterPhotoshop'&&!hasPixelAlphaDual168Scope(d)&&!mask190)return false
-    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']
+    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','dyna','deform','filter','clone','mypaint','tangentNormal']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
     if (typeof d.id !== 'string' || !/^imported-[a-f0-9]{16,64}$/.test(d.id) || !numberIn(d.version, 1, 10000)
       || !Number.isInteger(d.version) || !['stamp','mixer'].includes(String(d.model)) || !['line','paint','wet','soft','texture','scatter'].includes(String(d.category))
