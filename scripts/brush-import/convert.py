@@ -1275,9 +1275,14 @@ def main():
     for path in args.sources:
         if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog)
         elif path.suffix.lower()=='.myb':
-            from mypaint_import import mypaint_preset
-            preview=path.with_name(path.stem+'_prev.png')
-            catalog.brushes.append(mypaint_preset(path.read_bytes(),path.name,catalog,preview.read_bytes()if preview.exists()else None))
+            data=path.read_bytes()
+            if data.startswith(b'\x89PNG\r\n\x1a\n'):
+                from krita_import import convert_krita
+                convert_krita(path,catalog)
+            else:
+                from mypaint_import import mypaint_preset
+                preview=path.with_name(path.stem+'_prev.png')
+                catalog.brushes.append(mypaint_preset(data,path.name,catalog,preview.read_bytes()if preview.exists()else None))
         elif path.suffix.lower()=='.abr': photoshop(path,catalog)
         elif path.suffix.lower() in ('.brush','.brushset'): procreate(path,catalog)
         elif path.suffix.lower() in ('.kpp','.bundle'):

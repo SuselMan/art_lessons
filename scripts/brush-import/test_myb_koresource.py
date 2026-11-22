@@ -1,0 +1,66 @@
+import base64
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+import zipfile
+
+from brush_contract import Catalog
+from krita_import import convert_krita
+from mypaint_import import mypaint_preset
+from test_krita import kpp
+
+
+class MybKoResourceTests(unittest.TestCase):
+    def document(self, paint_mode=False):
+        settings={'hardness':{'base_value':0.6,'inputs':{}}}
+        if paint_mode:
+            settings['paint_mode']={'base_value':0.8,'inputs':{}}
+        return {'version':3,'settings':settings}
+
+    def png_preset(self):
+        raw=json.dumps(self.document(True)).encode()
+        return kpp(engine='mypaintbrush', resources='<param name="MyPaint/json" type="bytearray">'+base64.b64encode(raw).decode()+'</param>')
+
+    def cli(self, source, output):
+        env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'}
+        return subprocess.run([sys.executable,str(Path(__file__).with_name('convert.py')),str(source),'--output',str(output)],capture_output=True,text=True,env=env)
+
+    def test_standalone_png_uses_same_import_as_kpp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);raw=self.png_preset();myb=root/'brush.myb';kpp_path=root/'brush.kpp'
+            myb.write_bytes(raw);kpp_path.write_bytes(raw)
+            result=self.cli(myb,root/'myb-out');self.assertEqual(result.returncode,0,result.stderr)
+            actual=json.loads((root/'myb-out'/'manifest.json').read_text())
+            expected=Catalog(root/'kpp-out');convert_krita(kpp_path,expected)
+            self.assertEqual(actual['skipped'],[]);self.assertEqual(len(actual['brushes']),1)
+            self.assertEqual(actual['brushes'][0]['descriptor'],expected.brushes[0]['descriptor'])
+            self.assertEqual(actual['brushes'][0]['descriptor']['mypaint']['surfacePolicy'],'krita-legacy-v1')
+
+    def test_bundle_png_and_json_follow_their_own_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);bundle=root/'brushes.bundle'
+            with zipfile.ZipFile(bundle,'w') as z:
+                z.writestr('paintoppresets/native.myb',self.png_preset())
+                z.writestr('paintoppresets/json.myb',json.dumps(self.document()))
+                z.writestr('paintoppresets/bad.myb',b'\x89PNG\r\n\x1a\ninvalid')
+            c=Catalog(root/'out');convert_krita(bundle,c)
+            self.assertEqual(len(c.brushes),2);self.assertEqual(len(c.skipped),1)
+            descriptors={b['source']:b['descriptor'] for b in c.brushes}
+            self.assertEqual(descriptors['native.myb']['mypaint']['surfacePolicy'],'krita-legacy-v1')
+            self.assertEqual(descriptors['json.myb']['version'],55)
+
+    def test_standalone_json_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'brush.myb';path.write_text(json.dumps(self.document()))
+            result=self.cli(path,root/'out');self.assertEqual(result.returncode,0,result.stderr)
+            manifest=json.loads((root/'out'/'manifest.json').read_text())
+            expected=mypaint_preset(path.read_bytes(),path.name,Catalog(root/'direct'))
+            self.assertEqual(manifest['brushes'],[expected])
+
+
+if __name__=='__main__':
+    unittest.main()

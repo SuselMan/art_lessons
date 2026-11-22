@@ -2282,7 +2282,7 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
-    if path.suffix.lower() == '.kpp':
+    if path.suffix.lower() in ('.kpp','.myb'):
         try:
             catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_default_input_policy=default_policy)))
         except (ValueError, ET.ParseError, OSError) as error:
@@ -2304,9 +2304,13 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         for name in sorted(n for n in names if n.lower().endswith(('.kpp','.myb'))):
             try:
                 if name.lower().endswith('.myb'):
-                    from mypaint_import import mypaint_preset
-                    preview=str(PurePosixPath(name).with_suffix(''))+'_prev.png'
-                    catalog.brushes.append(_native_preset_transaction(catalog,lambda:mypaint_preset(archive.read(name),name,catalog,archive.read(preview)if preview in names else None)))
+                    raw=archive.read(name)
+                    if raw.startswith(b'\x89PNG\r\n\x1a\n'):
+                        catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(raw,name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_default_input_policy=default_policy)))
+                    else:
+                        from mypaint_import import mypaint_preset
+                        preview=str(PurePosixPath(name).with_suffix(''))+'_prev.png'
+                        catalog.brushes.append(_native_preset_transaction(catalog,lambda:mypaint_preset(raw,name,catalog,archive.read(preview)if preview in names else None)))
                 else:
                     catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_default_input_policy=default_policy)))
             except (ValueError, ET.ParseError, OSError) as error:
