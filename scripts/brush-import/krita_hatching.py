@@ -8,7 +8,10 @@ from brush_contract import finalize_identity,compatibility
 
 def hatching_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
-    if enabled(params.get('PressureSeparation')):
+    checked=params.get('PressureSeparation')
+    if checked is not None and (not isinstance(checked,str) or checked.lower() not in ('true','false','1','0')):
+        raise ValueError('Hatching noncanonical separation flag is unsupported')
+    if enabled(checked):
         raw_intervals=params.get('Hatching/separationintervals')
         if not isinstance(raw_intervals,str) or not re.fullmatch(r'[+-]?[0-9]+',raw_intervals.strip()):
             raise ValueError('Hatching checked separation without valid integer intervals is unsupported')
