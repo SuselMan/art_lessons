@@ -224,12 +224,24 @@ def gih(data, preserve_color=False):
             if count<product or count//dimensions[0]['rank']!=product//dimensions[0]['rank']:raise ValueError('Unsupported GIH ncells strides')
         elif not 1<=count<=2147483647 or int(params.get('ncells',str(count)))!=count:
             raise ValueError('Unsupported GIH frame count or dimensions/ranks')
-        rank=int(params.get('rank0',str(count))) if dim==1 else None
-        if dim==1 and rank!=count and (params.get('sel0',params.get('selection','incremental')) not in ('random','incremental') or not 1<=rank<=256):
+        # Krita inits a missing rank0 to 0 (KisPipeBrushParasite::init), not to
+        # ncells; sanitize() then demotes incremental/angular with a zero rank
+        # to constant instead of dividing by zero.
+        rank=int(params.get('rank0','0')) if dim==1 else None
+        sel0=params.get('sel0',params.get('selection','incremental'))
+        demotion=None
+        if dim==1 and rank==0 and sel0 in('incremental','angular'):
+            # Krita sanitize() demotes a zero-rank incremental/angular selection
+            # to constant, because selectPost() would divide by zero. The
+            # angular parasite still keeps needsMovement=true, so the demotion
+            # is reported to the caller instead of being silently absorbed.
+            demotion={'declaredMode':sel0,'declaredRank':rank}
+            sel0='constant'
+        if dim==1 and ((rank==0 and sel0!='constant')or(rank!=0 and rank!=count and (sel0 not in('random','incremental')or not 1<=rank<=256))):
             raise ValueError('Unsupported GIH rank/count selection combination')
     except (IndexError,ValueError) as error:
         raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
-    mode='dimensions'if dimensions is not None else params.get('sel0',params.get('selection','incremental'))
+    mode='dimensions'if dimensions is not None else sel0
     if mode not in ('random','incremental','constant','pressure','velocity','angular','xtilt','ytilt','dimensions'):
         raise ValueError('Unsupported GIH selection mode: '+mode)
     if mode in ('random','incremental') and count>256:
@@ -259,15 +271,16 @@ def gih(data, preserve_color=False):
     if offset!=len(data):
         raise ValueError('GIH trailing bytes or frame count mismatch')
     decoded_count=len(frames)
-    if dimensions is None and rank!=count:
+    if dimensions is None and rank not in(0,count):
         # Krita multiplies the selector by floor(ncells/rank), then takes the
         # actual EOF frame count modulo. Repeated references encode the same
-        # selector distribution using the existing animation contract.
+        # selector distribution using the existing animation contract. A zero
+        # rank keeps every frame like Krita's brushesCount=ncells fallback.
         stride=count//rank
         if sum(frames[(stride*i)%decoded_count].width*frames[(stride*i)%decoded_count].height for i in range(rank))>MAX_PIXELS:
             raise ValueError('GIH expanded selector exceeds cumulative pixel limit')
         frames=[frames[(stride*i)%decoded_count] for i in range(rank)]
-    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count,'decodedCount':decoded_count,**({'selectorRank':rank}if dimensions is None and rank!=count else{}),**({'dimensions':dimensions}if dimensions is not None else{})}
+    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count,'decodedCount':decoded_count,**({'selectorRank':rank}if dimensions is None and rank not in(0,count) else{}),**({'rankZeroDemotion':demotion}if demotion else{}),**({'dimensions':dimensions}if dimensions is not None else{})}
 
 
 def tip_asset(mask,catalog,warnings):
@@ -965,6 +978,15 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {pipe['decodedCount']} valid frames end at EOF; retained actual frames as Krita does."))
             if 'selectorRank' in pipe:
                 notes.append(compatibility('gihSelectorRank',f"Declared selector rank {pipe['selectorRank']} differs from ncells {pipe['declaredCount']}; frame references retain Krita's integer stride and EOF modulo.",'supported'))
+            if 'rankZeroDemotion' in pipe:
+                # Krita's zero-rank sanitize() demotes the selection to constant.
+                # The frame choice then matches, but the angular parasite keeps
+                # needsMovement=true, so Krita still withholds painting until the
+                # pointer moves; Grafetto's constant pipe has no such gate.
+                if pipe['rankZeroDemotion']['declaredMode']=='angular':
+                    notes.append(compatibility('gihRankZeroAngular','Declared rank0 is 0 or absent, so Krita sanitize() demotes the angular selection to constant while the parasite keeps needsMovement=true and withholds painting until drawingDistance>=0.5. Grafetto emits a constant pipe without that movement gate, so this pipe is not equivalent to Krita and visual match is not proven.','unsupported'))
+                else:
+                    notes.append(compatibility('gihRankZeroSelection','Declared rank0 is 0 or absent, so Krita sanitize() demotes the incremental selection to constant to avoid a divide by zero; both Krita and Grafetto then retain the first frame.','approximate'))
             selection_note=('Tilt selection collapses to the single actual EOF frame; no selector policy is emitted.'if pipe['mode']in('xtilt','ytilt')and len(frames)==1 else'Captured degree-axis F32 chooses Qt5 half-up round(tilt/2*rank)+integer(rank/2), uint32 then actual frame modulo; explicit qt5-half-up-v1, not normalized or native-device precision identity.'if pipe['mode']in('xtilt','ytilt')else'All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.' if pipe['mode']=='pressure' else 'Angular pipe selection uses captured DrawingAngle and explicit first-request-v1 per-attempt movement policy; see gihAngular qualification.' if pipe['mode']=='angular' else 'Velocity pipe selection uses captured normalized float32 speed and round(log(1+speed)/3*(declared rank-.5)), modulo actual frames; declared rank<=256. Grafetto view-space EMA/max30 input differs from native smoothing; no native float-bit identity is claimed.')
             if pipe['mode']=='dimensions':selection_note='Versioned row-major GIH dimensions use signed raw sensor indices, uint32 sum and one final actual-EOF modulo; explicit angular first-request/Qt5 tilt policies retained. Incremental axes share the logical attempt ordinal (LCM correlation, not odometer); random axes use captured strokeSeed with dimension salts under grafetto-dim-stream-v1, not native RNG sequence identity. Native first-point/filter/input rounding remains qualified.'
             notes.append(compatibility('gihSelection',selection_note))
