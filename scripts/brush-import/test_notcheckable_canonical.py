@@ -26,8 +26,9 @@ class CanonicalNotCheckable(unittest.TestCase):
     def test_pixel_and_child_false_true_missing(self):
         for option in ('Opacity','Flow'):
             for checked in (None,'true','false'):
-                for usecurve in ('true','false'):
-                    values={option+'UseCurve':usecurve,option+'Sensor':'<params id="pressure"/>'}
+                for usecurve in (None,'true','false'):
+                    values={option+'Sensor':'<params id="pressure"/>'}
+                    if usecurve is not None: values[option+'UseCurve']=usecurve
                     if checked is not None: values['Pressure'+option]=checked
                     for child in (False,True):
                         for bundle in (False,True):
@@ -35,17 +36,36 @@ class CanonicalNotCheckable(unittest.TestCase):
                                 raw=authored({**params132(),**{'MaskingBrush/Preset/'+k:v for k,v in values.items()}}) if child else authored(values)
                                 d=self.load(raw,resources132() if child else None,bundle)
                                 if child:d=d['behavior']['dual']['brush']
-                                self.assertEqual(d[option.lower()+'ByPressure'],[[0,0],[1,1]] if usecurve=='true' else [[0,1],[1,1]])
+                                self.assertEqual(d[option.lower()+'ByPressure'],[[0,0],[1,1]] if usecurve!='false' else [[0,1],[1,1]])
+
+    def test_absent_pressure_sensor_and_curve_defaults(self):
+        for option in ('Opacity','Flow'):
+            for value in (None,'false'):
+                values={}
+                if value is not None: values['Pressure'+option]=value
+                for child in (False,True):
+                    raw=authored(values)
+                    if child:
+                        # Clear the fixture's sensor and UseCurve independently.
+                        p={**params132(),**{'MaskingBrush/Preset/'+k:v for k,v in values.items()}}
+                        p.pop('MaskingBrush/Preset/'+option+'Sensor',None);p.pop('MaskingBrush/Preset/'+option+'UseCurve',None)
+                        if value is None:p.pop('MaskingBrush/Preset/Pressure'+option,None)
+                        raw=authored(p)
+                    d=self.load(raw,resources132() if child else None)
+                    if child:d=d['behavior']['dual']['brush']
+                    self.assertEqual(d[option.lower()+'ByPressure'],[[0,0],[1,1]])
 
     def test_confirmed_engine_opacity_and_tangent_flow(self):
         for engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal'):
             for option in (('Opacity','Flow') if engine=='tangentnormal' else ('Opacity',)):
                 for checked in ('true','false'):
-                    values={'Pressure'+option:checked,option+'UseCurve':'true',option+'Sensor':'<params id="pressure"/>'}
-                    if engine=='deformbrush': values['CompositeOp']='copy'
-                    with self.subTest(engine=engine,option=option,checked=checked):
-                        d=self.load(native194(engine,params=values))
-                        self.assertEqual(d[option.lower()+'ByPressure'],[[0,0],[1,1]])
+                    for usecurve in (None,'true'):
+                        values={'Pressure'+option:checked,option+'Sensor':'<params id="pressure"/>'}
+                        if usecurve is not None: values[option+'UseCurve']=usecurve
+                        if engine=='deformbrush': values['CompositeOp']='copy'
+                        with self.subTest(engine=engine,option=option,checked=checked,usecurve=usecurve):
+                            d=self.load(native194(engine,params=values))
+                            self.assertEqual(d[option.lower()+'ByPressure'],[[0,0],[1,1]])
 
     def test_scope_resets_after_failure_and_keeps_next_bundle_entry(self):
         with tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
