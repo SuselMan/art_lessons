@@ -106,11 +106,12 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
         warnings.extend(result.get('warnings',[]))
     parent,child=(c['descriptor']for c in components)
     parent['version']=child['version']=revision
-    ratio=numeric(params.get('MaskingBrush/MasterSizeCoeff'),1)
-    if not math.isfinite(ratio)or not .01<=ratio<=8:raise ValueError('Native master size coefficient outside existing.01..8 bound')
     dual={'brush':child,'blendMode':MODES.get(params.get('MaskingBrush/MaskingCompositeOp','multiply')),'sampling':'independent'}
     if dual['blendMode']is None:raise ValueError('Unknown native masking composite')
-    if enabled(params.get('MaskingBrush/UseMasterSize','true')):child['sizeByPressure']=scaled_curve(child['sizeByPressure'],ratio)
+    if enabled(params.get('MaskingBrush/UseMasterSize','true')):
+        ratio=numeric(params.get('MaskingBrush/MasterSizeCoeff'),1)
+        if not math.isfinite(ratio)or not .01<=ratio<=8:raise ValueError('Native master size coefficient outside existing.01..8 bound')
+        child['sizeByPressure']=scaled_curve(child['sizeByPressure'],ratio)
     else:
         size=components[1].get('sourceDefaults',{}).get('sizePx')
         if type(size)not in(int,float)or not math.isfinite(size)or not .01<=size<=10000:raise ValueError('Missing native configured child diameter')
