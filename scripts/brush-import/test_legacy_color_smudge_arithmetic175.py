@@ -48,7 +48,7 @@ class LegacyArithmetic175Tests(unittest.TestCase):
     with self.subTest(mode=mode,smearAlpha=alpha),tempfile.TemporaryDirectory()as tmp:
      r=Path(tmp);p=r/'Own.kpp';p.write_bytes(kpp(engine='colorsmudge',mode=mode,resources='<param name="SmudgeRateUseNewEngine">false</param><param name="PressureSmudgeRate">true</param><param name="SmudgeRateValue">0.5</param><param name="SmudgeRateSmearAlpha">'+alpha+'</param><param name="PressureColorRate">true</param><param name="ColorRateValue">1</param><param name="PressureSize">true</param>'));out=convert.Catalog(r/'out');convert_krita(p,out,{})
      actual={'brushes':out.brushes,'assets':out.assets,'rawCAS':{aid:hashlib.sha256((out.output/a['file']).read_bytes()).hexdigest()for aid,a in out.assets.items()}}
-     assert_old_portable_and_new_import(self,expected[mode+'/'+alpha],actual,p.read_bytes(),r)
+     assert_old_portable_and_new_import(self,expected[mode+'/'+alpha],actual,p.read_bytes(),r,'175',mode+'/'+alpha)
 
  def test_genuine_bitmap_alpha_mask_cas_and_portable_resources(self):
   import io
