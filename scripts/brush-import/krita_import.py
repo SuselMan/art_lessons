@@ -2238,6 +2238,22 @@ def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
 
 
 
+def _tangent_source_action(root):
+    """Classify only safely supported brush-based Tangent action encodings."""
+    node=next((p for p in reversed(root.findall('param')) if p.get('name')=='PaintOpAction'),None)
+    if node is None: return None
+    raw=node.text or ''
+    if node.get('type')=='bytearray':
+        try: decoded=base64.b64decode(''.join(raw.split()),validate=True).decode('ascii')
+        except (ValueError,UnicodeError): raise ValueError('Unsupported typed Tangent PaintOpAction') from None
+    else: decoded=raw
+    # QVariant.toInt for a decimal string; reject unknown encodings instead of
+    # misrouting a native Wash through the BuildUp renderer.
+    if re.fullmatch(r'\+?0*1',decoded.strip()): return '1'
+    if node.get('type')!='bytearray' and raw=='2': return '2'
+    raise ValueError('Unsupported Tangent PaintOpAction encoding or Wash mode')
+
+
 def preset(data,name,catalog,external,depth=0,**options):
     if _SOURCE_SCOPE.get() is not None:
         return _preset_scoped(data,name,catalog,external,depth,**options)
@@ -2249,7 +2265,9 @@ def preset(data,name,catalog,external,depth=0,**options):
         source.load()
         root=xml(source.info.get('preset',''))
     params={p.get('name'):p.text or '' for p in root.findall('param')}
-    token=_SOURCE_SCOPE.set((root.get('paintopid') or '',params.get('PaintOpAction')))
+    engine=root.get('paintopid') or ''
+    action=_tangent_source_action(root) if engine=='tangentnormal' else params.get('PaintOpAction')
+    token=_SOURCE_SCOPE.set((engine,action))
     try:
         return _preset_scoped(data,name,catalog,external,depth,**options)
     finally:
