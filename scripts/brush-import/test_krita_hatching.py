@@ -32,6 +32,14 @@ class HatchingTests(unittest.TestCase):
         self.assertIn('hatching',result['descriptor'])
     def test_world_configuration(self):
         a=self.convert('<param name="Hatching/bool_nocrosshatching">false</param><param name="Hatching/bool_moirepattern">true</param><param name="Hatching/origin_x">12</param>');self.assertEqual(a['descriptor']['version'],47);self.assertEqual(a['descriptor']['hatching']['style'],'moire');self.assertEqual(a['descriptor']['hatching']['origin'],[12,50])
+    def test_missing_intervals_with_checked_separation_is_rejected(self):
+        with self.assertRaisesRegex(ValueError,'checked separation without intervals'):
+            self.convert('<param name="PressureSeparation">true</param>')
+        explicit=self.convert('<param name="PressureSeparation">true</param><param name="Hatching/separationintervals">2</param>')['descriptor']['hatching']
+        self.assertEqual(explicit['intervals'],2);self.assertIn('separation',explicit['dynamics'])
+        disabled=self.convert('<param name="PressureSeparation">false</param>')['descriptor']['hatching']
+        self.assertEqual(disabled['intervals'],2);self.assertNotIn('separation',disabled.get('dynamics',{}))
+
     def test_checked_cross_control_keeps_presence(self):
         a=self.convert('<param name="PressureCrosshatching">true</param><param name="CrosshatchingUseCurve">false</param>');self.assertIn('cross',a['descriptor']['hatching']['dynamics']);self.assertFalse(any(n['status']=='unsupported' and 'PressureCrosshatching' in n['detail'] for n in a['compatibility']))
     def test_opaque_background_and_invalid_geometry_rejected(self):
