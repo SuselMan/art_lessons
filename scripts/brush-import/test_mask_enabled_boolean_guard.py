@@ -12,7 +12,9 @@ CHILD = '<Brush type="auto_brush" spacing=".1"><MaskGenerator type="circle" rati
 
 
 def pixel(action='2', mask=None):
-    params = {'PaintOpAction': action, 'MaskingBrush/Preset/brush_definition': CHILD}
+    params = {'MaskingBrush/Preset/brush_definition': CHILD}
+    if action is not None:
+        params['PaintOpAction'] = action
     if mask is not None:
         params['MaskingBrush/Enabled'] = mask
     return authored(params)
@@ -45,18 +47,37 @@ class MaskEnabledBooleanGuard(unittest.TestCase):
             path = root / 'test.bundle'
             with ZipFile(path, 'w') as archive:
                 archive.writestr('bad.kpp', pixel(mask='yes'))
+                archive.writestr('bad-zero.kpp', pixel(action='0', mask='yes'))
+                archive.writestr('bad-three.kpp', pixel(action='3', mask='yes'))
                 archive.writestr('valid.kpp', pixel(mask='true'))
                 archive.writestr('buildup.kpp', pixel(action='1', mask='yes'))
             out = Catalog(root / 'bundle')
             convert_krita(path, out)
             self.assertEqual([x['source'] for x in out.brushes], ['buildup.kpp', 'valid.kpp'])
-            self.assertEqual([x['name'] for x in out.skipped], ['bad'])
+            self.assertEqual([x['name'] for x in out.skipped], ['bad-three', 'bad-zero', 'bad'])
             self.assertIn('Unsupported noncanonical MaskingBrush/Enabled', out.skipped[0]['reasons'][0])
             single = root / 'valid.kpp'
             single.write_bytes(pixel(mask='true'))
             control = Catalog(root / 'control')
             convert_krita(single, control)
             self.assertEqual(out.brushes[1], control.brushes[0])
+
+    def test_present_action_wash_and_absent_or_integer_one_buildup(self):
+        for action in ('0', '3', '02', '-1', 'garbage', ''):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(pixel(action=action, mask='yes'))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertFalse(out.brushes)
+                self.assertIn('Unsupported noncanonical MaskingBrush/Enabled', out.skipped[0]['reasons'][0])
+        for action in (None, '1', '01', '+1', ' 1 '):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'test.kpp'
+                path.write_bytes(pixel(action=action, mask='yes'))
+                out = Catalog(Path(tmp) / 'out')
+                convert_krita(path, out)
+                self.assertFalse(any('Unsupported noncanonical MaskingBrush/Enabled' in str(row) for row in out.skipped))
 
     def test_sketch_spray_wash_existing_guard(self):
         for engine in ('sketchbrush', 'spraybrush'):

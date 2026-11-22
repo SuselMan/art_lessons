@@ -2242,7 +2242,11 @@ def preset(data,name,catalog,external,depth=0,**options):
         if root.get('paintopid')=='paintbrush':
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
             mask=rotation_params.get('MaskingBrush/Enabled')
-            if (options.get('_allow_texture_material', True) and rotation_params.get('PaintOpAction')=='2' and mask is not None
+            action=rotation_params.get('PaintOpAction')
+            # Present values other than QString integer 1 select Wash in
+            # Krita. A missing value selects BuildUp; preserve source bytes.
+            wash=action is not None and re.fullmatch(r'\+?0*1', action.strip()) is None
+            if (options.get('_allow_texture_material', True) and wash and mask is not None
                     and mask.lower() not in ('true','false','1','0')):
                 raise ValueError('Unsupported noncanonical MaskingBrush/Enabled for Pixel Wash')
             value=rotation_params.get('RotationUseCurve')
