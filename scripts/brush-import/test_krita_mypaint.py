@@ -13,6 +13,19 @@ class MyPaintTests(unittest.TestCase):
         encoded=base64.b64encode(json.dumps({'version':3,'settings':{}}).encode()).decode();data=kpp(engine='mypaintbrush',resources='<param name="MyPaint/json" type="bytearray">'+encoded+'</param>')
         with tempfile.TemporaryDirectory()as d:out=preset(data,'a.kpp',Catalog(Path(d)),{})
         self.assertEqual(out['descriptor']['mypaint']['kernel'],'libmypaint-1.6.1')
+    def test_absent_json_uses_native_defaults_without_hiding_invalid_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for i,extra in enumerate(('', '<param name="EraserMode">true</param>', '<param name="PaintOpSettings/isAirbrushing">true</param><param name="PaintOpSettings/rate">20</param>')):
+                with self.subTest(extra=extra):
+                    out=preset(kpp(engine='mypaintbrush',resources=extra),'defaults.kpp',Catalog(root/str(i)),{})
+                    d=out['descriptor'];self.assertEqual(d['mypaint']['settings'],[])
+                    self.assertAlmostEqual(d['mypaint']['baseRadius'],math.exp(2))
+                    self.assertEqual(d['mypaint']['erase'],'EraserMode' in extra)
+                    self.assertEqual('timing' in d['behavior'],'isAirbrushing' in extra)
+                    self.assertTrue(any(n['feature']=='mypaintDefaults' for n in out['compatibility']))
+            with self.assertRaises(ValueError):
+                preset(kpp(engine='mypaintbrush',resources='<param name="MyPaint/json">invalid</param>'),'invalid.kpp',Catalog(root/'invalid'),{})
     def test_bundle_raw_json(self):
         with tempfile.TemporaryDirectory()as tmp:
             path=Path(tmp)/'test.bundle'
