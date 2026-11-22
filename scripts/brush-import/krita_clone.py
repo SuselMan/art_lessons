@@ -18,7 +18,7 @@ def clone_preset(data,root,params,name,catalog,external):
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
     from independent_mask190 import CLONE_RADIAL200
     token=CLONE_RADIAL200.set(not healing)
-    try:result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False)
+    try:result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False,_adapter_private=True)
     finally:CLONE_RADIAL200.reset(token)
     d=result['descriptor'];radial_aa=d.get('version')==199
     d.update(version=54,model='stamp',category='paint',paperInteraction=0)

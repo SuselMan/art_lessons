@@ -97,7 +97,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     for node in transformed.findall('param'):transformed.remove(node)
     for key,value in base_params.items():ET.SubElement(transformed,'param',{'name':key}).text=value or ''
     im=Image.open(io.BytesIO(data));im.load();info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(transformed,encoding='unicode'));output=io.BytesIO();im.save(output,format='PNG',pnginfo=info)
-    result=preset(output.getvalue(),name,catalog,external,timed_input=True,_allow_texture_material=False)
+    result=preset(output.getvalue(),name,catalog,external,timed_input=True,_allow_texture_material=False,_adapter_private=True)
     common_profile_revision=result['descriptor']['version']
     d=result['descriptor'];particle_size=result['sourceDefaults']['sizePx']
     if not shape:width=particle_size;height=particle_size/d['tip']['aspect']

@@ -2255,8 +2255,17 @@ def _tangent_source_action(root):
 
 
 def preset(data,name,catalog,external,depth=0,**options):
+    adapter_private=options.pop('_adapter_private',False)
     if _SOURCE_SCOPE.get() is not None:
         return _preset_scoped(data,name,catalog,external,depth,**options)
+    if adapter_private:
+        # Direct legacy adapters have no public source scope; their synthetic
+        # Pixel preset is an implementation detail, not an original Pixel KPP.
+        token=_SOURCE_SCOPE.set(('',None))
+        try:
+            return _preset_scoped(data,name,catalog,external,depth,**options)
+        finally:
+            _SOURCE_SCOPE.reset(token)
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
     with Image.open(io.BytesIO(data)) as source:

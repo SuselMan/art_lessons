@@ -36,7 +36,7 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     ET.SubElement(transformed,'param',name='brush_definition').text=f'<Brush type="auto_brush" spacing="0.1" angle="{angle}"><MaskGenerator type="circle" ratio="{aspect}" hfade="1" vfade="1" diameter="{diameter*scale}"/></Brush>'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
-    result=preset(out.getvalue(),name,catalog,external,timed_input=timer,_allow_texture_material=False);d=result['descriptor']
+    result=preset(out.getvalue(),name,catalog,external,timed_input=timer,_allow_texture_material=False,_adapter_private=True);d=result['descriptor']
     d.update(version=51,model='mixer',category='wet',paperInteraction=0,flow=1)
     d['flowByPressure']=[[0,1],[1,1]]
     d['tip'].pop('profile',None);d['tip']['kind']='round'

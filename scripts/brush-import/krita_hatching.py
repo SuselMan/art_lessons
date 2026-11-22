@@ -29,7 +29,7 @@ def hatching_preset(data,root,params,name,catalog,external):
         if node.get('name') in ('PressureAngle','PressureCrosshatching','PressureSeparation','PressureThickness'):
             transformed.remove(node)
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
-    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d['version']=47
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False,_adapter_private=True);d=result['descriptor'];d['version']=47
     if d['tip'].get('autoNoise'):
         if d['tip'].get('profile',{}).get('kind')!='standard' or d['tip'].get('autoShape') or d['tip'].get('alphaThreshold'):
             raise ValueError('Hatching noise requires an ordinary standard procedural mask')

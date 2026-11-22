@@ -115,4 +115,22 @@ class CanonicalNotCheckable(unittest.TestCase):
                 d=self.load(native194(engine,params={'PressureFlow':checked,'FlowUseCurve':'true','FlowSensor':'<params id="pressure"/>'}))
                 self.assertEqual(d['flowByPressure'],[[0,1],[1,1]])
 
+    def test_direct_spray_adapter_keeps_legacy_scope_and_resets(self):
+        from unittest.mock import patch
+        from test_krita_spray import SprayTest, preset as direct_spray
+        raw=SprayTest().make()
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+            root=Path(tmp)
+            d=direct_spray(raw,'test.kpp',Catalog(root/'direct'),{})['descriptor']
+            self.assertEqual(d['id'],'imported-1f4c03b9504ed623ff6b1724')
+            self.assertEqual(d['flowByPressure'],[[0,1],[1,1]])
+            self.assertEqual(d['opacityByPressure'],[[0,1],[1,1]])
+            self.assertIsNone(_SOURCE_SCOPE.get())
+            with patch('krita_import._preset_scoped',side_effect=ValueError('failure inside private preset')):
+                with self.assertRaisesRegex(ValueError,'failure inside private preset'):
+                    direct_spray(raw,'test.kpp',Catalog(root/'failure'),{})
+            self.assertIsNone(_SOURCE_SCOPE.get())
+            pixel=self.load(authored({'PressureOpacity':'false','OpacityUseCurve':'true'}))
+            self.assertEqual(pixel['opacityByPressure'],[[0,0],[1,1]])
+
 if __name__=='__main__':unittest.main()
