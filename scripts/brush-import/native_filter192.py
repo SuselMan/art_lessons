@@ -72,7 +72,10 @@ def lower_filter192(data,root,params,name,catalog,external):
         config={p.get('name'):p.text or '' for p in cfg.iter('param')} if cfg is not None else {}
         if cfg is not None and len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
         keys=[axis+'_'+tone for tone in ('shadows','midtones','highlights') for axis in ('cyan_red','magenta_green','yellow_blue')]
-        if set(config)-set(keys)-{'preserve_luminosity'}:raise ValueError('Unknown Color Balance setting')
+        # Krita's defaultConfiguration writes these six names, but its color
+        # transformation reads only magenta_green/yellow_blue; they are not aliases.
+        ignored_defaults={axis+'_'+tone for tone in ('shadows','midtones','highlights') for axis in ('yellow_green','magenta_blue')}
+        if set(config)-set(keys)-ignored_defaults-{'preserve_luminosity'}:raise ValueError('Unknown Color Balance setting')
         def channel(key):
             try:value=int(config.get(key,'0'))
             except (ValueError,TypeError):raise ValueError('Invalid Color Balance channel')from None

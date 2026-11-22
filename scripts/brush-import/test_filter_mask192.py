@@ -102,6 +102,20 @@ class Filter192Tests(unittest.TestCase):
             validate_filter192_portable(d,{k:v['size']for k,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
             for bad_config in (config.replace('-60','-101'),config.replace('false','maybe')):
                 with self.assertRaises(ValueError):preset(kpp(resources='<param name="Filter/id">colorbalance</param>'+bad_config,engine='filter'),'bad.kpp',Catalog(Path(tmp)/('bad'+str(len(bad_config)))),{})
+    def test_color_balance_ignores_krita_factory_typo_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def read(fields):
+                config='<filterconfig>'+''.join('<param name="'+k+'">'+v+'</param>' for k,v in fields)+'</filterconfig>'
+                return preset(kpp(resources='<param name="Filter/id">colorbalance</param>'+config,engine='filter'),'balance.kpp',Catalog(Path(tmp)/str(len(fields))),{})['descriptor']['filter']
+            ignored=[(axis+'_'+tone,'37') for tone in ('shadows','midtones','highlights') for axis in ('yellow_green','magenta_blue')]
+            active=[('cyan_red_shadows','-60'),('magenta_green_shadows','40'),('yellow_blue_highlights','25'),('preserve_luminosity','false')]
+            self.assertEqual(read(ignored),read([]))
+            self.assertEqual(read(ignored+active),read(active))
+            f=read(ignored+active)
+            self.assertEqual(f['shadows'],[-.6,.4,0]);self.assertEqual(f['highlights'],[0,0,.25]);self.assertFalse(f['preserveLuminosity'])
+            with self.assertRaisesRegex(ValueError,'Unknown Color Balance setting'):
+                read(ignored+[('yellow_green_unknown','0')])
+
     def test_native_filterconfig_retains_authored_unsharp_parameters(self):
         definition='<Brush type="auto_brush" randomness=".6"><MaskGenerator type="circle" ratio="1" diameter="16" id="soft" softness_curve="0,1;1,0;" antialiasEdges="0"/></Brush>'
         extra='<param name="Filter/id">unsharp</param><filterconfig version="1"><param name="amount">2</param><param name="halfSize">4</param><param name="lightnessOnly">true</param><param name="threshold">0</param></filterconfig>'
