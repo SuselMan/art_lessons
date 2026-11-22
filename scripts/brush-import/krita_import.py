@@ -2225,6 +2225,9 @@ def preset(data,name,catalog,external,depth=0,**options):
     # short-circuit a checked Rotation with an unrecognised boolean.
     if not depth:
         with Image.open(io.BytesIO(data)) as source:
+            if source.format != 'PNG' or source.width * source.height > MAX_PIXELS:
+                raise ValueError('KPP must be a bounded PNG')
+            source.load()  # PNG text chunks may follow IDAT.
             root=xml(source.info.get('preset',''))
         # Freehand Wash uses the masking painter for both native families;
         # the 194/195 bridge currently drops the mask. Refuse before wrappers.
