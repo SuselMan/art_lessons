@@ -15,6 +15,23 @@ PARAMS={**P,'PaintOpAction':'1','MaskingBrush/UseMasterSize':'false','MaskingBru
 def native(tmp,patch=None,external=None):
     params={**PARAMS,**(patch or{})};raw=authored(params);path=Path(tmp)/'Own190.kpp';path.write_bytes(raw);c=convert.Catalog(Path(tmp)/'native');convert_krita(path,c,external);return raw,c
 class IndependentMask190Tests(unittest.TestCase):
+ def test_unused_master_coefficient_does_not_reject_absolute_child_size(self):
+  for master in ('false','true'):
+   for ratio in ('1','9','0.001'):
+    with self.subTest(master=master,ratio=ratio),tempfile.TemporaryDirectory() as tmp:
+     _,c=native(tmp,{'MaskingBrush/UseMasterSize':master,'MaskingBrush/MasterSizeCoeff':ratio})
+     if master=='true' and ratio!='1':
+      self.assertEqual(len(c.skipped),1);self.assertIn('Native master size coefficient',c.skipped[0]['reasons'][0]);self.assertEqual(c.brushes,[])
+     else:
+      self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1)
+      dual=c.brushes[0]['descriptor']['behavior']['dual']
+      if master=='false':self.assertEqual(dual['sizePolicy'],{'kind':'resource','diameter':16.0})
+      else:self.assertNotIn('sizePolicy',dual)
+ def test_absolute_size_still_validates_mask_composite_and_child_clock(self):
+  for patch in ({'MaskingBrush/MaskingCompositeOp':'unknown'},{'MaskingBrush/Preset/PaintOpSettings/isAirbrushing':'true'}):
+   with self.subTest(patch=patch),tempfile.TemporaryDirectory() as tmp:
+    _,c=native(tmp,{'MaskingBrush/UseMasterSize':'false','MaskingBrush/MasterSizeCoeff':'9',**patch})
+    self.assertEqual(len(c.skipped),1);self.assertEqual(c.brushes,[])
  def test_perspective_without_assistant_is_not_private_mask_authority(self):
   from independent_mask190 import uses_native_mask190_controls,validate_independent_mask190
   root={'version':58,'behavior':{'modulations':{'size':[{'control':'perspective','minimum':0,'jitter':0,'curve':[[0,0],[1,1]]}]}}}
