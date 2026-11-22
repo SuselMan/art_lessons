@@ -2316,7 +2316,7 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
                     else:
                         from mypaint_import import mypaint_preset
                         preview=str(PurePosixPath(name).with_suffix(''))+'_prev.png'
-                        catalog.brushes.append(_native_preset_transaction(catalog,lambda:mypaint_preset(raw,name,catalog,archive.read(preview)if preview in names else None)))
+                        catalog.brushes.append(_native_preset_transaction(catalog,lambda:mypaint_preset(raw,name,catalog,archive.read(preview)if preview in names else None,surface_policy='krita-legacy-v1')))
                 else:
                     catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_default_input_policy=default_policy)))
             except (ValueError, ET.ParseError, OSError) as error:

@@ -15,13 +15,13 @@ class MyPaintLegacy156(unittest.TestCase):
  def test_old55_keyword_noop_exactidentity(self):
   with tempfile.TemporaryDirectory()as t:
    cat=Catalog(Path(t));raw=json.dumps(self.document(False)).encode();a=mypaint_preset(raw,'same.kpp',cat);b=mypaint_preset(raw,'same.kpp',cat,surface_policy='krita-legacy-v1');self.assertEqual(a,b);self.assertEqual(a['descriptor']['version'],55)
- def test_standalone_andbundle_MYB_staystrict(self):
+ def test_standalone_myb_stays_strict_bundle_uses_krita_policy(self):
   with tempfile.TemporaryDirectory()as t:
    cat=Catalog(Path(t)/'out');raw=json.dumps(self.document()).encode()
    with self.assertRaises(ValueError):mypaint_preset(raw,'own.myb',cat)
    f=Path(t)/'own.bundle'
    with zipfile.ZipFile(f,'w')as z:z.writestr('paintoppresets/own.myb',raw)
-   convert_krita(f,cat);self.assertEqual(cat.brushes,[]);self.assertTrue(cat.skipped)
+   convert_krita(f,cat);self.assertEqual(cat.skipped,[]);self.assertEqual(len(cat.brushes),1);self.assertEqual(cat.brushes[0]['descriptor']['mypaint']['surfacePolicy'],'krita-legacy-v1')
  def test_policy_revision_mapping_andchild_prestate_rejections(self):
   with tempfile.TemporaryDirectory()as t:d=preset(self.raw(),'SelfAuthored156.kpp',Catalog(Path(t)),{})['descriptor']
   for version in[55,155,157]:
