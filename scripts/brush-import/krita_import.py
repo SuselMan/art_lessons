@@ -21,6 +21,7 @@ from legacy_smudge_timing import legacy_smudge_timing_scope,legacy_smudge_timing
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
+from contextvars import ContextVar
 import hashlib
 import io
 import math
@@ -77,6 +78,24 @@ def xml(data):
             visit(child, depth+1)
     visit(root)
     return root
+
+
+# Retain original engine through adapters that construct private Pixel presets.
+_SOURCE_SCOPE = ContextVar('krita_canonical_source_scope', default=None)
+
+
+def _canonical_not_checkable(params, option):
+    scope=_SOURCE_SCOPE.get()
+    if not scope or params.get('Pressure'+option,'').lower() not in ('false','0'):
+        return False
+    # Restrict this fix to the confirmed canonical active-curve case.
+    if params.get(option+'UseCurve','').lower() not in ('true','1'):
+        return False
+    engine, action=scope
+    if engine=='paintbrush': return option in ('Opacity','Flow')
+    if option=='Opacity':
+        return engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal')
+    return option=='Flow' and engine=='tangentnormal' and action in (None,'1')
 
 
 def enabled(value):
@@ -529,12 +548,12 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         # These native paintops never consume Flow/Mirror; their adapters strip
         # the captured fields. Do not parse stale, potentially invalid sensors
         # before that family-specific filtering has happened.
-        if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush','gridbrush','tangentnormal') and pen_key=='FlowSensor':continue
+        if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush','gridbrush','tangentnormal') and pen_key=='FlowSensor' and not _canonical_not_checkable(params,'Flow'):continue
         if engine=='gridbrush' and pen_key=='OpacitySensor':continue
         if pen_key=='RotationSensor' and (engine in ('hatchingbrush','curvebrush') or engine=='sketchbrush' and enabled(params.get('Sketch/simpleMode'))):continue
         if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush') and pen_key=='MirrorSensor':continue
         option=pen_key[:-6] if pen_key.endswith('Sensor') else ''
-        checked=params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
+        checked='true' if _canonical_not_checkable(params,option) else params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
         if not option or not enabled(checked)or not enabled(params.get(option+'UseCurve','true')):continue
         if pen_value=='':
             # Krita's sensor pack resolves an empty definition to pressure.
@@ -1180,7 +1199,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if not math.isfinite(size_strength) or not 0<=size_strength<=1:
             raise ValueError('Native SizeValue outside supported0..1')
     for option,target in [('Size','size'),('Opacity','opacity'),('Flow','flow'),('Scatter','scatter')]:
-        checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
+        checked=size_checked if option=='Size' else _canonical_not_checkable(params,option) or enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
         if not checked:
             continue
         controls=sensor_controls(params,option,notes,allow_recorded_pen=engine=='paintbrush'and depth==0 and option in('Size','Opacity')and not enabled(params.get('MaskingBrush/Enabled')),allow_time=timed_input or(_primary_clock_read and option=='Size'),allow_scatter_policy=option=='Scatter'and engine=='paintbrush'and depth==0 and _allow_texture_material and not enabled(params.get('MaskingBrush/Enabled')))
@@ -2220,6 +2239,24 @@ def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
 
 
 def preset(data,name,catalog,external,depth=0,**options):
+    if _SOURCE_SCOPE.get() is not None:
+        return _preset_scoped(data,name,catalog,external,depth,**options)
+    PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
+    PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
+    with Image.open(io.BytesIO(data)) as source:
+        if source.format != 'PNG' or source.width * source.height > MAX_PIXELS:
+            raise ValueError('KPP must be a bounded PNG')
+        source.load()
+        root=xml(source.info.get('preset',''))
+    params={p.get('name'):p.text or '' for p in root.findall('param')}
+    token=_SOURCE_SCOPE.set((root.get('paintopid') or '',params.get('PaintOpAction')))
+    try:
+        return _preset_scoped(data,name,catalog,external,depth,**options)
+    finally:
+        _SOURCE_SCOPE.reset(token)
+
+
+def _preset_scoped(data,name,catalog,external,depth=0,**options):
     # Wrappers inspect preset metadata before reaching the main decoder.
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
