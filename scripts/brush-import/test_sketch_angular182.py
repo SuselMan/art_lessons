@@ -15,7 +15,7 @@ def pipe182(mode='angular',count=4,unequal=False,channels=1):
 def make182(root,raw=None,extra=''):
  sensor='<params id="pressure"><curve>0,0;1,1;</curve></params>'
  params={'brush_definition':('<Brush type="gbr_brush" filename="Own182.gih" scale="1" ColorAsMask="1"/>','string'),'CompositeOp':('normal','string'),'SizeUseCurve':('true','bool'),'SizeSensor':(sensor,'string'),'PressureSize':('true','bool'),'Sketch/simpleMode':('false','bool')}
- xml='<Preset name="Own182 Angular Sketch" paintopid="sketchbrush">'+''.join('<param name="'+k+'" type="'+t+'"><![CDATA['+v+']]></param>'for k,(v,t)in params.items())+extra+'</Preset>'
+ xml='<Preset name="Own182 Angular Sketch" paintopid="sketchbrush">'+('' if 'name="PaintOpAction"' in extra else '<param name="PaintOpAction">1</param>')+''.join('<param name="'+k+'" type="'+t+'"><![CDATA['+v+']]></param>'for k,(v,t)in params.items())+extra+'</Preset>'
  im=Image.new('RGBA',(16,16),(255,255,255,255));meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',xml);out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta);data=out.getvalue();c=Catalog(root);result=preset(data,'Own182.kpp',c,{'Own182.gih':pipe182()if raw is None else raw});c.brushes.append(result);return result,c,data
 class Angular182(unittest.TestCase):
  def test_genuine_typed_kpp_gih_literal_alpha_order_and_portable_whole(self):

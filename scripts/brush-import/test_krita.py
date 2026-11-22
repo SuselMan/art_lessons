@@ -11,8 +11,10 @@ import convert
 from krita_import import convert_krita, gbr, gih, xml, gaussian_circle, tip_asset
 
 
-def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
+def kpp(definition=None, resources='', engine='paintbrush', mode='normal', *, implicit_action=False):
     definition=definition or '<Brush type="auto_brush" spacing="0.2" angle="0"><MaskGenerator type="circle" ratio="0.5" hfade="1" vfade="1"/></Brush>'
+    if not implicit_action and engine in ('sketchbrush', 'curvebrush', 'particlebrush', 'gridbrush', 'spraybrush') and 'name="PaintOpAction"' not in resources:
+        resources='<param name="PaintOpAction">1</param>'+resources
     preset=f'<Preset name="QA Krita" paintopid="{engine}"><param name="brush_definition"><![CDATA[{definition}]]></param><param name="CompositeOp">{mode}</param><param name="SizeUseCurve">true</param><param name="SizeSensor"><![CDATA[<params id="pressure"><curve>0,0;0.5,0.2;1,1;</curve></params>]]></param>{resources}</Preset>'
     meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',preset,zip=True)
     out=io.BytesIO();Image.new('RGB',(2,2),'red').save(out,format='PNG',pnginfo=meta)

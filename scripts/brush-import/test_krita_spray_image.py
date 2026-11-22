@@ -19,7 +19,7 @@ def encoded(image):
 
 def kpp(reference='particle.png', *, embedded=None, md5=None, extra=None, shape=4):
     root=ET.Element('Preset',{'paintopid':'spraybrush','name':'Own image shape fixture'})
-    params={'Spray/diameter':'100','Spray/scale':'1','Spray/particleCount':'1','SprayShape/enabled':'true','SprayShape/shape':str(shape),'SprayShape/width':'9','SprayShape/height':'3','SprayShape/imageUrl':reference}
+    params={'PaintOpAction':'1','Spray/diameter':'100','Spray/scale':'1','Spray/particleCount':'1','SprayShape/enabled':'true','SprayShape/shape':str(shape),'SprayShape/width':'9','SprayShape/height':'3','SprayShape/imageUrl':reference}
     params.update(extra or {})
     for key,value in params.items():ET.SubElement(root,'param',{'name':key}).text=value
     if embedded is not None:
@@ -106,7 +106,14 @@ class SprayImageImportTest(unittest.TestCase):
         data=base64.b64decode(fixture['sourceKppBase64'],validate=True)
         self.assertEqual(hashlib.sha256(data).hexdigest(),fixture['sourceSha256'])
         with tempfile.TemporaryDirectory()as tmp:
-            actual=preset(data,'legacy.kpp',Catalog(Path(tmp)),{})
+            with self.assertRaisesRegex(ValueError, 'Implicit Krita Wash'):
+                preset(data,'legacy.kpp',Catalog(Path(tmp)/'public'),{})
+            # The historic adapter record remains unchanged for existing replay;
+            # the public importer now refuses to create it from implicit Wash.
+            from krita_spray import spray_preset
+            image=Image.open(io.BytesIO(data));root=ET.fromstring(image.info['preset'])
+            params={node.get('name'):node.text or '' for node in root.findall('param')}
+            actual=spray_preset(data,root,params,'legacy.kpp',Catalog(Path(tmp)/'legacy'),{})
         for key in ('descriptor','compatibility'):
             self.assertEqual(actual[key],fixture[key])
             canonical=json.dumps(actual[key],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
