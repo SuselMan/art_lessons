@@ -15,6 +15,21 @@ def authored(action='2',extra=None):
  for key,value in params.items():ET.SubElement(root,'param',{'name':key}).text=value
  info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'));out=io.BytesIO();Image.new('RGB',(2,2),'red').save(out,format='PNG',pnginfo=info);return out.getvalue()
 class BristleWash135(unittest.TestCase):
+ def test_noncanonical_modes_rejected_without_losing_wash(self):
+  for action in ('0','3',' 1 ','garbage'):
+   with self.subTest(action=action),tempfile.TemporaryDirectory() as tmp:
+    path=Path(tmp)/'mode.kpp';path.write_bytes(authored(action));c=Catalog(Path(tmp)/'native');convert_krita(path,c,{'own.gbr':GBR})
+    self.assertEqual(len(c.skipped),1);self.assertIn('Unsupported noncanonical Bristle painting mode',c.skipped[0]['reasons'][0]);self.assertEqual(c.brushes,[]);self.assertEqual(c.assets,{})
+ def test_absent_mode_and_explicit_buildup_remain_direct(self):
+  for action in (None,'1'):
+   with self.subTest(action=action),tempfile.TemporaryDirectory() as tmp:
+    raw=authored('1');image=Image.open(io.BytesIO(raw));root=ET.fromstring(image.info['preset'])
+    if action is None:
+     for node in list(root):
+      if node.get('name')=='PaintOpAction':root.remove(node)
+    metadata=PngImagePlugin.PngInfo();metadata.add_text('preset',ET.tostring(root,encoding='unicode'));output=io.BytesIO();image.save(output,format='PNG',pnginfo=metadata)
+    path=Path(tmp)/'mode.kpp';path.write_bytes(output.getvalue());c=Catalog(Path(tmp)/'native');convert_krita(path,c,{'own.gbr':GBR})
+    self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor']['behavior']['rendering']['accumulation'],'directOver')
  def native(self,tmp,action='2',extra=None):
   raw=authored(action,extra);path=Path(tmp)/'Own.kpp';path.write_bytes(raw);c=Catalog(Path(tmp)/'native');convert_krita(path,c,{'own.gbr':GBR});self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1);return c,raw
  def test_new135_and_new141_share_hairs_size_rotation_curves_but_different_request_law(self):
