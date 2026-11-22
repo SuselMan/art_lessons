@@ -407,8 +407,14 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
         notes.append(compatibility(option+'SensorCombination','Unsupported native sensor combination mode.','unsupported'))
         return []
     legacy_curve=params.get('Curve'+option,'0,0;1,1;') if 'curve' not in sensor_definition and enabled(params.get('Custom'+option)) else '0,0;1,1;'
-    common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
     use_common=enabled(params.get(option+'UseSameCurve','true'))
+    common_key=option+'commonCurve'
+    # Krita treats a present empty common curve as identity; absence falls
+    # back to the sensor/legacy curve. With same=false it is not read.
+    if use_common and common_key in params and not params[common_key]:
+        common='0,0;1,1;'
+    else:
+        common=params.get(common_key) or (sensors[-1].findtext('curve') if sensors else None)
     controls=[]
     source_ids=[]
     supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress','distance':'distance'}

@@ -68,6 +68,22 @@ class StrokeInputTests(unittest.TestCase):
                         curve=behavior['dynamics']['angle']['curve']
                         self.assertEqual(curve!=[[0,0],[1,1]],expected=='curved')
 
+    def test_empty_common_curve_overrides_legacy_for_shared_controls(self):
+        from krita_import import sensor_controls
+        identity=[[0,0],[1,1]]
+        for option,sensor in (('Rotation','ascension'),('Size','pressure'),('Opacity','pressure'),('Flow','pressure'),('Scatter','pressure')):
+            base={option+'Sensor':f'<params id="{sensor}"/>','Custom'+option:'true','Curve'+option:'0,1;1,0;',option+'UseSameCurve':'true'}
+            for common,same,expected_identity in ((None,'true',False),('','true',True),('0,0;1,1;','true',True),('','false',False)):
+                with self.subTest(option=option,common=common,same=same):
+                    params={**base,option+'UseSameCurve':same}
+                    if common is not None:params[option+'commonCurve']=common
+                    controls=sensor_controls(params,option,[],allow_time=True)
+                    self.assertEqual(len(controls),1)
+                    self.assertEqual(controls[0]['curve']==identity,expected_identity)
+        rotation={**PARAMS,'RotationSensor':'<params id="ascension"/>','CustomRotation':'true','CurveRotation':'0,1;1,0;','RotationcommonCurve':''}
+        angle=self.brush(rotation)['descriptor']['behavior']['dynamics']['angle']
+        self.assertEqual(angle['curve'],identity)
+
     def test_default_off_and_identity(self):
         old=self.brush();self.assertEqual(old,self.brush(stroke_input=False));new=self.brush(stroke_input=True)
         self.assertEqual(new['descriptor']['behavior']['strokeInput'],POLICY)
