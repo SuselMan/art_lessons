@@ -45,8 +45,6 @@ class UseCurveBooleanGuard(unittest.TestCase):
     def test_inactive_controls_do_not_cause_rejection(self):
         child={**params132(),'MaskingBrush/Preset/SizeUseCurve':'yes','MaskingBrush/Preset/PressureSize':'false'}
         cases=(authored({'PressureSize':'false','SizeUseCurve':'yes'}),
-               authored({'PressureOpacity':'false','OpacityUseCurve':'yes'}),
-               authored({'PressureFlow':'false','FlowUseCurve':'yes'}),
                native194(params={'PressureLine width':'false','Line widthUseCurve':'yes'}),
                authored(child),
                authored({**child,'MaskingBrush/Enabled':'false','MaskingBrush/Preset/PressureSize':'true'}),
@@ -56,5 +54,48 @@ class UseCurveBooleanGuard(unittest.TestCase):
                 result=self.exercise(tmp,raw,resources132())
                 self.assertNotIn('Unsupported noncanonical',str(result.skipped))
                 self.assertEqual(len(result.brushes),1)
+
+    def test_not_checkable_source_pixel_and_children(self):
+        for option in ('Opacity','Flow'):
+            for checked in (None,'true','false'):
+                for flag in (None,'true','false','yes'):
+                    for child in (False,True):
+                        values={option+'Sensor':'<params id="pressure"/>'}
+                        if checked is not None: values['Pressure'+option]=checked
+                        if flag is not None: values[option+'UseCurve']=flag
+                        raw=authored({**params132(),**{'MaskingBrush/Preset/'+k:v for k,v in values.items()}}) if child else authored(values)
+                        with self.subTest(option=option,checked=checked,flag=flag,child=child),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                            result=self.exercise(tmp,raw,resources132())
+                            if flag=='yes':
+                                self.assertIn('Unsupported noncanonical',str(result.skipped));continue
+                            self.assertEqual(result.skipped,[])
+                            desc=result.brushes[0]['descriptor']
+                            if child: desc=desc['behavior']['dual']['brush']
+                            curve=desc[option.lower()+'ByPressure']
+                            self.assertEqual(curve, [[0,1],[1,1]] if flag=='false' else [[0,0],[1,1]])
+
+    def test_other_confirmed_opacity_consumers(self):
+        for engine in ('deformbrush','colorsmudge','duplicate','tangentnormal'):
+            for flag in ('true','false','yes'):
+                values={'PressureOpacity':'false','OpacityUseCurve':flag,'OpacitySensor':'<params id="pressure"/>'}
+                if engine=='deformbrush': values['CompositeOp']='copy'
+                with self.subTest(engine=engine,flag=flag),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                    result=self.exercise(tmp,native194(engine,params=values))
+                    if flag=='yes':
+                        self.assertIn('Unsupported noncanonical OpacityUseCurve',str(result.skipped));continue
+                    self.assertEqual(result.skipped,[])
+                    self.assertEqual(result.brushes[0]['descriptor']['opacityByPressure'],[[0,0],[1,1]] if flag=='true' else [[0,1],[1,1]])
+
+    def test_opacity_on_sketch_and_spray_and_ignored_flow(self):
+        for engine in ('sketchbrush','spraybrush'):
+            for option in ('Opacity','Flow'):
+                for checked in (None,'false','true'):
+                    values={option+'UseCurve':'true',option+'Sensor':'<params id="pressure"/>'}
+                    if checked is not None: values['Pressure'+option]=checked
+                    with self.subTest(engine=engine,option=option,checked=checked),tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+                        result=self.exercise(tmp,native194(engine,params=values))
+                        self.assertEqual(result.skipped,[])
+                        curve=result.brushes[0]['descriptor'][option.lower()+'ByPressure']
+                        self.assertEqual(curve,[[0,0],[1,1]] if option=='Opacity' else [[0,1],[1,1]])
 
 if __name__=='__main__':unittest.main()

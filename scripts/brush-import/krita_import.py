@@ -21,6 +21,7 @@ from legacy_smudge_timing import legacy_smudge_timing_scope,legacy_smudge_timing
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
+from contextvars import ContextVar
 import hashlib
 import io
 import math
@@ -77,6 +78,15 @@ def xml(data):
             visit(child, depth+1)
     visit(root)
     return root
+
+
+# Original engine survives private Pixel lowering performed by other adapters.
+_SOURCE_ENGINE = ContextVar('krita_source_engine', default=None)
+
+
+def _not_checkable(option):
+    source = _SOURCE_ENGINE.get()
+    return option in ('Opacity', 'Flow') and source == 'paintbrush' or option == 'Opacity' and source in ('sketchbrush', 'spraybrush', 'deformbrush', 'colorsmudge', 'duplicate', 'tangentnormal')
 
 
 def enabled(value):
@@ -534,7 +544,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if pen_key=='RotationSensor' and (engine in ('hatchingbrush','curvebrush') or engine=='sketchbrush' and enabled(params.get('Sketch/simpleMode'))):continue
         if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush') and pen_key=='MirrorSensor':continue
         option=pen_key[:-6] if pen_key.endswith('Sensor') else ''
-        checked=params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
+        checked='true' if _not_checkable(option) else params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
         if not option or not enabled(checked)or not enabled(params.get(option+'UseCurve','true')):continue
         if pen_value=='':
             # Krita's sensor pack resolves an empty definition to pressure.
@@ -1180,7 +1190,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if not math.isfinite(size_strength) or not 0<=size_strength<=1:
             raise ValueError('Native SizeValue outside supported0..1')
     for option,target in [('Size','size'),('Opacity','opacity'),('Flow','flow'),('Scatter','scatter')]:
-        checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
+        checked=size_checked if option=='Size' else _not_checkable(option) or enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
         if not checked:
             continue
         controls=sensor_controls(params,option,notes,allow_recorded_pen=engine=='paintbrush'and depth==0 and option in('Size','Opacity')and not enabled(params.get('MaskingBrush/Enabled')),allow_time=timed_input or(_primary_clock_read and option=='Size'),allow_scatter_policy=option=='Scatter'and engine=='paintbrush'and depth==0 and _allow_texture_material and not enabled(params.get('MaskingBrush/Enabled')))
@@ -2220,6 +2230,23 @@ def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
 
 
 def preset(data,name,catalog,external,depth=0,**options):
+    if _SOURCE_ENGINE.get() is not None:
+        return _preset_with_source(data,name,catalog,external,depth,**options)
+    PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
+    PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
+    with Image.open(io.BytesIO(data)) as source:
+        if source.format != 'PNG' or source.width * source.height > MAX_PIXELS:
+            raise ValueError('KPP must be a bounded PNG')
+        source.load()
+        root=xml(source.info.get('preset',''))
+    token=_SOURCE_ENGINE.set(root.get('paintopid') or '')
+    try:
+        return _preset_with_source(data,name,catalog,external,depth,**options)
+    finally:
+        _SOURCE_ENGINE.reset(token)
+
+
+def _preset_with_source(data,name,catalog,external,depth=0,**options):
     # Wrappers inspect preset metadata before reaching the main decoder.
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
@@ -2244,16 +2271,20 @@ def preset(data,name,catalog,external,depth=0,**options):
         original_params={p.get('name'):p.text or '' for p in root.findall('param')}
         engine=root.get('paintopid')
         candidates=[]
-        if engine=='paintbrush':
-            candidates.extend(('', option) for option in ('Size', 'Opacity', 'Flow'))
+        if engine=='paintbrush' and _SOURCE_ENGINE.get()=='paintbrush':
+            candidates.append(('', 'Size'))
+            candidates.extend(('', option) for option in ('Opacity', 'Flow'))
             if (original_params.get('PaintOpAction')=='2' and
                 enabled(original_params.get('MaskingBrush/Enabled'))):
-                candidates.append(('MaskingBrush/Preset/', 'Size'))
-        elif engine=='sketchbrush':
-            candidates.append(('', 'Line width'))
+                candidates.extend(('MaskingBrush/Preset/', option) for option in ('Size','Opacity','Flow'))
+        elif engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal') and _SOURCE_ENGINE.get()==engine:
+            candidates.append(('', 'Opacity'))
+            if engine=='sketchbrush': candidates.append(('', 'Line width'))
         for prefix, option in candidates:
             value=original_params.get(prefix+option+'UseCurve')
-            if (enabled(original_params.get(prefix+'Pressure'+option)) and
+            if (((((not prefix) or prefix=='MaskingBrush/Preset/') and ((engine=='paintbrush' and option in ('Opacity','Flow')) or
+                                  (engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal') and option=='Opacity'))) or
+                 enabled(original_params.get(prefix+'Pressure'+option))) and
                 value is not None and value.lower() not in ('true','false','1','0')):
                 raise ValueError('Unsupported noncanonical '+prefix+option+'UseCurve')
         if root.get('paintopid')=='paintbrush':
