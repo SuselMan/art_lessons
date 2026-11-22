@@ -86,10 +86,10 @@ _SOURCE_SCOPE = ContextVar('krita_canonical_source_scope', default=None)
 
 def _canonical_not_checkable(params, option):
     scope=_SOURCE_SCOPE.get()
-    if not scope or params.get('Pressure'+option,'').lower() not in ('false','0'):
+    if not scope or params.get('Pressure'+option,'false').lower() not in ('false','0'):
         return False
-    # Restrict this fix to the confirmed canonical active-curve case.
-    if params.get(option+'UseCurve','').lower() not in ('true','1'):
+    # Missing UseCurve is true in Krita's sensor-pack reader.
+    if params.get(option+'UseCurve','true').lower() not in ('true','1'):
         return False
     engine, action=scope
     if engine=='paintbrush': return option in ('Opacity','Flow')
