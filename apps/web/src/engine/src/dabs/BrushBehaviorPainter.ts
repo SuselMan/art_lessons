@@ -1,3 +1,5 @@
+import{hasDyna210Scope,hasPixelAlignment211Scope}from'@grafetto/shared'
+import{alignPixelMask}from'../presets/pixelAlignment'
 import{usesNativePixelMaterials}from'../presets/nativeBrushFeatures'
 import{hasBristleNativePointCoverage,hasBristleSoak139Scope,hasBristleWash135Scope,hasCloneHealing152Scope,hasCloneProjection149Scope,hasExperimentCurrentPattern158Scope,hasFilterBitmapMaskScope,hasFilterGaussian153Scope,hasFilterMask192Scope,hasFilterSmudge147Scope,hasFilterUnsharp159Scope,hasParticleWash134Scope,hasTangentNormalWash136Scope}from'../presets/stationary195Scopes'
 import{usesNativeFilterMask,usesNativeSketchSpray}from'../presets/nativeBrushFeatures'
@@ -712,6 +714,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>;gihFrames?:ReturnType<typeof prepareVariableGih>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>},maskResourceRoot190?:BrushDescriptor): void {
+    if((brush.version===210||brush.dyna)&&!hasDyna210Scope(brush))throw Error('Invalid DynaDraw210 scope')
+    if((brush.version===211||brush.tip.alphaThreshold?.alignment)&&!hasPixelAlignment211Scope(brush))throw Error('Invalid bitmap alignment211 scope')
     execution=mask190RootExecution(brush,execution)
     const mask190=mask190Role(brush,execution)!==undefined
     if(mask190){if(execution!.maskRole190!.role==='primary')maskResourceRoot190=brush;else if(!maskResourceRoot190||maskResourceRoot190.id!==execution!.maskRole190!.rootId||maskResourceRoot190.behavior?.dual?.brush.id!==brush.id)throw Error('Missing validated whole Mask190 resource owner')}
@@ -971,7 +975,9 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=usesNativeSketchSpray(brush)?1:clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
         const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
-        return {...st,...(circleBand ? {aspect:1,angle:0} : {}),radius:(brush.version===195||brush.version===209)&&brush.tangentNormal&&st.segmentLength!==undefined?.5:st.size*placedSizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
+        const alignment=brush.version===211?brush.tip.alphaThreshold?.alignment:undefined
+        const aligned=alignment?alignPixelMask(st.x,st.y,st.size*placedSizeMultiplier,st.angle,brush.tip.alphaThreshold!.value,alignment):undefined
+        return {...st,...(aligned??{}),...(circleBand ? {aspect:1,angle:0} : {}),radius:(brush.version===195||brush.version===209)&&brush.tangentNormal&&st.segmentLength!==undefined?.5:st.size*placedSizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
           ...(wash ? {washAverage:wash.average,washFeedback:!wash.canBlend || !constantPigment} : {})}
       })
     })

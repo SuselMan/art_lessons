@@ -7,6 +7,6 @@ def dyna210_scope(v):
     if not obj(v)or v.get('version')!=210 or not all(obj(v.get(k))for k in ('dyna','tip','behavior')):return False
     d,t,b=v['dyna'],v['tip'],v['behavior'];r=b.get('rendering')
     return (set(d)=={'version','mass','drag','diameter'} and d['version']==1 and n(d['mass'],0,1)and n(d['drag'],0,1)and type(d['diameter'])is int and 3<=d['diameter']<=32
-      and v.get('model')=='stamp'and v.get('paperInteraction')==0 and v.get('flow')==1 and v.get('opacity')==1 and all(one(v.get(k))for k in ('sizeByPressure','flowByPressure','opacityByPressure'))
+      and v.get('model')=='stamp'and n(v.get('paperInteraction'),0,0) and n(v.get('flow'),1,1) and n(v.get('opacity'),1,1) and all(one(v.get(k))for k in ('sizeByPressure','flowByPressure','opacityByPressure'))
       and not any(k in v for k in ('mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
       and t=={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0} and b.get('version')==2 and not set(b)-{'version','rendering'} and obj(r)and r=={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'})

@@ -1,3 +1,4 @@
+import{hasDyna210Scope,hasPixelAlignment211Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope,hasSprayWash133Scope}from'../presets/stationary195Scopes'
 import{usesNativeSmudgeTexture,usesNativePixelMaterials}from'../presets/nativeBrushFeatures'
 import{hasBristleWash135Scope,hasFilterBitmapMaskScope,hasFilterMask192Scope,hasParticleWash134Scope,hasTangentNormalWash136Scope}from'../presets/stationary195Scopes'
@@ -114,6 +115,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'greater198' | 'native194'|'nativeSpray194' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  if((brush.version===210||brush.dyna)&&!hasDyna210Scope(brush))throw Error('Invalid DynaDraw210 scope')
+  if((brush.version===211||brush.tip.alphaThreshold?.alignment)&&!hasPixelAlignment211Scope(brush))throw Error('Invalid bitmap alignment211 scope')
   const mask190=brush.version===202?hasNativePixel202Scope(brush):brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
   if((brush.version===202||brush.version===195||brush.version===190||usesNativePixelMaterials(brush)||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush))&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
   if(!mask190)assertAnimatedAlphaChild184Ready(brush,capturedErase)

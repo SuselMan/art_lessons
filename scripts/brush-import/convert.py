@@ -663,6 +663,10 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
+    tip_for_alignment=descriptor.get('tip',{});threshold_for_alignment=tip_for_alignment.get('alphaThreshold',{}) if isinstance(tip_for_alignment,dict) else {}
+    if descriptor.get('version')==211 or isinstance(threshold_for_alignment,dict) and 'alignment'in threshold_for_alignment:
+        from pixel_alignment import pixel_alignment211_scope
+        if parent is not None or not pixel_alignment211_scope(descriptor):raise ValueError('Invalid bitmap pixel alignment211 scope')
     if descriptor.get('version')==210 or 'dyna'in descriptor:
         from dyna_scope import dyna210_scope
         if parent is not None or not dyna210_scope(descriptor):raise ValueError('Invalid DynaDraw210 scope')
@@ -1118,7 +1122,7 @@ def portable_bundle(path,catalog):
         if tip.get('kind') not in ('bitmap','round','procedural') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
         if 'alphaThreshold' in tip:
             threshold=tip['alphaThreshold']
-            if (not isinstance(threshold,dict) or set(threshold)!={'value','softness'}
+            if (not isinstance(threshold,dict) or set(threshold)!=({'value','softness','alignment'} if d.get('version')==211 else {'value','softness'})
                     or any(type(threshold.get(key)) not in (int,float) or not math.isfinite(threshold[key]) or not 0<=threshold[key]<=1 for key in ('value','softness'))):
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:

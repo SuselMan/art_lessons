@@ -712,6 +712,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     child_drawing_angle=None
     source_size=None
     source_metric=None
+    alignment_frames_equal=False
     application=0
     softness_value=1
     softness_controls=[]
@@ -924,6 +925,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             if _native_sampling_candidate is not None and depth and pipe['mode']in('constant','incremental','pressure','random'):
                 _native_sampling_candidate['animatedAlpha184']=bool(application==0 and not pipe['coloured'] and all(frame.mode=='L'for frame in pipe['frames']) and 2<=len(frames)<=256 and len({frame.size for frame in frames})==1 and all(max(frame.size)<=512 for frame in frames))
             unequal=len({frame.size for frame in frames})!=1
+            alignment_frames_equal=not unequal
             unequal_lightness_gih124=bool(unequal and len(frames)>=2 and material_gray and application==2 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             unequal_gradient_gih126=bool(unequal and len(frames)>=2 and gradient_gray and application==3 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             if unequal:
@@ -2053,6 +2055,15 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         warnings[:]=[w for w in warnings if w!='blendMode: '+detail]
         note=compatibility('pixelDissolve201','Native opacity becomes binary per pixel with deterministic coordinate noise; Krita uses unseeded thread-local randomness, so the exact speckle pattern differs.') if mode=='dissolve' else compatibility('pixelGreater198','Greater applies the native alpha-dependent soft maximum during the final layer composite. GPU float precision, ICC and native integer rounding may differ.')
         notes.append(note);warnings.append(note['feature']+': '+note['detail'])
+    if (engine=='paintbrush' and depth==0 and not COMPONENT190.get() and d['version']<188 and alignment_frames_equal and source_metric and enabled(params.get('PressureSharpness')) and enabled(params.get('Sharpness/alignoutline')) and not enabled(params.get('SharpnessUseCurve','true')) and isinstance(d['tip'].get('alphaThreshold'),dict)):
+        from pixel_alignment import pixel_alignment211_scope
+        old_version=d['version'];d['version']=211;longest=max(source_metric);d['tip']['alphaThreshold']['alignment']={'width':source_metric[0]/longest,'height':source_metric[1]/longest}
+        if pixel_alignment211_scope(d):
+            notes[:]=[note for note in notes if note['feature']!='maskThresholdAlignment'];warnings[:]=[w for w in warnings if not w.startswith('maskThresholdAlignment:')]
+            note=compatibility('maskThresholdAlignment','The transformed original-mask hotspot is aligned toward Qt-rounded coordinates by the captured static Sharpness value. Native image scaling, filtering and byte rounding remain approximate.')
+            notes.append(note);warnings.append(note['feature']+': '+note['detail'])
+        else:
+            d['version']=old_version;del d['tip']['alphaThreshold']['alignment']
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

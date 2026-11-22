@@ -1,8 +1,25 @@
 """Authored constant Sharpness fixtures; no stock artwork required."""
 import unittest
 import test_krita_random_color
+import base64,copy,json,tempfile
+from pathlib import Path
+from brush_contract import Catalog
+from krita_import import convert_krita
+from convert import portable_bundle
+from test_krita import kpp
+from test_krita_variable_gih import frame,pipe
 
 class MaskThresholdTests(unittest.TestCase):
+    def test_constant_alignment_of_equal_random_bitmap_frames_roundtrips(self):
+        definition='<Brush type="gbr_brush" filename="own.gih" spacing="0.1" scale="1"/>'
+        extra='<param name="PressureSharpness">true</param><param name="SharpnessUseCurve">false</param><param name="SharpnessValue">0.47</param><param name="Sharpness/alignoutline">true</param><param name="PaintOpAction">2</param>'
+        gih=pipe([frame(6,4,[30]*24),frame(6,4,[80]*24)],'random')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'own.kpp';path.write_bytes(kpp(definition,extra));c=Catalog(root/'native');convert_krita(path,c,{'own.gih':gih});self.assertEqual(c.skipped,[])
+            d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],211);self.assertEqual(d['tip']['alphaThreshold']['alignment'],{'width':1,'height':4/6});self.assertFalse(any(n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
+            assets={aid:base64.b64encode((c.output/a['file']).read_bytes()).decode()for aid,a in c.assets.items()};env={'library':c.write(),'assets':assets};file=root/'portable.json';file.write_text(json.dumps(env));out=Catalog(root/'out');portable_bundle(file,out);self.assertEqual(out.brushes,c.brushes)
+            bad=copy.deepcopy(env);bad['library']['brushes'][0]['descriptor']['version']=27;file.write_text(json.dumps(bad))
+            with self.assertRaises(ValueError):portable_bundle(file,Catalog(root/'bad'))
     def brush(self,params):
         return test_krita_random_color.RandomOptionTests().brush(params)
 

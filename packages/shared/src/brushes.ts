@@ -87,6 +87,8 @@ import{hasDeformTimer160Scope,hasDeformOldData145Scope,isDeformDescriptor,type B
 export type{BrushDeform}from'./brushDeform.js'
 export{hasDeformTimer160Scope,hasDeformOldData145Scope}from'./brushDeform.js'
 import{hasExperimentCurrentPattern158Scope,isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
+import{hasPixelAlignment211Scope}from'./brushPixelAlignment.js'
+export{hasPixelAlignment211Scope}from'./brushPixelAlignment.js'
 import{hasDyna210Scope,type BrushDyna}from'./brushDyna.js'
 export{hasDyna210Scope}from'./brushDyna.js'
 export type{BrushDyna}from'./brushDyna.js'
@@ -174,7 +176,7 @@ export interface BrushTip {
   /** Functional D16/R8 stochastic mask law, versioned independently of native RNG. */
   autoNoise?:{version:1;density:number;randomness:number}
   /** Quantized mask operation before texture, flow and opacity. */
-  alphaThreshold?: { value: number; softness: number }
+  alphaThreshold?: { value: number; softness: number; alignment?:{width:number;height:number} }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
   animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity' | 'angular' | 'xtilt' | 'ytilt' | 'dimensions'; dimensions?: {mode:'constant'|'pressure'|'velocity'|'angular'|'xtilt'|'ytilt'|'random'|'incremental';rank:number}[]; randomPolicy?:'grafetto-dim-stream-v1'; rank?: number; cursorPolicy?: 'first-request-v1'; roundingPolicy?:'qt5-half-up-v1'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
@@ -531,6 +533,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    if((d.version===211||record(d.tip)&&record(d.tip.alphaThreshold)&&d.tip.alphaThreshold.alignment!==undefined)&&(maskRoot!==undefined||!hasPixelAlignment211Scope(d)))return false
     if((d.version===210||d.dyna!==undefined)&&(maskRoot!==undefined||!hasDyna210Scope(d)))return false
     if(d.version===209&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===208&&(maskRoot!==undefined||!hasGridWash137Scope(d)))return false
@@ -758,7 +761,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (record(d.behavior) && ((record(d.behavior.dynamics) && d.behavior.dynamics.sharpness!==undefined) || (record(d.behavior.modulations) && d.behavior.modulations.sharpness!==undefined)) && d.tip.alphaThreshold===undefined) return false
     if (d.tip.alphaThreshold !== undefined) {
       const threshold=d.tip.alphaThreshold
-      if (!record(threshold) || Object.keys(threshold).some(key=>!['value','softness'].includes(key)) || !numberIn(threshold.value,0,1) || !numberIn(threshold.softness,0,1)) return false
+      if (!record(threshold) || Object.keys(threshold).some(key=>!['value','softness','alignment'].includes(key)) || !numberIn(threshold.value,0,1) || !numberIn(threshold.softness,0,1)) return false
     }
     if (d.tip.maskBounds !== undefined) {
       const bounds = d.tip.maskBounds
