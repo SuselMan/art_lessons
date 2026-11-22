@@ -536,6 +536,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         option=pen_key[:-6] if pen_key.endswith('Sensor') else ''
         checked=params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
         if not option or not enabled(checked)or not enabled(params.get(option+'UseCurve','true')):continue
+        if engine=='colorsmudge' and pen_key=='ColorRateSensor' and pen_value=='':
+            # Krita treats an empty sensor definition as its pressure fallback.
+            pen_value='<params id="pressure"/>'
         pen_nodes=xml(pen_value);pen_nodes=list(pen_nodes.findall('ChildSensor'))if pen_nodes.get('id')=='sensorslist'else[pen_nodes]
         native_source_time |= any(n.get('id')=='time' for n in pen_nodes)
         if not COMPONENT190.get()and any(n.get('id')in('rotation','tangentialpressure')for n in pen_nodes)and(engine!='paintbrush'or depth or pen_key[:-6]not in('Size','Opacity','Rotation')or enabled(params.get('MaskingBrush/Enabled'))):raise ValueError('Recorded pen188 supports root ordinary Pixel Size/Opacity/Rotation only')
