@@ -157,7 +157,7 @@ export class BrushPainter {
     const plan=brushTextureLeasePlan(resources,'stamp'),release=streaming?this.textures.lease(plan):this.textures.leaseRequired(plan)
     try{
       if(prepare){
-        if(brush?.version===195&&brush.tangentNormal?.sharpnessChecked)this.prepareSketchLines()
+        if((brush?.version===195||brush?.version===209)&&brush.tangentNormal?.sharpnessChecked)this.prepareSketchLines()
         if(brush&&usesNativeSketchSpray(brush)){this.prepareCompositeEffects(true);if(brush.sketch){this.prepareSketchLines();if(brush.behavior?.rendering?.accumulation==='alphaDarken')this.prepareBristleWash()}if(brush.spray){this.prepareSprayShapes();this.prepareSprayImages();this.prepareSpraySources(false,true);this.prepareSpraySources(true,true)}}
         if(brush&&usesNativePixelMaterials(brush)){
           this.prepareStampEffects(usesFilteredPixelGradient(brush),textureMaterialVariant(brush,true))

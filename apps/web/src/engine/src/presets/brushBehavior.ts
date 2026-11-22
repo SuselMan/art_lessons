@@ -27,6 +27,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  tangentPoint209?:boolean
   maxPressure?:number
   sprayPainterOpacity?:number
   deform?:DeformState
@@ -618,7 +619,8 @@ function behaviorStampsForDabCore(brush: BrushDescriptor, dab: Dab, state: Brush
   }
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(sourceColor,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : sourceColor
-  if(brush.version===195&&brush.tangentNormal&&mask190&&state.previous&&tangentConstructorIsPoint195(brush,dab.sourceSize!)){
+  const tangentPoint=brush.version===209?(state.tangentPoint209??=tangentConstructorIsPoint195(brush,dab.size)):brush.version===195&&!!mask190&&tangentConstructorIsPoint195(brush,dab.sourceSize!)
+  if(brush.tangentNormal&&state.previous&&tangentPoint){
     const previous=state.previous,dx=dab.x-previous.x,dy=dab.y-previous.y,length=Math.hypot(dx,dy),group=state.dabSequence??0
     state.previous={...dab};state.dabSequence=group+1
     return[{x:(previous.x+dab.x)*.5,y:(previous.y+dab.y)*.5,size:1,aspect:length+1,angle:Math.atan2(dy,dx),segmentLength:length,group,flowScale:1,color:adjustedColor,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}]

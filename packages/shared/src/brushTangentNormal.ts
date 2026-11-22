@@ -14,7 +14,7 @@ export function isTangentNormalDescriptor(d:Record<string,unknown>,policy?:Brush
   if(d.tangentNormal===undefined)return true
   const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
   const t=d.tangentNormal,b=d.behavior
-  return isTangentNormalOptions(t,stationary)    &&d.model==='stamp'&&d.paperInteraction===0
+  return isTangentNormalOptions(t,stationary||d.version===209)    &&d.model==='stamp'&&d.paperInteraction===0
     &&['mypaint','clone','filter','deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','mixer','wet'].every(k=>d[k]===undefined)
     &&record(d.tip)&&d.tip.color===undefined&&d.tip.material===undefined
     &&record(b)&&b.version===2&&b.dual===undefined&&b.wetMix===undefined&&b.colorAdjustment===undefined
@@ -36,14 +36,14 @@ function isTangentNormalOptions(t:unknown,stationary=false):boolean {
 export function hasTangentNormalWash136Scope(value:unknown,policy?:BrushStructurePolicy):boolean {
  const stationary=isStationary195Structure(value,policy)
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v),n=(v:unknown,a:number,b:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=b
- if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!obj(value.tangentNormal)||typeof value.tangentNormal.direction!=='string'||!isTangentNormalOptions(value.tangentNormal,stationary))return false
+ if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!obj(value.tangentNormal)||typeof value.tangentNormal.direction!=='string'||!isTangentNormalOptions(value.tangentNormal,stationary||value.version===209))return false
  const t=value.tip,b=value.behavior,g=t.profile,r=b.rendering
- const bitmap=value.version===207
- const maskOk=bitmap?t.kind==='bitmap'&&typeof t.mask==='string'&&obj(t.maskBounds)&&obj(t.imageSampling)&&t.imageSampling.kind==='integer-pyramid'&&t.imageSampling.signal==='inverse-gray'&&Object.keys(t).every(k=>['kind','aspect','hardness','rotation','angle','mask','maskBounds','imageSampling'].includes(k)):t.kind==='procedural'&&obj(g)&&Object.keys(g).every(k=>['kind','shape','horizontalFade','verticalFade','antialias'].includes(k))&&g.kind==='standard'&&g.shape==='ellipse'&&n(g.horizontalFade,0,1)&&n(g.verticalFade,0,1)&&typeof g.antialias==='boolean'&&Object.keys(t).every(k=>['kind','aspect','hardness','rotation','angle','profile'].includes(k))
+ const bitmap=value.version===207,point=value.version===209
+ const maskOk=bitmap?t.kind==='bitmap'&&typeof t.mask==='string'&&obj(t.maskBounds)&&obj(t.imageSampling)&&t.imageSampling.kind==='integer-pyramid'&&t.imageSampling.signal==='inverse-gray'&&Object.keys(t).every(k=>['kind','aspect','hardness','rotation','angle','mask','maskBounds','imageSampling'].includes(k)):t.kind==='procedural'&&obj(g)&&Object.keys(g).every(k=>['kind','shape','horizontalFade','verticalFade','antialias'].includes(k))&&g.kind==='standard'&&g.shape==='ellipse'&&n(g.horizontalFade,0,1)&&n(g.verticalFade,0,1)&&typeof g.antialias==='boolean'&&Object.keys(t).every(k=>['kind','aspect','hardness','rotation','angle','profile',...(point?['alphaThreshold']:[])].includes(k))&&(!point||obj(t.alphaThreshold)&&t.alphaThreshold.value===1&&t.alphaThreshold.softness===0&&value.tangentNormal.sharpnessChecked===true)
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&n(p[0],0,1)&&p[1]===1)
  return Number.isInteger(value.version)&&Number(value.version)>=136&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
  &&['mypaint','clone','filter','deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','mixer','wet','texture','scatter'].every(k=>value[k]===undefined)
- &&maskOk&&([206,207].includes(Number(value.version))?n(t.aspect,1,16):t.aspect===1)&&n(t.hardness,0,1)&&t.rotation==='fixed'&&typeof t.angle==='number'&&Number.isFinite(t.angle)
+ &&(!point||one(value.sizeByPressure))&&maskOk&&([206,207].includes(Number(value.version))?n(t.aspect,1,16):t.aspect===1)&&n(t.hardness,0,1)&&t.rotation==='fixed'&&typeof t.angle==='number'&&Number.isFinite(t.angle)
  &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'speedInput','rendering','spacing','rotation','modulations','dynamics','strokeInput'].includes(k))
  &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>['size','opacity','angle'].includes(k)))
  &&(b.dynamics===undefined||obj(b.dynamics)&&Object.keys(b.dynamics).every(k=>['size','opacity','angle'].includes(k)))

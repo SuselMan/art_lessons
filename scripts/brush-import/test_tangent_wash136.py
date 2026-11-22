@@ -13,6 +13,13 @@ def authored(action='2',extra=None):
  for k,v in{**PARAMS,'PaintOpAction':action,**(extra or{})}.items():ET.SubElement(root,'param',{'name':k}).text=v
  info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'));b=io.BytesIO();Image.new('RGB',(2,2),'red').save(b,format='PNG',pnginfo=info);return b.getvalue()
 class TangentWash136(unittest.TestCase):
+ def test_point_sharpness_wash_uses_version209(self):
+  definition='<Brush type="auto_brush" spacing="0.1"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1" spikes="2" diameter="1" id="default" antialiasEdges="0"/></Brush>'
+  with tempfile.TemporaryDirectory() as tmp:
+   c,_=self.native(tmp,extra={'brush_definition':definition,'PressureSize':'false','PressureSharpness':'true','SharpnessValue':'1','SharpnessUseCurve':'false','Sharpness/threshold':'1'})
+   d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],209);self.assertTrue(tangent_wash136_scope(d));self.assertTrue(d['tangentNormal']['sharpnessChecked'])
+   path=Path(tmp)/'portable.json';path.write_text(json.dumps({'library':c.write(),'assets':{}}));out=Catalog(Path(tmp)/'roundtrip');portable_bundle(path,out);self.assertEqual(out.brushes,c.brushes)
+   d=copy.deepcopy(d);d['version']=136;self.assertFalse(tangent_wash136_scope(d))
  def test_bitmap_wash_uses_version207_and_original_mask(self):
   name=b'own\0';gbr=struct.pack('>7I',28+len(name),2,4,4,1,0x47494d50,25)+name+bytes(range(16))
   definition='<Brush type="gbr_brush" filename="own.gbr" ColorAsMask="1" scale="1"/>'

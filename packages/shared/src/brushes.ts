@@ -527,6 +527,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    if(d.version===209&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===208&&(maskRoot!==undefined||!hasGridWash137Scope(d)))return false
     if(d.version===207&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===206&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
