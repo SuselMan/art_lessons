@@ -1748,6 +1748,11 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             if policy is None or policy.get('fanCorners') or behavior.get('rotation')!={'follow':1,'random':'none'}:raise ValueError('Angular GIH active rotation requires identity unlocked DrawingAngle without fan')
         behavior.setdefault('strokeInput',{'version':1,'initialDirection':'cursorHistory'})
         notes.append(compatibility('gihAngular','Captured DrawingAngle chooses floor(normalize(angle+135deg)/360deg*rank), modulo actual frames. Movement >=.5 is measured per logical attempt, including rejected attempts. Explicit first-request-v1 paints the first request; native first-point initialization and float-vector threshold rounding may differ.','supported'))
+    # Krita's IMAGESTAMP takes its own pixels, not the selected color source.
+    # Unknown IDs fall back to plain in KisColorSourceOptionData.
+    color_source=params.get('ColorSource/Type','plain')
+    if engine=='paintbrush' and application!=1 and color_source in ('gradient','uniform_random','total_random','pattern','lockedpattern'):
+        notes.append(compatibility('colorSource', 'Krita color source '+color_source+' is not retained; the foreground-color approximation is used.', 'unsupported'))
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
     def native_keyed(value):
         if isinstance(value,dict):
