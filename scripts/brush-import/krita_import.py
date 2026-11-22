@@ -415,7 +415,7 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
         if name not in supported:
             notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
         if name in ('fade','time','distance'):
-            raw=node.get('duration','30') if name=='time' else node.get('length','1000')
+            raw=node.get('duration','30') if name=='time' else node.get('length','30' if name=='distance' else '1000')
             try: period=int(raw)
             except (ValueError,OverflowError): period=0
             if not 1<=period<=(2147483647 if name in('time','distance') else 1000000) or (not re.fullmatch(r'[+-]?[0-9]+',raw.strip())if name in('time','distance')else str(period)!=raw.strip()):
