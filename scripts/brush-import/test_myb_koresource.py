@@ -61,6 +61,18 @@ class MybKoResourceTests(unittest.TestCase):
             expected=mypaint_preset(path.read_bytes(),path.name,Catalog(root/'direct'))
             self.assertEqual(manifest['brushes'],[expected])
 
+    def test_png_without_json_uses_mypaint_defaults_in_bundle_and_cli(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);raw=kpp(engine='mypaintbrush');path=root/'defaults.myb';path.write_bytes(raw)
+            result=self.cli(path,root/'standalone');self.assertEqual(result.returncode,0,result.stderr)
+            standalone=json.loads((root/'standalone'/'manifest.json').read_text())
+            bundle=root/'defaults.bundle'
+            with zipfile.ZipFile(bundle,'w') as z:z.writestr('paintoppresets/defaults.myb',raw)
+            catalog=Catalog(root/'bundle-out');convert_krita(bundle,catalog)
+            self.assertEqual(standalone['skipped'],[]);self.assertEqual(catalog.skipped,[])
+            self.assertEqual(standalone['brushes'][0]['descriptor'],catalog.brushes[0]['descriptor'])
+            self.assertEqual(catalog.brushes[0]['descriptor']['mypaint']['settings'],[])
+
 
 if __name__=='__main__':
     unittest.main()

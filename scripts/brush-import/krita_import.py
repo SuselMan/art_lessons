@@ -664,8 +664,14 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         timer177=clock_enabled(params, 'PaintOpSettings/isAirbrushing')
         if clock_enabled(params, 'AirbrushOption/isAirbrushing')and not timer177:raise ValueError('Unsupported MyPaint composite/timing mode')
         if timer177 and(depth or not _allow_texture_material):raise ValueError('MyPaint177 requires root genuine KPP')
-        if 'MyPaint/json'not in params:raise ValueError('MyPaint KPP missing JSON')
-        result=mypaint_preset(params['MyPaint/json'].encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase',surface_policy='krita-legacy-v1')
+        # Missing JSON uses libmypaint's native defaults, including its default
+        # pressure-opacity mapping. The runtime already initializes that kernel.
+        missing_json='MyPaint/json' not in params
+        mypaint_json='{"version":3,"settings":{}}' if missing_json else params['MyPaint/json']
+        result=mypaint_preset(mypaint_json.encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase',surface_policy='krita-legacy-v1')
+        if missing_json:
+            result['compatibility'].append(compatibility('mypaintDefaults','Missing MyPaint JSON uses pinned libmypaint defaults, including its initial pressure-opacity mapping.'))
+            result['warnings'].append('mypaintDefaults: Missing MyPaint JSON uses pinned libmypaint defaults, including its initial pressure-opacity mapping.')
         if timer177:
             from mypaint_timer177 import apply_kpp_mypaint_timer177
             result=apply_kpp_mypaint_timer177(result,params,depth=depth)
