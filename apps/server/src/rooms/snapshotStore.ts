@@ -1,3 +1,4 @@
+import { noteQaBackgroundFailure, runQaTrackedBackground } from './qaBackgroundRuntime.js'
 import { createGunzip } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
@@ -105,6 +106,7 @@ async function deleteSupersededSnapshots(roomId: string, layerIds: readonly stri
       await prisma.roomLayerSnapshot.deleteMany({ where: { roomId, layerId, seq: { lt: oldestKept } } })
     }
   } catch (err) {
+    noteQaBackgroundFailure()
     console.error(`failed to prune superseded snapshots for room ${roomId}`, err)
   }
 }
@@ -265,7 +267,9 @@ export async function saveSnapshot(
     // (#292) These layers no longer need their covered operations resident —
     // see trimResidentOperations above.
     trimResidentOperations(record)
-    void deleteSupersededSnapshots(roomId, created)
+    void runQaTrackedBackground(() => deleteSupersededSnapshots(roomId, created)).catch(err => {
+      console.error(`failed to schedule snapshot pruning for room ${roomId}`, err)
+    })
   }
   return { ok: true, created, duplicated, mismatched }
 }

@@ -1,3 +1,4 @@
+import { runQaTrackedBackground } from './qaBackgroundRuntime.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
@@ -249,7 +250,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
    *  if they have none yet — see givePersonalBoard. */
   const giveMissingBoards = (lessonId: string) => {
     for (const student of getClassroom(lessonId)?.students ?? []) {
-      void givePersonalBoard(lessonId, student).catch(err => {
+      void runQaTrackedBackground(() => givePersonalBoard(lessonId, student)).catch(err => {
         log.error({ err, lessonId, userId: student.userId }, 'failed to create a missing personal board')
         reportException(err, { lessonId, userId: student.userId })
       })
@@ -571,7 +572,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // the same blank one everybody else got when it was handed out. After
         // the ack: the join itself is complete and must not wait on a write.
         if (result.participant.role === 'member') {
-          void givePersonalBoard(lessonId, { userId, name: displayName }).catch(err => {
+          void runQaTrackedBackground(() => givePersonalBoard(lessonId, { userId, name: displayName })).catch(err => {
             log.error({ err, lessonId, userId }, 'failed to create a latecomer\'s personal board')
             reportException(err, { lessonId, userId })
           })
@@ -935,7 +936,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       if (!roomId || !userId || !lessonId || !isTeacher(roomId, userId)) return
       if (assignmentId !== null && typeof assignmentId !== 'string') return
       if (!setClassLocation(lessonId, assignmentId)) return
-      void sendLessonState(io, lessonId)
+      void runQaTrackedBackground(() => sendLessonState(io, lessonId)).catch(err => {
+        log.error({ err, lessonId }, 'failed to send lesson state')
+      })
       if (assignmentId !== null) giveMissingBoards(lessonId)
     })
 
@@ -946,7 +949,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       if (!setSpotlight(lessonId, boardId)) return
       // Visibility changes with it: under `teacher_only` the spotlit board is
       // the one personal board a classmate may see, and only while it is lit.
-      void sendLessonState(io, lessonId)
+      void runQaTrackedBackground(() => sendLessonState(io, lessonId)).catch(err => {
+        log.error({ err, lessonId }, 'failed to send lesson state')
+      })
     })
 
     // A student raises or lowers their own hand; the teacher may lower (or
@@ -965,7 +970,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('set_class_visibility', ({ value }) => {
       const { roomId, userId, lessonId } = socket.data
       if (!roomId || !userId || !lessonId || !isTeacher(roomId, userId) || !isClassVisibility(value)) return
-      if (setClassVisibility(lessonId, value)) void sendLessonState(io, lessonId)
+      if (setClassVisibility(lessonId, value)) void runQaTrackedBackground(() => sendLessonState(io, lessonId)).catch(err => {
+        log.error({ err, lessonId }, 'failed to send lesson state')
+      })
     })
 
     socket.on('disconnect', (reason) => {

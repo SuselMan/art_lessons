@@ -27,6 +27,8 @@ export class QaBackgroundWork {
     return tracked
   }
 
+  noteFailure(): void { this.failed = true }
+
   async readyForCollection(): Promise<boolean> {
     // Caller must hold the exclusive gate, so no producer can add new work.
     await Promise.allSettled([...this.pending])

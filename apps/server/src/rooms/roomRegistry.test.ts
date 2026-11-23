@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QaActivityGate } from './qaActivityGate.js'
+import { QaBackgroundWork } from './qaBackgroundWork.js'
+import { setQaBackgroundTracker } from './qaBackgroundRuntime.js'
 
 import {
   enqueueWrite, flushRoomWrites, lessonRecordOf, pendingWriteCount, pendingWriteOf, rooms, type RoomRecord,
@@ -7,7 +10,7 @@ import {
 /** (#612) The bottom of the room store on its own: the write queue every
  *  persist goes through, and the lesson/board rule every social read does. */
 
-afterEach(() => { rooms.clear() })
+afterEach(() => { rooms.clear(); setQaBackgroundTracker(undefined) })
 
 describe('the write queue', () => {
   it('runs a room’s writes in the order they were queued, one at a time', async () => {
@@ -20,6 +23,32 @@ describe('the write queue', () => {
     releaseFirst()
     await flushRoomWrites('r')
     expect(order).toEqual(['first', 'second'])
+  })
+
+  it('QA tracker holds the real room write queue beyond its parent handler', async () => {
+    const gate = new QaActivityGate(), tracker = new QaBackgroundWork(gate)
+    setQaBackgroundTracker(tracker)
+    const parent = gate.tryEnter()!
+    let finish!: () => void
+    enqueueWrite('qa', () => new Promise<void>(resolve => { finish = resolve }))
+    parent()
+    expect(gate.tryStartCollection()).toBeUndefined()
+    await Promise.resolve(); await Promise.resolve()
+    finish(); await flushRoomWrites('qa')
+    const release = gate.tryStartCollection()
+    expect(release).toBeDefined()
+    expect(await tracker.readyForCollection()).toBe(true)
+    release?.()
+  })
+
+  it('QA tracker latches an actual queue failure even though the queue logs it', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const tracker = new QaBackgroundWork(new QaActivityGate())
+    setQaBackgroundTracker(tracker)
+    enqueueWrite('qa', async () => { throw Error('db failed') })
+    await flushRoomWrites('qa')
+    expect(await tracker.readyForCollection()).toBe(false)
+    error.mockRestore()
   })
 
   // A failed insert must not strand every later write for the room behind it.

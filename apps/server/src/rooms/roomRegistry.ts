@@ -1,3 +1,4 @@
+import { runQaTrackedBackground } from './qaBackgroundRuntime.js'
 import type {
   AssignmentSummary, BoardSummary, Operation, Participant, Room,
 } from '@grafetto/shared'
@@ -271,7 +272,7 @@ const pendingWrite = new Map<string, Promise<void>>()
 
 export function enqueueWrite(roomId: string, run: () => Promise<unknown>): void {
   const prior = pendingWrite.get(roomId) ?? Promise.resolve()
-  const next: Promise<void> = prior.then(run).then(
+  const next: Promise<void> = runQaTrackedBackground(() => prior.then(run)).then(
     () => {},
     err => { console.error(`failed to persist write for room ${roomId}`, err) },
   ).finally(() => {

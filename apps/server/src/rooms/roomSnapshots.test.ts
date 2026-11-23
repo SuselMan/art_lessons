@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { QaActivityGate } from './qaActivityGate.js'
+import { QaBackgroundWork } from './qaBackgroundWork.js'
+import { setQaBackgroundTracker } from './qaBackgroundRuntime.js'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 
@@ -99,6 +102,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  setQaBackgroundTracker(undefined)
   delete process.env.SNAPSHOT_VERIFY_DETERMINISM
 })
 
@@ -855,6 +859,35 @@ describe('snapshot retention', () => {
     expect(mockPrisma.roomLayerSnapshot.deleteMany).toHaveBeenCalledWith({
       where: { roomId, layerId: 'layer-1', seq: { lt: 200 } },
     })
+  })
+
+  it('QA tracker holds the actual detached snapshot pruning until DB work ends', async () => {
+    const roomId = makeRoom()
+    await _flushPendingWrites()
+    const gate = new QaActivityGate(), tracker = new QaBackgroundWork(gate)
+    setQaBackgroundTracker(tracker)
+    let release!: (value: Array<{ seq: number }>) => void
+    mockPrisma.roomLayerSnapshot.findMany.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    await saveAt(roomId, 300)
+    expect(gate.tryStartCollection()).toBeUndefined()
+    release([{ seq: 300 }, { seq: 200 }])
+    await new Promise(resolve => setImmediate(resolve))
+    const stop = gate.tryStartCollection()
+    expect(stop).toBeDefined()
+    expect(await tracker.readyForCollection()).toBe(true)
+    stop?.()
+  })
+
+  it('QA tracker records snapshot pruning errors even when the original code catches them', async () => {
+    const roomId = makeRoom()
+    await _flushPendingWrites()
+    const tracker = new QaBackgroundWork(new QaActivityGate())
+    setQaBackgroundTracker(tracker)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockPrisma.roomLayerSnapshot.findMany.mockRejectedValueOnce(Error('db failure'))
+    await saveAt(roomId, 300)
+    expect(await tracker.readyForCollection()).toBe(false)
+    error.mockRestore()
   })
 
   it('keeps both when a layer only has two — nothing is superseded yet', async () => {
