@@ -27,6 +27,12 @@ export const QA_LEASE_SQL = {
 type IdentityRow = QaDatabaseIdentity & { pid: number }
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
+/** The server may have committed even when its response is lost. The caller
+ * must reconcile from durable state; automatic retry is forbidden. */
+export class QaCommitOutcomeUnknown extends Error {
+  constructor() { super('QA transaction COMMIT outcome is unknown; do not retry'); this.name = 'QaCommitOutcomeUnknown' }
+}
+
 export class QaDatabaseLease {
   private valid = false
   private lost = false
@@ -93,29 +99,48 @@ export class QaDatabaseLease {
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1) throw new Error('Invalid lease timeout')
     this.busy = true
     let timer: ReturnType<typeof setTimeout> | undefined
+    let queryOpen = false
+    let commitStarted = false
+    const pending = new Set<Promise<unknown>>()
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => { this.lost = true; this.valid = false; this.destroy(); reject(new Error('QA database lease timed out')) }, timeoutMs)
+      timer = setTimeout(() => {
+        queryOpen = false; this.lost = true; this.valid = false; this.destroy()
+        reject(commitStarted ? new QaCommitOutcomeUnknown() : new Error('QA database lease timed out'))
+      }, timeoutMs)
     })
     const run = async (): Promise<T> => {
       await this.assertHeld()
-      await this.session.query('BEGIN')
+      await this.session.query('BEGIN ISOLATION LEVEL SERIALIZABLE')
       await this.assertHeld()
-      const query: QaLeaseSession['query'] = async <R>(sql: string, values?: readonly unknown[]) => {
-        if (!this.valid || this.lost) throw new Error('QA database lease unavailable')
+      queryOpen = true
+      const query: QaLeaseSession['query'] = <R>(sql: string, values?: readonly unknown[]) => {
+        if (!queryOpen || !this.valid || this.lost) return Promise.reject(new Error('QA transaction query is closed'))
         // Restrict accidental transaction control; this is not a SQL sandbox.
-        if (!/^\s*(SELECT|INSERT|UPDATE|DELETE)\b/i.test(sql) || sql.includes(';')) throw new Error('QA transaction accepts one data statement only')
-        try { return await this.session.query<R>(sql, values) }
-        catch (error) { this.lost = true; this.valid = false; this.destroy(); throw error }
+        if (!/^\s*(SELECT|INSERT|UPDATE|DELETE)\b/i.test(sql) || sql.includes(';')) return Promise.reject(new Error('QA transaction accepts one data statement only'))
+        const p = this.session.query<R>(sql, values).catch(error => {
+          queryOpen = false; this.lost = true; this.valid = false; this.destroy(); throw error
+        })
+        pending.add(p)
+        void p.then(() => pending.delete(p), () => pending.delete(p))
+        return p
       }
-      const result = await work(query)
+      let result: T
+      try { result = await work(query) } finally { queryOpen = false }
+      // Queries admitted before callback return must finish before COMMIT.
+      // New calls through an escaped query are already prohibited above.
+      await Promise.all([...pending])
       await this.assertHeld()
+      commitStarted = true
       await this.session.query('COMMIT')
       await this.assertHeld()
       return result
     }
     try { return await Promise.race([run(), timeout]) }
-    catch (error) { this.lost = true; this.valid = false; this.destroy(); throw error }
-    finally { if (timer) clearTimeout(timer); this.busy = false }
+    catch (error) {
+      queryOpen = false; this.lost = true; this.valid = false; this.destroy()
+      if (commitStarted && !(error instanceof QaCommitOutcomeUnknown)) throw new QaCommitOutcomeUnknown()
+      throw error
+    } finally { queryOpen = false; if (timer) clearTimeout(timer); this.busy = false }
   }
 
   async release(): Promise<void> {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
-import { QaDatabaseLease, type QaLeaseSession } from './qaDatabaseLease.js'
+import { QaCommitOutcomeUnknown, QaDatabaseLease, type QaLeaseSession } from './qaDatabaseLease.js'
 
 const port = Number(process.env.QA_LEASE_TEST_PORT)
 const pgModule = process.env.QA_PG_MODULE
@@ -37,6 +37,11 @@ test('real PostgreSQL lease excludes peers and tears down safely on failure, tim
     const lease = await QaDatabaseLease.acquire(first.session, identity)
     const peer = await connect()
     await assert.rejects(QaDatabaseLease.acquire(peer.session, identity), /already held/)
+    let escaped!: QaLeaseSession['query']
+    const start = Date.now()
+    await lease.transaction(async query => { escaped = query; void query('SELECT pg_sleep(0.2)') })
+    assert.ok(Date.now() - start >= 150, 'in-flight query must finish before COMMIT')
+    await assert.rejects(escaped('INSERT INTO qa_test_data VALUES (99)'), /query is closed/)
     await lease.transaction(async query => { await query('INSERT INTO qa_test_data VALUES (1)') })
     assert.equal((await control.client.query('SELECT count(*)::int AS count FROM qa_test_data')).rows[0].count, 1)
     await assert.rejects(lease.transaction(async query => {
@@ -63,5 +68,21 @@ test('real PostgreSQL lease excludes peers and tears down safely on failure, tim
     await control.client.query('SELECT pg_terminate_backend($1)', [last.client.processID])
     await new Promise(resolve => setTimeout(resolve, 50))
     await assert.rejects(lastLease.transaction(async () => {}))
+    for (let i = 0; i < 100; i++) {
+      if (!(await control.client.query('SELECT EXISTS (SELECT FROM pg_locks WHERE locktype = $1 AND classid = 1196573521 AND objid = 1380928845 AND granted) AS held', ['advisory'])).rows[0].held) break
+      await new Promise(resolve => setTimeout(resolve, 20))
+    }
+    // Simulate losing the COMMIT response after the server has committed.
+    const uncertain = await connect()
+    const realQuery = uncertain.session.query.bind(uncertain.session)
+    uncertain.session.query = async <T>(sql: string, values?: readonly unknown[]) => {
+      const value = await realQuery<T>(sql, values)
+      if (sql === 'COMMIT') { uncertain.session.destroy(); throw new Error('lost commit response') }
+      return value
+    }
+    const uncertainLease = await QaDatabaseLease.acquire(uncertain.session, identity)
+    await assert.rejects(uncertainLease.transaction(async query => { await query('INSERT INTO qa_test_data VALUES (3)') }), QaCommitOutcomeUnknown)
+    assert.equal((await control.client.query('SELECT count(*)::int AS count FROM qa_test_data WHERE id = 3')).rows[0].count, 1)
+    await assert.rejects(uncertainLease.transaction(async () => {}))
   } finally { await control.client.end() }
 })
