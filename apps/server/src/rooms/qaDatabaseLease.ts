@@ -5,6 +5,8 @@
 export interface QaLeaseSession {
   query<T>(sql: string, values?: readonly unknown[]): Promise<{ rows: T[] }>
   on(event: 'error' | 'end', listener: () => void): unknown
+  /** Immediately destroy the dedicated socket; never release to a pool. */
+  destroy(): void
 }
 
 export interface QaDatabaseIdentity {
@@ -30,28 +32,35 @@ export class QaDatabaseLease {
   private lost = false
   private pid = 0
   private busy = false
+  private closed = false
   private constructor(private readonly session: QaLeaseSession, private readonly expected: QaDatabaseIdentity) {
-    session.on('error', () => { this.lost = true; this.valid = false })
-    session.on('end', () => { this.lost = true; this.valid = false })
+    session.on('error', () => { this.lost = true; this.valid = false; this.destroy() })
+    session.on('end', () => { this.lost = true; this.valid = false; this.destroy() })
   }
 
-  static async acquire(session: QaLeaseSession, expected: QaDatabaseIdentity): Promise<QaDatabaseLease> {
-    if (!expected.database || !expected.serverAddress || !Number.isInteger(expected.serverPort) || expected.serverPort < 1 || expected.serverPort > 65535 || !UUID_V4.test(expected.installationId)) throw new Error('Invalid QA database identity')
+  static async acquire(session: QaLeaseSession, expected: QaDatabaseIdentity, timeoutMs = 10_000): Promise<QaDatabaseLease> {
     const lease = new QaDatabaseLease(session, expected)
+    let timer: ReturnType<typeof setTimeout> | undefined
     try {
-      const row = await lease.identity()
-      lease.pid = row.pid
-      const result = await session.query<{ acquired: boolean }>(QA_LEASE_SQL.lock)
-      if (result.rows.length !== 1 || result.rows[0].acquired !== true) throw new Error('QA database lease already held')
-      lease.valid = true
-      await lease.assertHeld()
-      return lease
+      if (!expected.database || !expected.serverAddress || !Number.isInteger(expected.serverPort) || expected.serverPort < 1 || expected.serverPort > 65535 || !UUID_V4.test(expected.installationId) || !Number.isInteger(timeoutMs) || timeoutMs < 1) throw new Error('Invalid QA database identity or timeout')
+      const acquire = async () => {
+        const row = await lease.identity()
+        lease.pid = row.pid
+        const result = await session.query<{ acquired: boolean }>(QA_LEASE_SQL.lock)
+        if (result.rows.length !== 1 || result.rows[0].acquired !== true) throw new Error('QA database lease already held')
+        if (lease.lost) throw new Error('QA database lease unavailable')
+        lease.valid = true
+        await lease.assertHeld()
+        return lease
+      }
+      const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => { lease.lost = true; lease.valid = false; lease.destroy(); reject(new Error('QA database lease acquisition timed out')) }, timeoutMs) })
+      return await Promise.race([acquire(), timeout])
     } catch (error) {
       lease.lost = true
       lease.valid = false
-      // Caller must close the dedicated session on any acquisition failure.
+      lease.destroy()
       throw error
-    }
+    } finally { if (timer) clearTimeout(timer) }
   }
 
   private async identity(): Promise<IdentityRow> {
@@ -67,28 +76,54 @@ export class QaDatabaseLease {
       const row = await this.identity()
       const result = await this.session.query<{ held: boolean }>(QA_LEASE_SQL.held)
       if (this.lost || row.pid !== this.pid || result.rows.length !== 1 || result.rows[0].held !== true) throw new Error('QA database lease lost')
-    } catch (error) { this.lost = true; this.valid = false; throw error }
+    } catch (error) { this.lost = true; this.valid = false; this.destroy(); throw error }
   }
 
-  /** Caller must also hold the global activity gate. The callback must execute
-   * all database work on this exact session. Loss means the caller must abort,
-   * never retry destructive operations using a different connection. */
-  async withLease<T>(work: (session: QaLeaseSession) => Promise<T>): Promise<T> {
+  private destroy(): void {
+    if (this.closed) return
+    this.closed = true
+    try { this.session.destroy() } catch { /* already disconnected */ }
+  }
+
+  /** Only trusted, predefined statements are allowed in work: no transaction
+   * control, no independently acquired sessions. A failed COMMIT has an
+   * unknown outcome; callers must not infer rollback or blindly retry. */
+  async transaction<T>(work: (query: QaLeaseSession['query']) => Promise<T>, timeoutMs = 10_000): Promise<T> {
     if (this.busy) throw new Error('QA database lease is already in use')
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1) throw new Error('Invalid lease timeout')
     this.busy = true
-    try {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => { this.lost = true; this.valid = false; this.destroy(); reject(new Error('QA database lease timed out')) }, timeoutMs)
+    })
+    const run = async (): Promise<T> => {
       await this.assertHeld()
-      const result = await work(this.session)
+      await this.session.query('BEGIN')
+      await this.assertHeld()
+      const query: QaLeaseSession['query'] = async <R>(sql: string, values?: readonly unknown[]) => {
+        if (!this.valid || this.lost) throw new Error('QA database lease unavailable')
+        // Restrict accidental transaction control; this is not a SQL sandbox.
+        if (!/^\s*(SELECT|INSERT|UPDATE|DELETE)\b/i.test(sql) || sql.includes(';')) throw new Error('QA transaction accepts one data statement only')
+        try { return await this.session.query<R>(sql, values) }
+        catch (error) { this.lost = true; this.valid = false; this.destroy(); throw error }
+      }
+      const result = await work(query)
+      await this.assertHeld()
+      await this.session.query('COMMIT')
       await this.assertHeld()
       return result
-    } catch (error) { this.lost = true; this.valid = false; throw error }
-    finally { this.busy = false }
+    }
+    try { return await Promise.race([run(), timeout]) }
+    catch (error) { this.lost = true; this.valid = false; this.destroy(); throw error }
+    finally { if (timer) clearTimeout(timer); this.busy = false }
   }
 
   async release(): Promise<void> {
     if (this.busy) throw new Error('QA database lease is in use')
-    if (!this.valid || this.lost) return
     this.valid = false
-    try { await this.session.query(QA_LEASE_SQL.unlock) } finally { this.lost = true }
+    this.lost = true
+    // Closing a session releases PostgreSQL session advisory locks. Avoid a
+    // network round-trip whose failure could leave a lock held indefinitely.
+    this.destroy()
   }
 }

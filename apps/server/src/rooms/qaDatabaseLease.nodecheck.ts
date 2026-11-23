@@ -15,7 +15,8 @@ class Session implements QaLeaseSession {
     if (sql === QA_LEASE_SQL.lock && this.allowed) this.locked = true
     return { rows: [row as T] }
   }
-  end() { for (const cb of this.listeners) cb() }
+  destroy() { for (const cb of this.listeners) cb() }
+  end() { this.destroy() }
 }
 
 test('identity mismatch and held lease reject acquisition', async () => {
@@ -36,7 +37,7 @@ test('lease loss, connection error, identity change and failed work permanently 
     if (how === 'connection') session.end()
     if (how === 'pid') session.identity.pid++
     if (how === 'identity') session.identity.installationId = '492ea8ce-1e2d-4ed8-b841-457fc5b6f384'
-    await assert.rejects(lease.withLease(async () => { if (how === 'work') throw Error('failure') }))
+    await assert.rejects(lease.transaction(async () => { if (how === 'work') throw Error('failure') }))
     await assert.rejects(lease.assertHeld())
   }
 })
@@ -45,8 +46,8 @@ test('release and concurrent work fail closed', async () => {
   const session = new Session(); const lease = await QaDatabaseLease.acquire(session, expected)
   let done!: () => void
   const wait = new Promise<void>(resolve => { done = resolve })
-  const work = lease.withLease(async s => { assert.equal(s, session); await wait })
-  await assert.rejects(lease.withLease(async () => {}), /already in use/)
+  const work = lease.transaction(async () => { await wait })
+  await assert.rejects(lease.transaction(async () => {}), /already in use/)
   await assert.rejects(lease.release(), /in use/)
   done(); await work
   await lease.release(); await assert.rejects(lease.assertHeld())
