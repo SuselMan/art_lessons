@@ -38,6 +38,13 @@ def lower194(data,root,params,name,catalog,external,resource):
  for k,v in values.items():
   original=next((p for p in root.findall('param') if p.get('name')==k),None)
   attrs=dict(original.attrib) if original is not None else {'name':k}
+  # Values here have already passed the outer bytearray decoder.  These
+  # Sketch options must not be decoded again by the private Pixel bridge.
+  # Limit the conversion to canonical booleans; existing guards and the
+  # behaviour of unrelated or noncanonical properties remain unchanged.
+  if (engine=='sketchbrush' and k in ('PressureOffset scale','Offset scaleUseCurve','PressureLine width','Line widthUseCurve')
+      and attrs.get('type')=='bytearray' and v in ('true','false','1','0')):
+   attrs.pop('type')
   ET.SubElement(node,'param',attrs).text=v
  private=png_preset(node)
  def resolve(key):
