@@ -100,4 +100,35 @@ class UseCurveYesPublic(unittest.TestCase):
             self.assertIn('Unsupported malformed typed PressureSize',str(skipped))
             self.assertEqual(len(brushes),int(bundle))
 
+    def test_other_qt_true_values_and_confirmed_consumers(self):
+        for engine in ('paintbrush','sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal'):
+            for value in ('yes','no',' true ','00'):
+                for bundle in (False,True):
+                    params={'OpacityUseCurve':value,'OpacitySensor':'<params id="pressure"/>'}
+                    raw=authored(params) if engine=='paintbrush' else native194(engine,params=params)
+                    with self.subTest(engine=engine,value=value,bundle=bundle):
+                        brushes,skipped=self.load(raw,bundle=bundle)
+                        self.assertIn('Unsupported noncanonical OpacityUseCurve',str(skipped))
+                        self.assertEqual(len(brushes),int(bundle))
+        for curve in ('yes','no','00'):
+            for checked in ('true','false'):
+                raw=authored({'PressureScatter':checked,'ScatterUseCurve':curve})
+                brushes,skipped=self.load(raw)
+                if checked=='true':self.assertIn('Unsupported noncanonical ScatterUseCurve',str(skipped))
+                else:self.assertNotIn('Unsupported noncanonical ScatterUseCurve',str(skipped))
+        for value in (b'true',b'1',b'false',b'0',b''):
+            raw=typed(authored({'OpacityUseCurve':'true'}),'OpacityUseCurve',value)
+            result=self.load(raw)[1]
+            if value in (b'true',b'1'):self.assertIn('Unsupported noncanonical OpacityUseCurve',str(result))
+            else:self.assertNotIn('Unsupported noncanonical OpacityUseCurve',str(result))
+        for action in ('1','2'):
+            for value in ('no','false'):
+                raw=authored({**params132(),'PaintOpAction':action,
+                    'MaskingBrush/Preset/PressureSize':'true',
+                    'MaskingBrush/Preset/SizeUseCurve':value})
+                for bundle in (False,True):
+                    result=self.load(raw,resources132(),bundle=bundle)[1]
+                    expected=action=='2' and value=='no'
+                    self.assertEqual('Unsupported noncanonical MaskingBrush/Preset/SizeUseCurve' in str(result),expected)
+
 if __name__=='__main__':unittest.main()

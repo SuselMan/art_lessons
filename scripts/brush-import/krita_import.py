@@ -2263,24 +2263,28 @@ def _qt_guard_text(node):
     except (ValueError,UnicodeError): raise ValueError('Unsupported malformed typed '+(node.get('name') or 'property')) from None
 
 
-def _reject_active_usecurve_yes(root):
+def _reject_active_noncanonical_usecurve(root):
     """Prevent confirmed silent loss, only for original public source roles."""
     nodes={p.get('name'):p for p in root.findall('param')}
     def text(name): return _qt_guard_text(nodes.get(name))
     def qt_true(name):
         value=text(name)
         return value is not None and value.lower() not in ('','0','false')
-    def yes(name):
+    def unsupported_true(name):
+        node=nodes.get(name)
         value=text(name)
-        return value is not None and value.lower()=='yes'
+        if value is None or value.lower() in ('','0','false'):
+            return False
+        return not enabled(node.text or '')
     engine=root.get('paintopid')
     candidates=[]
     if engine=='paintbrush':
-        if yes('SizeUseCurve') and qt_true('PressureSize'): candidates.append('Size')
+        if unsupported_true('SizeUseCurve') and qt_true('PressureSize'): candidates.append('Size')
+        if unsupported_true('ScatterUseCurve') and qt_true('PressureScatter'): candidates.append('Scatter')
         candidates.extend(('Opacity','Flow'))  # NotCheckable in native Pixel
         child_option='MaskingBrush/Preset/Size'
         if (child_option+'UseCurve' in nodes and qt_true('MaskingBrush/Enabled')
-                and qt_true('MaskingBrush/Preset/PressureSize') and yes(child_option+'UseCurve')):
+                and qt_true('MaskingBrush/Preset/PressureSize') and unsupported_true(child_option+'UseCurve')):
             action=text('PaintOpAction')
             # Missing action means BuildUp; an unparseable typed value remains
             # outside this guard rather than rejecting an inactive mask.
@@ -2288,10 +2292,12 @@ def _reject_active_usecurve_yes(root):
             wash=action is not None and re.fullmatch(r'\+?0*1',action.strip()) is None
             if wash and not typed_unknown:
                 candidates.append(child_option)
-    elif engine=='sketchbrush' and yes('Line widthUseCurve') and qt_true('PressureLine width'):
-        candidates.append('Line width')
+    elif engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal'):
+        candidates.append('Opacity')  # NotCheckable in these native consumers
+        if engine=='sketchbrush' and unsupported_true('Line widthUseCurve') and qt_true('PressureLine width'):
+            candidates.append('Line width')
     for option in candidates:
-        if yes(option+'UseCurve'):
+        if unsupported_true(option+'UseCurve'):
             raise ValueError('Unsupported noncanonical '+option+'UseCurve')
 
 
@@ -2316,7 +2322,7 @@ def preset(data,name,catalog,external,depth=0,**options):
             raise ValueError('KPP must be a bounded PNG')
         source.load()
         root=xml(source.info.get('preset',''))
-    _reject_active_usecurve_yes(root)
+    _reject_active_noncanonical_usecurve(root)
     params={p.get('name'):p.text or '' for p in root.findall('param')}
     engine=root.get('paintopid') or ''
     action=_tangent_source_action(root) if engine=='tangentnormal' else params.get('PaintOpAction')
