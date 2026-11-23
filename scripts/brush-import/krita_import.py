@@ -575,6 +575,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and _child_size_bytearray_wash(root)):
         params['MaskingBrush/Preset/SizeUseCurve']='true'
     if not depth and _allow_texture_material and _SOURCE_SCOPE.get()==('paintbrush','2'):
+        for role in ('Opacity','Flow'):
+            for key,value in _child_notcheckable_string(root,role).items():
+                params['MaskingBrush/Preset/'+key]=value
         for role in ('Rotation','Ratio','Mirror','Scatter'):
             mixed=_child_mixed_qt_wash(root,role)
             if mixed is not None:
@@ -2368,6 +2371,21 @@ def _child_mixed_qt_wash(root,role):
     if c not in ('true','1','yes','no') or u not in ('true','false','1','0','yes','no'): return None
     if c not in ('yes','no') and u not in ('yes','no'): return None
     return ('true','true' if u in ('true','1','yes','no') else 'false')
+
+
+def _child_notcheckable_string(root,role):
+    """Qt5 QString yes/no on active Pixel Wash child NotCheckable options."""
+    if root.get('paintopid')!='paintbrush' or role not in ('Opacity','Flow'): return {}
+    entries=root.findall('param');nodes={p.get('name'):p for p in entries}
+    if len(nodes)!=len(entries) or not _pixel_action_wash(root): return {}
+    mask=nodes.get('MaskingBrush/Enabled')
+    if mask is None or mask.get('type') is not None or not enabled(mask.text): return {}
+    out={}
+    for key in ('Pressure'+role,role+'UseCurve'):
+        node=nodes.get('MaskingBrush/Preset/'+key)
+        if node is not None and node.get('type') in (None,'string') and node.text in ('yes','no'):
+            out[key]='true'
+    return out
 
 
 def _reject_active_usecurve_yes(root):
