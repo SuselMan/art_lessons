@@ -11,13 +11,15 @@ export interface QaRoomActivityStore {
 
 export class QaRoomActivity {
   private ready = false
+  private starting = false
   private failed = false
   private tail: Promise<void> = Promise.resolve()
 
   constructor(private readonly store: QaRoomActivityStore) {}
 
   async start(): Promise<void> {
-    if (this.ready || this.failed) throw new Error('QA activity tracker cannot be restarted')
+    if (this.ready || this.starting || this.failed) throw new Error('QA activity tracker cannot be restarted')
+    this.starting = true
     try {
       // Recovery must finish before accepting joins. Closed lessons retain
       // their old timestamps, even after repeated server restarts.
@@ -26,6 +28,8 @@ export class QaRoomActivity {
     } catch (error) {
       this.failed = true
       throw error
+    } finally {
+      this.starting = false
     }
   }
 

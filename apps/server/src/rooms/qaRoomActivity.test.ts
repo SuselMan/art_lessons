@@ -30,6 +30,17 @@ describe('QA room activity', () => {
     expect(db.rooms.get('crashed')).toEqual({ last: 30, open: false })
   })
 
+  it('refuses a concurrent recovery and cannot admit a join before recovery completes', async () => {
+    const gate = deferred(), db = memoryStore()
+    db.store.recoverInterrupted = async () => { await gate.promise }
+    const tracker = new QaRoomActivity(db.store)
+    const first = tracker.start()
+    await expect(tracker.start()).rejects.toThrow('cannot be restarted')
+    await expect(tracker.opened('lesson')).rejects.toThrow('unavailable')
+    gate.resolve(); await first
+    expect(await tracker.readyForCollection()).toBe(true)
+  })
+
   it('does not let later joins overtake an outstanding last exit', async () => {
     const gate = deferred(), events: string[] = []
     const db = memoryStore()
