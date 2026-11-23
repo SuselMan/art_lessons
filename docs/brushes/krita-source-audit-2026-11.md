@@ -25,6 +25,14 @@
 
 Исходные точки для повторной сверки: [движки Krita](https://github.com/KDE/krita/tree/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/plugins/paintops), [композитные операции](https://github.com/KDE/krita/blob/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoCompositeOps.h), [фильтры](https://github.com/KDE/krita/tree/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/plugins/filters) и [импортёр Grafetto](https://github.com/SuselMan/art_lessons/tree/979803b5dbe426820e95bcb22e2063a5474a639f/scripts/brush-import).
 
+## Булевы флаги датчиков
+
+Для 31 имени опции составлен план проверки по десяти группам условий: размер/поворот/разброс, opacity/flow, форма и шаг, цвет, текстура, Smudge, таймер, опции Sketch, opacity Curve и опции Hatching. Это группировка путей, а не 31 подтверждённый дефект. В [Krita](https://github.com/KDE/krita/blob/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/plugins/paintops/libpaintop/KisKritaSensorPack.cpp#L120) проверяемая опция читает флаг `Pressure`; Opacity и Flow не отключаются флагом Pressure. В [импортёре Grafetto](https://github.com/SuselMan/art_lessons/blob/979803b5dbe426820e95bcb22e2063a5474a639f/scripts/brush-import/krita_import.py#L404) есть дополнительные условия и ограниченные явные отказы.
+
+В синтетических публичных проверках значения `yes` и `no` для некоторых активных опций приводили к потере динамики без адресной диагностики; например, для ширины линии Curve. В других случаях импорт явно отклонял значение, например `hUseSameCurve=yes` при активном Hue. Условия включения, движок и окончательный дескриптор важны: один результат не распространяется на все кисти или типы флагов.
+
+Сопоставление опирается на ранее измеренную семантику строкового `QVariant` в Qt 5.15.13, где `yes` и `no` трактуются как true. Закреплённый бинарь Krita, другие версии Qt, типизированный `QByteArray` и пиксельное совпадение этими проверками не подтверждены. Исправления и контроль активных и выключенных опций остаются в [#872](https://github.com/SuselMan/art_lessons/issues/872).
+
 ## Что ещё осталось
 
 - Реализовать и проверить ограничения, перечисленные в #872. Например, в проверенном пути импорта Hatching теряется текстура, а в Tangent Wash нужно сохранить применение Flow.
