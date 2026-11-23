@@ -2294,6 +2294,8 @@ def _reject_active_noncanonical_usecurve(root):
                 candidates.append(child_option)
     elif engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal'):
         candidates.append('Opacity')  # NotCheckable in these native consumers
+        if engine!='duplicate' and unsupported_true('SizeUseCurve') and qt_true('PressureSize'):
+            candidates.append('Size')
         if engine=='sketchbrush' and unsupported_true('Line widthUseCurve') and qt_true('PressureLine width'):
             candidates.append('Line width')
     for option in candidates:

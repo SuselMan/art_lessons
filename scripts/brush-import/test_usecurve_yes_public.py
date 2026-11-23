@@ -131,4 +131,18 @@ class UseCurveYesPublic(unittest.TestCase):
                     expected=action=='2' and value=='no'
                     self.assertEqual('Unsupported noncanonical MaskingBrush/Preset/SizeUseCurve' in str(result),expected)
 
+    def test_checked_size_in_other_native_consumers(self):
+        for engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','tangentnormal'):
+            for checked in ('true','false',None):
+                for value in ('yes','no','true','false'):
+                    params={'SizeUseCurve':value,'SizeSensor':'<params id="pressure"/>'}
+                    if checked is not None:params['PressureSize']=checked
+                    raw=native194(engine,params=params)
+                    for bundle in (False,True):
+                        with self.subTest(engine=engine,checked=checked,value=value,bundle=bundle):
+                            brushes,skipped=self.load(raw,bundle=bundle)
+                            hit='Unsupported noncanonical SizeUseCurve' in str(skipped)
+                            self.assertEqual(hit,checked=='true' and value in ('yes','no'))
+                            if hit:self.assertEqual(len(brushes),int(bundle))
+
 if __name__=='__main__':unittest.main()
