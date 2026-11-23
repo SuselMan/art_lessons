@@ -2270,7 +2270,7 @@ def _qt_guard_text(node):
 
 
 def _child_size_bytearray_wash(root):
-    """Exact public case lowered by the native190 child bridge."""
+    """Recognize the supported public child size curve case."""
     if root.get('paintopid')!='paintbrush': return False
     entries=root.findall('param')
     nodes={p.get('name'):p for p in entries}
