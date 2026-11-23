@@ -1,11 +1,14 @@
 """Curve opacity follows native NotCheckable semantics."""
+import base64
 import copy
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from zipfile import ZipFile
 from brush_contract import finalize_identity
-from convert import Catalog
+from convert import Catalog, portable_bundle
 from krita_import import convert_krita, _SOURCE_SCOPE
 from test_sketch_spray194 import native194
 from test_krita_size_strength import authored
@@ -38,6 +41,24 @@ class CurveOpacityScope(unittest.TestCase):
                         descriptor=records[0]['descriptor']
                         self.assertEqual(descriptor['opacityByPressure'],[[0,1],[1,1]] if curve in ('false','0') else [[0,0],[1,1]])
                         self.assertEqual(descriptor['id'],finalize_identity(copy.deepcopy(descriptor),raw)['id'])
+
+    def test_historical_descriptor_portable_and_new_import(self):
+        fixture=Path(__file__).parent/'fixtures/curve-opacity/historical.json'
+        raw_fixture=fixture.read_bytes()
+        self.assertEqual(hashlib.sha256(raw_fixture).hexdigest(),'4a43b6ef10f47b37b0fa18f0c94affe1854e4e8089b032db84c2543ab70a73a8')
+        history=json.loads(raw_fixture); raw=base64.b64decode(history['sourceBase64']); old=history['record']
+        self.assertEqual(history['producer'],'21262f1bb')
+        self.assertEqual(old['descriptor']['id'],'imported-fdca101d1631119ac6138b92')
+        self.assertEqual(old['descriptor']['opacityByPressure'],[[0,1],[1,1]])
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as tmp:
+            p=Path(tmp); library=p/'old.grafetto-brushes.json'
+            library.write_text(json.dumps({'library':{'schemaVersion':1,'brushes':[old],'assets':[],'skipped':[]},'assets':{}}))
+            restored=Catalog(p/'restore');portable_bundle(library,restored)
+            self.assertEqual(restored.brushes,[old])
+        records,skipped=self.load(raw)
+        self.assertEqual(skipped,[])
+        self.assertEqual(records[0]['descriptor']['opacityByPressure'],[[0,0],[1,1]])
+        self.assertNotEqual(records[0]['descriptor']['id'],old['descriptor']['id'])
 
     def test_noncanonical_true_and_canonical_disabled(self):
         for rawvalue in ('yes','no','00',' true '):

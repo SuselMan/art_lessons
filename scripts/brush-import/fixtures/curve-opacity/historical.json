@@ -1,0 +1,97 @@
+{
+  "producer": "21262f1bb",
+  "record": {
+    "compatibility": [
+      {
+        "detail": "Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.",
+        "feature": "curveTrace",
+        "status": "approximate"
+      }
+    ],
+    "descriptor": {
+      "behavior": {
+        "rendering": {
+          "accumulation": "directOver",
+          "blendMode": "normal",
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply",
+          "mode": "buildUp",
+          "wetEdges": 0
+        },
+        "speedInput": {
+          "estimator": "grafettoEMA30ms",
+          "maximum": 30,
+          "space": "view",
+          "version": 1
+        },
+        "version": 2
+      },
+      "category": "paint",
+      "curveTrace": {
+        "connect": false,
+        "history": 12,
+        "opacity": 1,
+        "smoothing": false,
+        "version": 2
+      },
+      "flow": 1,
+      "flowByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowPer": "stamp",
+      "id": "imported-fdca101d1631119ac6138b92",
+      "model": "stamp",
+      "opacity": 1,
+      "opacityByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "paperInteraction": 0,
+      "pressureSmoothingPx": 0,
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "spacing": 0.1,
+      "tip": {
+        "angle": 0,
+        "aspect": 1,
+        "hardness": 1,
+        "kind": "round",
+        "rotation": "fixed"
+      },
+      "version": 53
+    },
+    "name": "Own194",
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+    "source": "curve.kpp",
+    "sourceDefaults": {
+      "flow": 1,
+      "opacity": 1,
+      "sizePx": 1
+    },
+    "warnings": [
+      "curveTrace: Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width."
+    ]
+  },
+  "sourceBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAAC3RFWHR2ZXJzaW9uADUuMPkPMukAAAGselRYdHByZXNldAAAeJyNlEFv2zAMhf+KwUOPcd2mC4YmBtZs2KlIgWC9FozEJERkSZDkDtmvL2W7KArEXm8m/fk9Sk/y8ilQpFR4ZJucZ70C1YZX2oU2HqGw2NAKNn9t9X0O9dJjwGZorl3jXeREGw+1daFBsyw74DP3lJU3/odK7CzU1UVoy//oT6R1toZ6jybSZTGZNraBMj/FbU+U1LGM3HhDj05/BfbB7XDHhtN5dEwf8FxqliJRgHp+PYFFhYamlTB6UmmaiR4V2wPUs7sJSjqJlaG1a60ILsbR7RE9lWRxZ0hPbksGf56lYBWfKcQuv5vZ7f/pD/kU2i+olwGtdk2f6ugn7+Fv8o7kkMZnH5CPIzUqOpBbstFJolcm3XevY5Hvgh8sobw6pPuLAt1NedG0Z8v9Ec8aD7lbpLMXAtvkXoYLNaS5glkFhRZT8ZZiAUW/BVb8pL6B7JeFHjGefpOlgMmFbiaxwtYkGNQVB8ldxIZTuYLqW1aTWURIHo971MLN5lC8Do+LPAifSKzuoECbGA1j/KUPuVX1q83uZbeOT2sv+z9G/QY1FHrlJD9i9wAAAApJREFUeJxjYAAAAAIAAUivpHEAAAAASUVORK5CYII="
+}
