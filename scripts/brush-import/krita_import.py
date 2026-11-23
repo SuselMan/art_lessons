@@ -2241,6 +2241,12 @@ def preset(data,name,catalog,external,depth=0,**options):
                 raise ValueError('Native Sketch/Spray Wash with masking brush is unsupported')
         if root.get('paintopid')=='paintbrush':
             rotation_params={p.get('name'):p.text or '' for p in root.findall('param')}
+            # The ordinary Krita freehand host constructs its masking painter
+            # only for indirect (Wash) painting. Our dual renderer would apply
+            # it in Build-up too, so do not silently change the brush.
+            if (rotation_params.get('PaintOpAction', '1') == '1'
+                    and rotation_params.get('MaskingBrush/Enabled', '').lower() in ('true', '1')):
+                raise ValueError('Native Pixel Build-up with masking brush is unsupported')
             value=rotation_params.get('RotationUseCurve')
             if enabled(rotation_params.get('PressureRotation')) and value is not None and value.lower() not in ('true','false','1','0'):
                 raise ValueError('Unsupported noncanonical RotationUseCurve')
