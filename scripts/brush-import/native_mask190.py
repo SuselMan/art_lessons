@@ -90,10 +90,11 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             attributes=dict(original.attrib) if original is not None else {}
             attributes['name']=key
             # Qt5 converts QByteArray "yes" and "no" to true.  Normalize
-            # only these two child Wash options in the private bridge; keep
+            # only these child Wash options in the private bridge; keep
             # the captured KPP and its identity unchanged.
             if (child and params.get('PaintOpAction','1')=='2'
-                    and key in ('OpacityUseCurve','FlowUseCurve')
+                    and key in ('OpacityUseCurve','FlowUseCurve',
+                                'PressureMirror','PressureScatter','PressureRotation','PressureRatio')
                     and attributes.get('type')=='bytearray'):
                 try:
                     decoded=base64.b64decode(''.join(value.split()),validate=True)
