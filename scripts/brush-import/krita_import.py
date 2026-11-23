@@ -2290,6 +2290,11 @@ def _reject_active_usecurve_yes(root):
                 candidates.append(child_option)
     elif engine=='sketchbrush' and yes('Line widthUseCurve') and qt_true('PressureLine width'):
         candidates.append('Line width')
+    if engine=='tangentnormal':
+        value=text('FlowUseCurve')
+        node=nodes.get('FlowUseCurve')
+        if value is not None and value.lower() not in ('','0','false') and not enabled(node.text or ''):
+            raise ValueError('Unsupported noncanonical FlowUseCurve')
     for option in candidates:
         if yes(option+'UseCurve'):
             raise ValueError('Unsupported noncanonical '+option+'UseCurve')
