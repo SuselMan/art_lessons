@@ -2259,7 +2259,7 @@ def _qt_guard_text(node):
     if node is None: return None
     raw=node.text or ''
     if node.get('type') != 'bytearray': return raw
-    try: return base64.b64decode(raw,validate=True).decode('latin-1')
+    try: return base64.b64decode(''.join(raw.split()),validate=True).decode('latin-1')
     except (ValueError,UnicodeError): raise ValueError('Unsupported malformed typed '+(node.get('name') or 'property')) from None
 
 
@@ -2275,11 +2275,19 @@ def _reject_active_noncanonical_usecurve(root):
         if value is None or value.lower() in ('','0','false'):
             return False
         return value.lower() not in ('true','1')
+    def active_noncanonical(flag,option):
+        # Avoid interpreting inactive curve metadata, but preserve existing
+        # behavior when the checked flag is malformed and the curve is inert.
+        try: checked=qt_true(flag)
+        except ValueError:
+            if unsupported_true(option+'UseCurve'): raise
+            return False
+        return checked and unsupported_true(option+'UseCurve')
     engine=root.get('paintopid')
     candidates=[]
     if engine=='paintbrush':
-        if unsupported_true('SizeUseCurve') and qt_true('PressureSize'): candidates.append('Size')
-        if unsupported_true('ScatterUseCurve') and qt_true('PressureScatter'): candidates.append('Scatter')
+        if active_noncanonical('PressureSize','Size'): candidates.append('Size')
+        if active_noncanonical('PressureScatter','Scatter'): candidates.append('Scatter')
         candidates.extend(('Opacity','Flow'))  # NotCheckable in native Pixel
         child_option='MaskingBrush/Preset/Size'
         if (child_option+'UseCurve' in nodes and qt_true('MaskingBrush/Enabled')
@@ -2293,9 +2301,9 @@ def _reject_active_noncanonical_usecurve(root):
                 candidates.append(child_option)
     elif engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal'):
         candidates.append('Opacity')  # NotCheckable in these native consumers
-        if engine!='duplicate' and unsupported_true('SizeUseCurve') and qt_true('PressureSize'):
+        if engine!='duplicate' and active_noncanonical('PressureSize','Size'):
             candidates.append('Size')
-        if engine=='sketchbrush' and unsupported_true('Line widthUseCurve') and qt_true('PressureLine width'):
+        if engine=='sketchbrush' and active_noncanonical('PressureLine width','Line width'):
             candidates.append('Line width')
     for option in candidates:
         if unsupported_true(option+'UseCurve'):

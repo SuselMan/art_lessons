@@ -154,4 +154,22 @@ class UseCurveYesPublic(unittest.TestCase):
                 self.assertEqual(skipped,[])
                 self.assertEqual(brushes[0]['descriptor'][option.lower()+'ByPressure'],[[0,0],[1,1]])
 
+    def test_disabled_options_ignore_inert_typed_curve_metadata(self):
+        for engine,option in (('paintbrush','Scatter'),('paintbrush','Size'),('sketchbrush','Line width'),('deformbrush','Size')):
+            for payload in ('dH\nJ1ZQ==','@@@@'):
+                params={'Pressure'+option:'false',option+'UseCurve':'true'}
+                raw=authored(params) if engine=='paintbrush' else native194(engine,params=params)
+                image=Image.open(io.BytesIO(raw));image.load();root=ET.fromstring(image.info['preset'])
+                node=next(p for p in root.findall('param') if p.get('name')==option+'UseCurve')
+                node.set('type','bytearray');node.text=payload
+                info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'))
+                output=io.BytesIO();image.save(output,format='PNG',pnginfo=info)
+                for bundle in (False,True):
+                    with self.subTest(engine=engine,option=option,payload=payload,bundle=bundle):
+                        brushes,skipped=self.load(output.getvalue(),bundle=bundle)
+                        self.assertNotIn('Unsupported malformed typed '+option+'UseCurve',str(skipped))
+                        if payload=='dH\nJ1ZQ==' and engine!='sketchbrush':
+                            self.assertEqual(skipped,[])
+                            self.assertEqual(len(brushes),1+int(bundle))
+
 if __name__=='__main__':unittest.main()
