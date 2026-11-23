@@ -48,3 +48,24 @@ describe('QA HTTP barrier', () => {
     expect(gate.tryStartCollection()).toBeUndefined()
   })
 })
+
+it('holds an actual Fastify request until its async response completes', async () => {
+  const { default: Fastify } = await import('fastify')
+  const app = Fastify(), gate = new QaActivityGate()
+  registerQaHttpActivityGate(app, gate)
+  let started!: () => void, finishWork!: () => void
+  const startedPromise = new Promise<void>(resolve => { started = resolve })
+  const pendingWork = new Promise<void>(resolve => { finishWork = resolve })
+  app.get('/room', async () => { started(); await pendingWork; return { ok: true } })
+  try {
+    const request = app.inject({ method: 'GET', url: '/room' })
+    await startedPromise
+    expect(gate.tryStartCollection()).toBeUndefined()
+    finishWork()
+    expect((await request).statusCode).toBe(200)
+    const collection = gate.tryStartCollection()!
+    expect(collection).toBeDefined()
+    expect((await app.inject({ method: 'GET', url: '/room' })).statusCode).toBe(503)
+    collection()
+  } finally { finishWork(); await app.close() }
+})
