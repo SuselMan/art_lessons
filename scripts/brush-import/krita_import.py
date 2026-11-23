@@ -574,6 +574,10 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if (not depth and _allow_texture_material and _SOURCE_SCOPE.get()==('paintbrush','2')
             and _child_size_bytearray_wash(root)):
         params['MaskingBrush/Preset/SizeUseCurve']='true'
+    if not depth and _allow_texture_material and _SOURCE_SCOPE.get()==('paintbrush','2'):
+        for role in ('Rotation','Ratio','Mirror','Scatter'):
+            if _child_curve_bytearray_wash(root,role):
+                params['MaskingBrush/Preset/'+role+'UseCurve']='true'
     # A Time sensor reads the recorded stroke clock even without airbrushing.
     # Keep explicit legacy False and independent masking/host timers unchanged.
     source_clock_only=(_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and engine=='paintbrush'
@@ -2278,6 +2282,24 @@ def _child_size_bytearray_wash(root):
     action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
     curve=nodes.get('MaskingBrush/Preset/SizeUseCurve')
     checked=nodes.get('MaskingBrush/Preset/PressureSize')
+    if (action is None or action.get('type')=='bytearray' or action.text!='2'
+            or mask is None or mask.get('type')=='bytearray' or not enabled(mask.text)
+            or curve is None or curve.get('type')!='bytearray' or checked is None): return False
+    try:
+        return _qt_guard_text(curve) in ('yes','no') and _qt_guard_text(checked) in ('true','1')
+    except ValueError:
+        return False
+
+
+def _child_curve_bytearray_wash(root,role):
+    """Recognize an active public child curve with Qt5 QByteArray semantics."""
+    if root.get('paintopid')!='paintbrush': return False
+    entries=root.findall('param')
+    nodes={p.get('name'):p for p in entries}
+    if len(nodes)!=len(entries): return False
+    action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
+    curve=nodes.get('MaskingBrush/Preset/'+role+'UseCurve')
+    checked=nodes.get('MaskingBrush/Preset/Pressure'+role)
     if (action is None or action.get('type')=='bytearray' or action.text!='2'
             or mask is None or mask.get('type')=='bytearray' or not enabled(mask.text)
             or curve is None or curve.get('type')!='bytearray' or checked is None): return False
