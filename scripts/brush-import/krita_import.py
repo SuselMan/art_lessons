@@ -2314,6 +2314,16 @@ def _reject_active_pressure_bool(root):
         if not isinstance(value,str): return True
         try: return float(value) != 1
         except ValueError: return True
+    def scatter_axes_active():
+        axes=[text('Scattering/AxisX'),text('Scattering/AxisY')]
+        return not all(isinstance(v,str) and v.lower() in ('','0','false') for v in axes)
+    def scatter_constant_affects():
+        value=text('ScatterValue')
+        if value is None: value=text('Scattering/Amount')
+        if value is None: return True  # Krita default scatter strength is five.
+        if not isinstance(value,str): return True
+        try: return float(value) != 0
+        except ValueError: return True
     def relevant(flag,option,size=False):
         return noncanonical_checked(flag) and (curve_active(option) or size and size_constant_affects(option))
     def reject(flag,option,size=False):
@@ -2322,7 +2332,8 @@ def _reject_active_pressure_bool(root):
     engine=root.get('paintopid')
     if engine=='paintbrush':
         reject('PressureSize','Size',True)
-        reject('PressureScatter','Scatter')
+        if noncanonical_checked('PressureScatter') and scatter_axes_active() and (curve_active('Scatter') or scatter_constant_affects()):
+            raise ValueError('Unsupported noncanonical PressureScatter')
         child='MaskingBrush/Preset/'
         flag=child+'PressureSize'
         if relevant(flag,child+'Size',True):
@@ -2332,7 +2343,7 @@ def _reject_active_pressure_bool(root):
                 if isinstance(action,str) and re.fullmatch(r'\+?0*1',action.strip()) is None:
                     raise ValueError('Unsupported noncanonical '+flag)
     elif engine=='sketchbrush':
-        reject('PressureLine width','Line width')
+        reject('PressureLine width','Line width',True)
 
 
 def preset(data,name,catalog,external,depth=0,**options):

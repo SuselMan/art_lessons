@@ -49,7 +49,8 @@ class PressureBoolGuard(unittest.TestCase):
                 brushes,skipped=self.load(raw,resources132() if role=='child' else None)
                 self.assertEqual(skipped,[]);self.assertEqual(len(brushes),1)
             for checked in ('yes','no'):
-                neutral={'MaskingBrush/Preset/SizeValue':'1'} if role=='child' else {}
+                neutral=({'MaskingBrush/Preset/SizeValue':'1'} if role=='child' else
+                         {'ScatterValue':'0'} if role=='scatter' else {})
                 raw,flag=self.make(role,checked,usecurve='false',**neutral)
                 _,skipped=self.load(raw,resources132() if role=='child' else None)
                 self.assertNotIn('Unsupported noncanonical '+flag,str(skipped))
@@ -83,6 +84,16 @@ class PressureBoolGuard(unittest.TestCase):
                 raw,flag=self.make(role,'yes',usecurve='false',**{field:value})
                 _,skipped=self.load(raw,resources132() if role=='child' else None)
                 self.assertEqual('Unsupported noncanonical '+flag in str(skipped),expected)
+
+    def test_checked_scatter_and_line_width_constant_with_disabled_curve(self):
+        for role,field,values in (('scatter','ScatterValue',(('.5',True),('0',False))),
+                                  ('sketch','Line widthValue',(('.5',True),('1',False)))):
+            for value,expected in values:
+                raw,flag=self.make(role,'yes',usecurve='false',**{field:value})
+                _,skipped=self.load(raw)
+                self.assertEqual('Unsupported noncanonical '+flag in str(skipped),expected)
+        raw,flag=self.make('scatter','yes',usecurve='false',**{'Scattering/AxisX':'false','Scattering/AxisY':'false'})
+        self.assertNotIn('Unsupported noncanonical '+flag,str(self.load(raw)[1]))
 
     def test_private_adapter_does_not_gain_public_guard(self):
         raw,_=self.make('size','yes')
