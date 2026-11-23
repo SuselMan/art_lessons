@@ -2289,7 +2289,7 @@ def _pixel_action_wash(root):
     if action is None: return False
     if action.get('type') is None: return action.text=='2'
     if action.get('type')!='bytearray': return False
-    try: return base64.b64decode(action.text or '',validate=True)==b'2'
+    try: return base64.b64decode(''.join((action.text or '').split()),validate=True)==b'2'
     except ValueError: return False
 
 
