@@ -43,7 +43,7 @@ function run(cmd: string, args: string[], allowFail = false): string {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       maxBuffer: 256 * 1024 * 1024,
-      // npx/gh are .cmd shims on Windows and need a shell; git is a real binary, and running
+      // pnpm/gh are .cmd shims on Windows and need a shell; git is a real binary, and running
       // it through cmd would split `--since=6 months ago` on the spaces.
       shell: process.platform === 'win32' && cmd !== 'git',
     });
@@ -57,7 +57,7 @@ function run(cmd: string, args: string[], allowFail = false): string {
 export function cruise(): CruiseResult {
   mkdirSync(TMP, { recursive: true });
   // depcruise exits non-zero when rules are violated; we want the report either way.
-  const out = run('npx', ['depcruise', 'apps', 'packages', '--output-type', 'json'], true);
+  const out = run('pnpm', ['exec', 'depcruise', 'apps', 'packages', '--output-type', 'json'], true);
   return JSON.parse(out) as CruiseResult;
 }
 
@@ -71,8 +71,9 @@ export interface Clone {
 export function clones(minTokens = 60): Clone[] {
   mkdirSync(TMP, { recursive: true });
   run(
-    'npx',
+    'pnpm',
     [
+      'exec',
       'jscpd',
       'apps',
       'packages',

@@ -97,7 +97,7 @@ When Ilya asks to "start"/"run"/"spin up" the project (start it, "запусти
 
 2. Backend needs Postgres first (see `project_backend_dev_setup` memory):
    `docker start art_lessons_pg`
-   then from repo root, in the background: `ppnpm run dev:server` — Fastify listens on `0.0.0.0:4000`.
+   then from repo root, in the background: `pnpm run dev:server` — Fastify listens on `0.0.0.0:4000`.
 
 3. Frontend, from repo root, in the background: `pnpm run dev` — Vite already runs with `--host` + HTTPS (mkcert) on port 5173 (see `apps/web/vite.config.ts`).
 
