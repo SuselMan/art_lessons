@@ -2295,6 +2295,46 @@ def _reject_active_usecurve_yes(root):
             raise ValueError('Unsupported noncanonical '+option+'UseCurve')
 
 
+def _reject_active_pressure_bool(root):
+    """Reject confirmed checked-flag loss on live public source roles."""
+    nodes={p.get('name'):p for p in root.findall('param')}
+    unknown=object()
+    def text(name):
+        try: return _qt_guard_text(nodes.get(name))
+        except ValueError: return unknown  # This guard only covers decoded yes/no.
+    def noncanonical_checked(name):
+        value=text(name)
+        return isinstance(value,str) and value.lower() in ('yes','no')
+    def curve_active(name):
+        value=text(name+'UseCurve')
+        return value is None or isinstance(value,str) and value.lower() not in ('','0','false')
+    def size_constant_affects(name):
+        value=text(name+'Value')
+        if value is None: return False  # Krita Size default strength is one.
+        if not isinstance(value,str): return True
+        try: return float(value) != 1
+        except ValueError: return True
+    def relevant(flag,option,size=False):
+        return noncanonical_checked(flag) and (curve_active(option) or size and size_constant_affects(option))
+    def reject(flag,option,size=False):
+        if relevant(flag,option,size):
+            raise ValueError('Unsupported noncanonical '+flag)
+    engine=root.get('paintopid')
+    if engine=='paintbrush':
+        reject('PressureSize','Size',True)
+        reject('PressureScatter','Scatter')
+        child='MaskingBrush/Preset/'
+        flag=child+'PressureSize'
+        if relevant(flag,child+'Size',True):
+            mask=text('MaskingBrush/Enabled')
+            if isinstance(mask,str) and mask.lower() not in ('','0','false'):
+                action=text('PaintOpAction')
+                if isinstance(action,str) and re.fullmatch(r'\+?0*1',action.strip()) is None:
+                    raise ValueError('Unsupported noncanonical '+flag)
+    elif engine=='sketchbrush':
+        reject('PressureLine width','Line width')
+
+
 def preset(data,name,catalog,external,depth=0,**options):
     if type(options.get('_primary_clock_read',False)) is not bool:
         raise ValueError('Private primary clock read must be boolean')
@@ -2317,6 +2357,7 @@ def preset(data,name,catalog,external,depth=0,**options):
         source.load()
         root=xml(source.info.get('preset',''))
     _reject_active_usecurve_yes(root)
+    _reject_active_pressure_bool(root)
     params={p.get('name'):p.text or '' for p in root.findall('param')}
     engine=root.get('paintopid') or ''
     action=_tangent_source_action(root) if engine=='tangentnormal' else params.get('PaintOpAction')
