@@ -69,3 +69,45 @@ it('holds an actual Fastify request until its async response completes', async (
     collection()
   } finally { finishWork(); await app.close() }
 })
+
+it('persists HTTP room activity before allowing a real handler to run', async () => {
+  const { default: Fastify } = await import('fastify')
+  const { QaRoomActivity } = await import('./qaRoomActivity.js')
+  const app = Fastify(), gate = new QaActivityGate()
+  let finish!: () => void, started!: () => void
+  const ready = new Promise<void>(resolve => { started = resolve })
+  const hold = new Promise<void>(resolve => { finish = resolve })
+  let ran = false
+  const activity = new QaRoomActivity({
+    async recoverInterrupted() {}, async opened() {}, async closed() {},
+    async touched() { started(); await hold },
+  })
+  await activity.start()
+  registerQaHttpActivityGate(app, gate, { activity, async resolveLesson() { return 'lesson' } })
+  app.post('/room', async () => { ran = true; return { ok: true } })
+  try {
+    const request = app.inject({ method: 'POST', url: '/room' })
+    await ready
+    expect(ran).toBe(false)
+    expect(gate.tryStartCollection()).toBeUndefined()
+    finish()
+    expect((await request).statusCode).toBe(200)
+    expect(ran).toBe(true)
+  } finally { finish(); await app.close() }
+})
+
+it('fails closed when HTTP room classification fails', async () => {
+  const { default: Fastify } = await import('fastify')
+  const { QaRoomActivity } = await import('./qaRoomActivity.js')
+  const app = Fastify(), gate = new QaActivityGate()
+  let ran = false
+  const activity = new QaRoomActivity({ async recoverInterrupted() {}, async opened() {}, async closed() {}, async touched() {} })
+  await activity.start()
+  registerQaHttpActivityGate(app, gate, { activity, async resolveLesson() { throw Error('unknown route') } })
+  app.post('/unknown', async () => { ran = true; return { ok: true } })
+  try {
+    expect((await app.inject({ method: 'POST', url: '/unknown' })).statusCode).toBe(503)
+    expect(ran).toBe(false)
+    expect(await activity.readyForCollection()).toBe(false)
+  } finally { await app.close() }
+})
