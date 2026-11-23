@@ -44,7 +44,7 @@ class MixedQt(unittest.TestCase):
         for role in ROLES:
             root=ET.fromstring(Image.open(io.BytesIO(mixed(role,'yes','yes',False,True))).text['preset'])
             self.assertEqual(_child_mixed_qt_wash(root,role),('true','true'))
-            for key,value,typ in [('PaintOpAction','1',None),('PaintOpAction','Mg==','bytearray'),('MaskingBrush/Enabled','false',None),('MaskingBrush/Preset/Pressure'+role,'false',None),('MaskingBrush/Preset/'+role+'UseCurve','%%%','bytearray')]:
+            for key,value,typ in [('PaintOpAction','1',None),('MaskingBrush/Enabled','false',None),('MaskingBrush/Preset/Pressure'+role,'false',None),('MaskingBrush/Preset/'+role+'UseCurve','%%%','bytearray')]:
                 changed=copy.deepcopy(root);n=next(p for p in changed.findall('param') if p.get('name')==key);n.text=value
                 if typ:n.set('type',typ)
                 else:n.attrib.pop('type',None)

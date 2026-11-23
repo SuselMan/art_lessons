@@ -2281,6 +2281,18 @@ def _qt_guard_text(node):
     except (ValueError,UnicodeError): raise ValueError('Unsupported malformed typed '+(node.get('name') or 'property')) from None
 
 
+def _pixel_action_wash(root):
+    """Accept literal 2 or its strict QByteArray encoding, without rewriting input."""
+    entries=root.findall('param');nodes={p.get('name'):p for p in entries}
+    if len(nodes)!=len(entries): return False
+    action=nodes.get('PaintOpAction')
+    if action is None: return False
+    if action.get('type') is None: return action.text=='2'
+    if action.get('type')!='bytearray': return False
+    try: return base64.b64decode(action.text or '',validate=True)==b'2'
+    except ValueError: return False
+
+
 def _child_size_bytearray_wash(root):
     """Recognize the supported public child size curve case."""
     if root.get('paintopid')!='paintbrush': return False
@@ -2290,7 +2302,7 @@ def _child_size_bytearray_wash(root):
     action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
     curve=nodes.get('MaskingBrush/Preset/SizeUseCurve')
     checked=nodes.get('MaskingBrush/Preset/PressureSize')
-    if (action is None or action.get('type')=='bytearray' or action.text!='2'
+    if (not _pixel_action_wash(root)
             or mask is None or mask.get('type')=='bytearray' or not enabled(mask.text)
             or curve is None or curve.get('type')!='bytearray' or checked is None): return False
     try:
@@ -2308,7 +2320,7 @@ def _child_curve_bytearray_wash(root,role):
     action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
     curve=nodes.get('MaskingBrush/Preset/'+role+'UseCurve')
     checked=nodes.get('MaskingBrush/Preset/Pressure'+role)
-    if (action is None or action.get('type')=='bytearray' or action.text!='2'
+    if (not _pixel_action_wash(root)
             or mask is None or mask.get('type')=='bytearray' or not enabled(mask.text)
             or curve is None or curve.get('type')!='bytearray' or checked is None): return False
     try:
@@ -2327,7 +2339,7 @@ def _child_checked_bytearray_wash(root,role):
     action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
     curve=nodes.get('MaskingBrush/Preset/'+role+'UseCurve')
     checked=nodes.get('MaskingBrush/Preset/Pressure'+role)
-    if (action is None or action.get('type')=='bytearray' or action.text!='2'
+    if (not _pixel_action_wash(root)
             or mask is None or mask.get('type')=='bytearray' or not enabled(mask.text)
             or curve is None or curve.get('type')!='bytearray'
             or checked is None or checked.get('type')!='bytearray'): return False
@@ -2345,7 +2357,7 @@ def _child_mixed_qt_wash(root,role):
     action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
     checked=nodes.get('MaskingBrush/Preset/Pressure'+role)
     curve=nodes.get('MaskingBrush/Preset/'+role+'UseCurve')
-    if (action is None or action.get('type') is not None or action.text!='2'
+    if (not _pixel_action_wash(root)
             or mask is None or mask.get('type') is not None or not enabled(mask.text)
             or checked is None or curve is None
             or {checked.get('type'),curve.get('type')}!={None,'bytearray'}): return None
@@ -2464,7 +2476,7 @@ def preset(data,name,catalog,external,depth=0,**options):
     _reject_active_pressure_bool(root)
     params={p.get('name'):p.text or '' for p in root.findall('param')}
     engine=root.get('paintopid') or ''
-    action=_tangent_source_action(root) if engine=='tangentnormal' else params.get('PaintOpAction')
+    action=_tangent_source_action(root) if engine=='tangentnormal' else ('2' if engine=='paintbrush' and enabled(params.get('MaskingBrush/Enabled')) and _pixel_action_wash(root) else params.get('PaintOpAction'))
     token=_SOURCE_SCOPE.set((engine,action))
     try:
         return _preset_scoped(data,name,catalog,external,depth,**options)
