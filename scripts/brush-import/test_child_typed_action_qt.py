@@ -28,7 +28,7 @@ class TypedAction(unittest.TestCase):
                         self.assertEqual(results[0],results[1])
     def test_invalid_and_duplicates(self):
         root=ET.fromstring(Image.open(io.BytesIO(typed(mixed('Rotation','yes','no',True,False)))).text['preset']);self.assertTrue(_pixel_action_wash(root))
-        for value in ('MQ==','MA==','Mw==','%%%',' Mg=='):
+        for value in ('MQ==','MA==','Mw==','%%%',' Mg=!'):
             changed=copy.deepcopy(root);next(p for p in changed.findall('param') if p.get('name')=='PaintOpAction').text=value;self.assertFalse(_pixel_action_wash(changed))
         ET.SubElement(root,'param',name='PaintOpAction').text='2';self.assertFalse(_pixel_action_wash(root))
     def test_bundle(self):
