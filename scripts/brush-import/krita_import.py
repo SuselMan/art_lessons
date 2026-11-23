@@ -568,6 +568,12 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             params[p.get('name')]=base64.b64decode(''.join((p.text or '').split()),validate=True).decode('utf-8')
     if len(params) != len(root.findall('param')):
         raise ValueError('Duplicate Krita parameter')
+    # Only the checked public Pixel Wash case has already passed the scoped
+    # guard.  Keep the original PNG as identity authority; normalize the
+    # decoded child value before the existing legacy child is assembled.
+    if (not depth and _allow_texture_material and _SOURCE_SCOPE.get()==('paintbrush','2')
+            and _child_size_bytearray_wash(root)):
+        params['MaskingBrush/Preset/SizeUseCurve']='true'
     # A Time sensor reads the recorded stroke clock even without airbrushing.
     # Keep explicit legacy False and independent masking/host timers unchanged.
     source_clock_only=(_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and engine=='paintbrush'
@@ -2161,10 +2167,9 @@ def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_x
     keys={'MaskingBrush/Enabled','MaskingBrush/Preset/RotationSensor','MaskingBrush/UseMasterSize'}
     params={n.get('name'):n.text or''for n in root.findall('param') if n.get('name') in keys}
     needs_mask=root.get('paintopid')=='paintbrush' and enabled(params.get('MaskingBrush/Enabled'))
-    child_size_qt=_allow_texture_material and _child_size_bytearray_wash(root)
     del image,root
     if not needs_mask:return _preset_impl(data,name,catalog,external,depth,**options)
-    if TIMING195.get() or child_size_qt:
+    if TIMING195.get():
         from native_mask190 import lower_pair
         return lower_pair(data,name,catalog,external,_preset_impl,options)
     class Needs190(ValueError):pass
