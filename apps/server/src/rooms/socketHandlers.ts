@@ -1,3 +1,4 @@
+import { qaRoomActivityForGate } from './qaRoomActivityRuntime.js'
 import type { QaActivityGate } from './qaActivityGate.js'
 import { runQaTrackedBackground } from './qaBackgroundRuntime.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
@@ -243,6 +244,7 @@ export async function announceBoardThumbnail(
 const personalBoardsInFlight = new Set<string>()
 
 export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, qaGate?: QaActivityGate): void {
+  const qaActivity = qaRoomActivityForGate(qaGate)
   // (#480) Один на процесс, как и io: состояние в нём — «о чём по этой
   // комнате уже отчитались», и оно должно переживать отдельное соединение.
   const lagWatch = createSnapshotLagWatch()
@@ -410,6 +412,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, qaGa
         // fire-and-forget (rooms.ts), the room would end up live in memory with
         // nothing behind it. Anything unrecognised — including absent — is the
         // open room this has always created.
+        if (qaActivity) {
+          try { await qaActivity.opened(room.id) }
+          catch (err) { log.error({ err, roomId: room.id }, 'QA room activity failed'); ack({ ok: false, error: 'server_busy' }); return }
+          if (intent.obsolete()) return
+        }
         createRoom(
           // (#548) Sanitized on the way in for the same reason `accessMode` is
           // checked: a socket payload is not compiled by us, and this list is
@@ -511,6 +518,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, qaGa
           return
         }
         if (intent.obsolete()) return
+        if (qaActivity) {
+          const lessonId = getRoomGate(roomId)?.lessonId
+          if (!lessonId) { ack({ ok: false, error: 'server_busy' }); return }
+          try { await qaActivity.opened(lessonId) }
+          catch (err) { log.error({ err, lessonId }, 'QA room activity failed'); ack({ ok: false, error: 'server_busy' }); return }
+          if (intent.obsolete()) return
+        }
         const result = joinRoom(roomId, userId, displayName, socket.id, true)
         if (!result.ok) {
           log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')

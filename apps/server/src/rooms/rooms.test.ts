@@ -1,3 +1,6 @@
+import { QaActivityGate } from './qaActivityGate.js'
+import { QaRoomActivity } from './qaRoomActivity.js'
+import { setQaRoomActivityRuntime } from './qaRoomActivityRuntime.js'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type {
@@ -1833,4 +1836,36 @@ it('#780 deletion forgets every connection index before the same id is created a
   expect(leaveRoom(roomId, 'owner-1', sock('owner-1', '-replacement'))).toBe(true)
   await _flushPendingWrites(roomId)
   expect(isRoomResident(roomId)).toBe(false)
+})
+
+
+it('QA activity persists only the final departure through the common leave path', async () => {
+  const gate = new QaActivityGate(), closed: string[] = []
+  let finish!: () => void
+  const pending = new Promise<void>(resolve => { finish = resolve })
+  const activity = new QaRoomActivity({
+    async recoverInterrupted() {}, async opened() {}, async touched() {},
+    async closed(id) { closed.push(id); await pending },
+  })
+  await activity.start()
+  setQaRoomActivityRuntime({ gate, activity })
+  const roomId = freshRoomId(), lifetime = gate.tryEnter()!
+  try {
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Student', sock('student-1'))
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+    await Promise.resolve()
+    expect(closed).toEqual([])
+    leaveRoom(roomId, 'student-1', sock('student-1'))
+    lifetime()
+    expect(gate.tryStartCollection()).toBeUndefined()
+    await Promise.resolve()
+    expect(closed).toEqual([roomId])
+    finish()
+    expect(await activity.readyForCollection()).toBe(true)
+    await new Promise(resolve => setImmediate(resolve))
+    const release = gate.tryStartCollection()
+    expect(release).toBeDefined()
+    release?.()
+  } finally { finish(); lifetime(); setQaRoomActivityRuntime(undefined) }
 })

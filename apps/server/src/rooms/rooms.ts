@@ -1,3 +1,4 @@
+import { noteQaLastDeparture } from './qaRoomActivityRuntime.js'
 import type { PreparedSnapshotReplay } from './snapshotReplayLoader.js'
 import bcrypt from 'bcryptjs'
 import type {
@@ -392,6 +393,7 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   if (removed) lesson.handsRaised.delete(userId)
   // The lesson goes only when it is empty of people — and takes its boards
   // with it (see evictNow).
+  if (removed && lesson.participants.size === 0) noteQaLastDeparture(lesson.room.id)
   if (lesson.participants.size === 0) evictWhenIdle(lesson.room.id)
   return removed
 }

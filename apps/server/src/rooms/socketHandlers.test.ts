@@ -1,3 +1,5 @@
+import { QaRoomActivity } from './qaRoomActivity.js'
+import { setQaRoomActivityRuntime } from './qaRoomActivityRuntime.js'
 import { QaActivityGate } from './qaActivityGate.js'
 import {canonicalStrokeStorage,strokeEndSample,strokeDabs,packStrokeEndSample} from '@grafetto/shared'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
@@ -1425,5 +1427,45 @@ it('QA gate protects a real Grafetto socket through disconnect', async () => {
   } finally {
     socket.disconnect()
     await new Promise<void>(resolve => qaIo.close(() => resolve()))
+  }
+})
+
+
+it('QA real socket waits for durable open and records its final departure', async () => {
+  const server = createServer(), qaIo = new Server(server), gate = new QaActivityGate()
+  let openStarted!: () => void, finishOpen!: () => void, closeStarted!: () => void
+  const openSignal = new Promise<void>(resolve => { openStarted = resolve })
+  const holdOpen = new Promise<void>(resolve => { finishOpen = resolve })
+  const closeSignal = new Promise<void>(resolve => { closeStarted = resolve })
+  const events: string[] = []
+  const activity = new QaRoomActivity({
+    async recoverInterrupted() {}, async touched() {},
+    async opened(id) { events.push(`open:${id}`); openStarted(); await holdOpen },
+    async closed(id) { events.push(`close:${id}`); closeStarted() },
+  })
+  await activity.start()
+  setQaRoomActivityRuntime({ gate, activity })
+  registerRoomHandlers(qaIo as never, log, gate)
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address() as AddressInfo
+  const socket: Client = connect(`http://127.0.0.1:${address.port}`, {
+    extraHeaders: { cookie: 'qa-owner' }, transports: ['websocket'], forceNew: true,
+  })
+  try {
+    await new Promise<void>((resolve, reject) => { socket.once('connect', () => resolve()); socket.once('connect_error', reject) })
+    const roomId = fresh('qa-durable-open')
+    let acknowledged = false
+    const creating = createLesson(socket, roomId).then(() => { acknowledged = true })
+    await openSignal
+    expect(acknowledged).toBe(false)
+    expect(gate.tryStartCollection()).toBeUndefined()
+    finishOpen(); await creating
+    socket.disconnect(); await closeSignal
+    expect(events).toEqual([`open:${roomId}`, `close:${roomId}`])
+    expect(await activity.readyForCollection()).toBe(true)
+  } finally {
+    finishOpen(); socket.disconnect()
+    await new Promise<void>(resolve => qaIo.close(() => resolve()))
+    setQaRoomActivityRuntime(undefined)
   }
 })

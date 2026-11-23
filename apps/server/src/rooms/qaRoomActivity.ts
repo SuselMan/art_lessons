@@ -50,6 +50,8 @@ export class QaRoomActivity {
   /** Must complete before acknowledging HTTP activity. */
   touched(lessonId: string): Promise<void> { return this.enqueue(() => this.store.touched(lessonId)) }
 
+  invalidate(): void { this.failed = true }
+
   /** This alone does not provide exclusion; the caller MUST also hold the gate. */
   async readyForCollection(): Promise<boolean> {
     for (;;) {
