@@ -6,6 +6,7 @@ import type {
 import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS } from '@grafetto/shared'
 
 import { isCoveredBySnapshot } from './snapshotCoverage.js'
+import { noteQaRoomActivity } from './qaRoomActivityPostgres.js'
 import { lessonStateFor } from './classroom.js'
 import { persistPalette, persistParticipant, persistRoomCreate } from './roomPersistence.js'
 import {
@@ -178,6 +179,7 @@ export function createRoom(
     const participant: Participant = {
       userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false, boardId: roomData.id,
     }
+    noteQaRoomActivity(existing.room.id)
     existing.participants.set(ownerId, participant)
     existing.sockets.add(socketId)
     boardOfSocket.set(socketId, roomData.id)
@@ -219,6 +221,7 @@ export function createRoom(
   })
   boardOfSocket.set(socketId, room.id)
   seatConnection(participantKey(room.id, ownerId), socketId, room.id)
+  noteQaRoomActivity(room.id)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId, ownerName, passwordHash)
   persistPalette(room.id, palette)
@@ -322,6 +325,7 @@ export function joinRoom(
   // The RoomParticipant row is the lesson's: it is what "Мои уроки" lists and
   // what an invite_only lesson re-admits by, and a board is neither listed nor
   // a thing one is admitted to.
+  noteQaRoomActivity(lessonId)
   persistParticipant(lessonId, userId, name, freshlyAuthorized ? lesson.passwordHash ?? null : undefined)
   return { ok: true, participant, lessonId, previousBoardId: previous?.boardId }
 }
@@ -389,7 +393,10 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   const removed = lesson.participants.delete(userId)
   // (#595) A hand belongs to someone in the room; one left up by a person who
   // has gone would sit at the top of the teacher's grid for nobody.
-  if (removed) lesson.handsRaised.delete(userId)
+  if (removed) {
+    noteQaRoomActivity(lesson.room.id)
+    lesson.handsRaised.delete(userId)
+  }
   // The lesson goes only when it is empty of people — and takes its boards
   // with it (see evictNow).
   if (lesson.participants.size === 0) evictWhenIdle(lesson.room.id)

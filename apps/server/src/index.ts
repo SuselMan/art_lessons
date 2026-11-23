@@ -19,6 +19,7 @@ import { noteBoardThumbnail } from './rooms/classroom.js'
 import { flushAllRoomWrites, pendingWriteCount } from './rooms/rooms.js'
 import { disconnectAllClients } from './health/shutdown.js'
 import { prisma } from './db/prisma.js'
+import { startQaRoomActivity } from './rooms/qaRoomActivityPostgres.js'
 import { identityHook } from './auth/identity.js'
 import { startEventLoopMonitor } from './health/eventLoop.js'
 import { registerHealthRoutes } from './health/healthRoutes.js'
@@ -308,6 +309,7 @@ const start = async () => {
     // a deploy brings the server back is exactly who arrives first.
     const [bans, ipBans, revocations] = await Promise.all([loadBans(), loadIpBans(), loadRevocations()])
     if (bans + ipBans + revocations > 0) app.log.info({ bans, ipBans, revocations }, 'loaded bans and revocations')
+    await startQaRoomActivity()
     startSightingPrune()
     if (adminEmails().size === 0) app.log.warn('ADMIN_EMAILS is not set — the admin panel has no admins')
     // 4000 unless told otherwise (compose publishes that, and the Vite proxy
