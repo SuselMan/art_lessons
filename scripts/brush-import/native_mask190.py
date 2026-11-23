@@ -92,7 +92,7 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             if child and _SOURCE_SCOPE.get()==('paintbrush','2'):
                 for role in ('Opacity','Flow'):
                     canonical=_child_notcheckable_string(root,role).get(key)
-                    if canonical is not None:value=canonical
+                    if canonical is not None:value=base64.b64encode(canonical.encode()).decode() if attributes.get('type')=='bytearray' else canonical
                 for role in ('Rotation','Ratio','Mirror','Scatter'):
                     if key in ('Pressure'+role,role+'UseCurve'):
                         mixed=_child_mixed_qt_wash(root,role)
