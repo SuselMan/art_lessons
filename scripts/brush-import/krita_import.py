@@ -2374,7 +2374,7 @@ def _child_mixed_qt_wash(root,role):
 
 
 def _child_notcheckable_string(root,role):
-    """Qt5 QString yes/no on active Pixel Wash child NotCheckable options."""
+    """Qt5 yes/no on scoped Pixel Wash child NotCheckable options."""
     if root.get('paintopid')!='paintbrush' or role not in ('Opacity','Flow'): return {}
     entries=root.findall('param');nodes={p.get('name'):p for p in entries}
     if len(nodes)!=len(entries) or not _pixel_action_wash(root): return {}
@@ -2385,6 +2385,15 @@ def _child_notcheckable_string(root,role):
         node=nodes.get('MaskingBrush/Preset/'+key)
         if node is not None and node.get('type') in (None,'string') and node.text in ('yes','no'):
             out[key]='true'
+    checked=nodes.get('MaskingBrush/Preset/Pressure'+role)
+    curve=nodes.get('MaskingBrush/Preset/'+role+'UseCurve')
+    if (checked is not None and checked.get('type')=='bytearray'
+            and curve is not None and curve.get('type') in (None,'string')
+            and curve.text in ('true','false','1','0','yes','no')):
+        try:
+            if _qt_guard_text(checked) in ('yes','no'):out['Pressure'+role]='true'
+        except ValueError:
+            pass
     return out
 
 
