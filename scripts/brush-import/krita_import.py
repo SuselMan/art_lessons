@@ -2161,9 +2161,10 @@ def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_x
     keys={'MaskingBrush/Enabled','MaskingBrush/Preset/RotationSensor','MaskingBrush/UseMasterSize'}
     params={n.get('name'):n.text or''for n in root.findall('param') if n.get('name') in keys}
     needs_mask=root.get('paintopid')=='paintbrush' and enabled(params.get('MaskingBrush/Enabled'))
+    child_size_qt=_allow_texture_material and _child_size_bytearray_wash(root)
     del image,root
     if not needs_mask:return _preset_impl(data,name,catalog,external,depth,**options)
-    if TIMING195.get():
+    if TIMING195.get() or child_size_qt:
         from native_mask190 import lower_pair
         return lower_pair(data,name,catalog,external,_preset_impl,options)
     class Needs190(ValueError):pass
@@ -2263,6 +2264,24 @@ def _qt_guard_text(node):
     except (ValueError,UnicodeError): raise ValueError('Unsupported malformed typed '+(node.get('name') or 'property')) from None
 
 
+def _child_size_bytearray_wash(root):
+    """Exact public case lowered by the native190 child bridge."""
+    if root.get('paintopid')!='paintbrush': return False
+    entries=root.findall('param')
+    nodes={p.get('name'):p for p in entries}
+    if len(nodes)!=len(entries): return False
+    action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
+    curve=nodes.get('MaskingBrush/Preset/SizeUseCurve')
+    checked=nodes.get('MaskingBrush/Preset/PressureSize')
+    if (action is None or action.get('type')=='bytearray' or action.text!='2'
+            or mask is None or mask.get('type')=='bytearray' or not enabled(mask.text)
+            or curve is None or curve.get('type')!='bytearray' or checked is None): return False
+    try:
+        return _qt_guard_text(curve) in ('yes','no') and _qt_guard_text(checked) in ('true','1')
+    except ValueError:
+        return False
+
+
 def _reject_active_usecurve_yes(root):
     """Prevent confirmed silent loss, only for original public source roles."""
     nodes={p.get('name'):p for p in root.findall('param')}
@@ -2286,7 +2305,7 @@ def _reject_active_usecurve_yes(root):
             # outside this guard rather than rejecting an inactive mask.
             typed_unknown='PaintOpAction' in nodes and action is None
             wash=action is not None and re.fullmatch(r'\+?0*1',action.strip()) is None
-            if wash and not typed_unknown:
+            if wash and not typed_unknown and not _child_size_bytearray_wash(root):
                 candidates.append(child_option)
     elif engine=='sketchbrush' and yes('Line widthUseCurve') and qt_true('PressureLine width'):
         candidates.append('Line width')
