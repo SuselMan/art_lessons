@@ -2290,8 +2290,7 @@ def _reject_active_usecurve_yes(root):
                 candidates.append(child_option)
     elif engine=='curvebrush':
         value=text('OpacityUseCurve')
-        node=nodes.get('OpacityUseCurve')
-        if value is not None and value.lower() not in ('','0','false') and not enabled(node.text or ''):
+        if value is not None and value.lower() not in ('','0','false') and not enabled(value):
             raise ValueError('Unsupported noncanonical OpacityUseCurve')
     elif engine=='sketchbrush' and yes('Line widthUseCurve') and qt_true('PressureLine width'):
         candidates.append('Line width')

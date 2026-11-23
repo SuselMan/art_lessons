@@ -70,9 +70,18 @@ class CurveOpacityScope(unittest.TestCase):
                     records,skipped=self.load(raw,bundle)
                     self.assertEqual(len(records),int(bundle))
                     self.assertIn('Unsupported noncanonical OpacityUseCurve',str(skipped))
-        for value in (b'true',b'1',b'yes'):
+        for value in (b'true',b'1'):
             raw=typed(native194('curvebrush',params={'OpacityUseCurve':'true'}),'OpacityUseCurve',value)
-            self.assertIn('Unsupported noncanonical OpacityUseCurve',str(self.load(raw)[1]))
+            for bundle in (False,True):
+                records,skipped=self.load(raw,bundle)
+                self.assertEqual(skipped,[])
+                self.assertEqual(records[0]['descriptor']['opacityByPressure'],[[0,0],[1,1]])
+        for value in (b'yes',b'no'):
+            raw=typed(native194('curvebrush',params={'OpacityUseCurve':'true'}),'OpacityUseCurve',value)
+            for bundle in (False,True):
+                records,skipped=self.load(raw,bundle)
+                self.assertEqual(len(records),int(bundle))
+                self.assertIn('Unsupported noncanonical OpacityUseCurve',str(skipped))
         for value in (b'false',b'0',b''):
             raw=typed(native194('curvebrush',params={'OpacityUseCurve':'true'}),'OpacityUseCurve',value)
             self.assertNotIn('Unsupported noncanonical OpacityUseCurve',str(self.load(raw)[1]))
