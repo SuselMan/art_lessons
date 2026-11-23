@@ -35,3 +35,20 @@ export class QaActivityGate {
     }
   }
 }
+
+/** Retain a lease through the promise returned by a handler or background job.
+ * Detached work must acquire its own lease before its parent lease is released.
+ * A false admission is the caller's signal to retry; work has not started. */
+export function tryRunQaActivity<T>(
+  gate: QaActivityGate, run: () => T | Promise<T>,
+): { admitted: false } | { admitted: true; result: Promise<T> } {
+  const release = gate.tryEnter()
+  if (!release) return { admitted: false }
+  try {
+    const result = Promise.resolve(run()).finally(release)
+    return { admitted: true, result }
+  } catch (error) {
+    release()
+    return { admitted: true, result: Promise.reject(error) }
+  }
+}

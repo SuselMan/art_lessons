@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { QaActivityGate } from './qaActivityGate.js'
+import { QaActivityGate, tryRunQaActivity } from './qaActivityGate.js'
 
 describe('QA activity barrier', () => {
   it('blocks collection for the entire asynchronous HTTP or socket operation', async () => {
@@ -41,4 +41,21 @@ describe('QA activity barrier', () => {
     expect(again).toBeDefined()
     again?.()
   })
+})
+
+
+it('holds asynchronous socket or background work and releases even on failure', async () => {
+  const gate = new QaActivityGate()
+  let finish!: () => void
+  const work = new Promise<void>(resolve => { finish = resolve })
+  const result = tryRunQaActivity(gate, async () => { await work; throw Error('failed') })
+  expect(result.admitted).toBe(true)
+  if (!result.admitted) throw Error('not admitted')
+  expect(gate.tryStartCollection()).toBeUndefined()
+  finish()
+  await expect(result.result).rejects.toThrow('failed')
+  const cleanup = gate.tryStartCollection()
+  expect(cleanup).toBeDefined()
+  expect(tryRunQaActivity(gate, () => { throw Error('must not run') })).toEqual({ admitted: false })
+  cleanup?.()
 })
