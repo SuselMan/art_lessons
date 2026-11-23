@@ -576,6 +576,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         params['MaskingBrush/Preset/SizeUseCurve']='true'
     if not depth and _allow_texture_material and _SOURCE_SCOPE.get()==('paintbrush','2'):
         for role in ('Rotation','Ratio','Mirror','Scatter'):
+            mixed=_child_mixed_qt_wash(root,role)
+            if mixed is not None:
+                params['MaskingBrush/Preset/Pressure'+role],params['MaskingBrush/Preset/'+role+'UseCurve']=mixed
             if _child_curve_bytearray_wash(root,role):
                 params['MaskingBrush/Preset/'+role+'UseCurve']='true'
                 checked=next(p for p in root.findall('param') if p.get('name')=='MaskingBrush/Preset/Pressure'+role)
@@ -2332,6 +2335,25 @@ def _child_checked_bytearray_wash(root,role):
         return _qt_guard_text(checked) in ('yes','no') and _qt_guard_text(curve) in ('true','false','1','0')
     except ValueError:
         return False
+
+
+def _child_mixed_qt_wash(root,role):
+    """Normalize only mixed QString/QByteArray active child controls on Pixel Wash."""
+    if root.get('paintopid')!='paintbrush': return None
+    entries=root.findall('param');nodes={p.get('name'):p for p in entries}
+    if len(nodes)!=len(entries): return None
+    action=nodes.get('PaintOpAction');mask=nodes.get('MaskingBrush/Enabled')
+    checked=nodes.get('MaskingBrush/Preset/Pressure'+role)
+    curve=nodes.get('MaskingBrush/Preset/'+role+'UseCurve')
+    if (action is None or action.get('type') is not None or action.text!='2'
+            or mask is None or mask.get('type') is not None or not enabled(mask.text)
+            or checked is None or curve is None
+            or {checked.get('type'),curve.get('type')}!={None,'bytearray'}): return None
+    try: c,u=_qt_guard_text(checked),_qt_guard_text(curve)
+    except ValueError: return None
+    if c not in ('true','1','yes','no') or u not in ('true','false','1','0','yes','no'): return None
+    if c not in ('yes','no') and u not in ('yes','no'): return None
+    return ('true','true' if u in ('true','1','yes','no') else 'false')
 
 
 def _reject_active_usecurve_yes(root):

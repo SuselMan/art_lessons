@@ -65,7 +65,7 @@ def text_resource(definition,external):
 
 def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=independent_mask190_scope):
     import xml.etree.ElementTree as ET
-    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE,_child_curve_bytearray_wash
+    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE,_child_curve_bytearray_wash,_child_mixed_qt_wash
     from brush_contract import finalize_identity
     from curve_transfer import scaled_curve
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
@@ -89,6 +89,13 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             original=next((p for p in root.findall('param') if p.get('name')==(prefix+key if child else key)),None)
             attributes=dict(original.attrib) if original is not None else {}
             attributes['name']=key
+            if child and _SOURCE_SCOPE.get()==('paintbrush','2'):
+                for role in ('Rotation','Ratio','Mirror','Scatter'):
+                    if key in ('Pressure'+role,role+'UseCurve'):
+                        mixed=_child_mixed_qt_wash(root,role)
+                        if mixed is not None:
+                            canonical=mixed[0 if key=='Pressure'+role else 1]
+                            value=base64.b64encode(canonical.encode()).decode() if attributes.get('type')=='bytearray' else canonical
             # Qt5 converts QByteArray "yes" and "no" to true.  Normalize
             # only these child Wash options in the private bridge; keep
             # the captured KPP and its identity unchanged.
