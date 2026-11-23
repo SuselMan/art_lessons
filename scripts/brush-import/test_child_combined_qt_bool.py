@@ -67,7 +67,7 @@ class CombinedQtBool(unittest.TestCase):
             self.assertEqual(results['true'],results['yes']);self.assertEqual(results['true'],results['no']);self.assertEqual(results['true'],results['yes_true'])
             root=ET.fromstring(Image.open(io.BytesIO(make(role,'yes','no'))).text['preset'])
             self.assertTrue(_child_curve_bytearray_wash(root,role))
-            for name,value,typ in [('PaintOpAction','1',None),('PaintOpAction','Mg==','bytearray'),('MaskingBrush/Enabled','false',None),('MaskingBrush/Preset/Pressure'+role,'yes',None)]:
+            for name,value,typ in [('PaintOpAction','1',None),('MaskingBrush/Enabled','false',None),('MaskingBrush/Preset/Pressure'+role,'yes',None)]:
                 altered=copy.deepcopy(root);node=next(p for p in altered.findall('param') if p.get('name')==name);node.text=value
                 if typ:node.set('type',typ)
                 elif 'type' in node.attrib:del node.attrib['type']

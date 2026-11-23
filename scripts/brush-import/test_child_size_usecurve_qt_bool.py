@@ -89,6 +89,8 @@ class ChildSizeQtBoolTests(unittest.TestCase):
         typed_action=ET.fromstring(Image.open(io.BytesIO(fixture('yes'))).text['preset'])
         action=next(p for p in typed_action.findall('param') if p.get('name')=='PaintOpAction')
         action.set('type','bytearray');action.text=base64.b64encode(b'2').decode()
+        with tempfile.TemporaryDirectory() as tmp:
+            c=convert(png_preset(typed_action),Path(tmp));self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor']['behavior']['dual']['brush']['sizeByPressure'],[[0,0],[1,1]])
         root_guard=ET.fromstring(Image.open(io.BytesIO(fixture('yes'))).text['preset'])
         for key,value in (('PressureSize','true'),('SizeUseCurve','yes')):
             node=next((p for p in root_guard.findall('param') if p.get('name')==key),None)
@@ -96,7 +98,7 @@ class ChildSizeQtBoolTests(unittest.TestCase):
             node.text=value
         duplicate=ET.fromstring(Image.open(io.BytesIO(fixture('yes'))).text['preset'])
         ET.SubElement(duplicate,'param',name='MaskingBrush/Preset/PressureSize').text='true'
-        for raw in (fixture('yes',typed=False),fixture('yes',action='0'),png_preset(typed_action),png_preset(root_guard),png_preset(duplicate)):
+        for raw in (fixture('yes',typed=False),fixture('yes',action='0'),png_preset(root_guard),png_preset(duplicate)):
             with tempfile.TemporaryDirectory() as tmp:
                 c=convert(raw,Path(tmp));self.assertEqual(len(c.skipped),1)
                 self.assertIn('Unsupported noncanonical',c.skipped[0]['reasons'][0])

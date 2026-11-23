@@ -65,7 +65,7 @@ def text_resource(definition,external):
 
 def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=independent_mask190_scope):
     import xml.etree.ElementTree as ET
-    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE,_child_curve_bytearray_wash,_child_mixed_qt_wash
+    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE,_child_curve_bytearray_wash,_child_mixed_qt_wash,_pixel_action_wash
     from brush_contract import finalize_identity
     from curve_transfer import scaled_curve
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
@@ -99,7 +99,7 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             # Qt5 converts QByteArray "yes" and "no" to true.  Normalize
             # only these child Wash options in the private bridge; keep
             # the captured KPP and its identity unchanged.
-            if (child and params.get('PaintOpAction','1')=='2'
+            if (child and _pixel_action_wash(root)
                     and key in ('OpacityUseCurve','FlowUseCurve','SizeUseCurve','RotationUseCurve','RatioUseCurve','MirrorUseCurve','ScatterUseCurve',
                                 'PressureMirror','PressureScatter','PressureRotation','PressureRatio')
                     and (key!='SizeUseCurve' or _SOURCE_SCOPE.get()==('paintbrush','2'))

@@ -140,7 +140,7 @@ class TestScope(unittest.TestCase):
         for role in ('Rotation','Ratio','Mirror','Scatter'):
             original=ET.fromstring(Image.open(io.BytesIO(TestOtherChildCurves().make(role,'yes',False,'true'))).text['preset'])
             self.assertTrue(_child_curve_bytearray_wash(original,role))
-            for key,value,typ in [('PaintOpAction','1',None),('PaintOpAction',base64.b64encode(b'2').decode(),'bytearray'),('MaskingBrush/Enabled','false',None),('MaskingBrush/Preset/Pressure'+role,'false',None),('MaskingBrush/Preset/'+role+'UseCurve','%%%','bytearray')]:
+            for key,value,typ in [('PaintOpAction','1',None),('MaskingBrush/Enabled','false',None),('MaskingBrush/Preset/Pressure'+role,'false',None),('MaskingBrush/Preset/'+role+'UseCurve','%%%','bytearray')]:
                 root=copy.deepcopy(original);node=next(p for p in root.findall('param') if p.get('name')==key)
                 node.text=value
                 if typ:node.set('type',typ)
