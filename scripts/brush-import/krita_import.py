@@ -2350,7 +2350,7 @@ def _child_checked_bytearray_wash(root,role):
 
 
 def _child_mixed_qt_wash(root,role):
-    """Normalize only mixed QString/QByteArray active child controls on Pixel Wash."""
+    """Normalize supported QString/QByteArray active child controls on Pixel Wash."""
     if root.get('paintopid')!='paintbrush': return None
     entries=root.findall('param');nodes={p.get('name'):p for p in entries}
     if len(nodes)!=len(entries): return None
@@ -2361,7 +2361,8 @@ def _child_mixed_qt_wash(root,role):
             or mask is None or mask.get('type') is not None or not enabled(mask.text)
             or checked is None or curve is None
             or not ((checked.get('type')=='bytearray' and curve.get('type') in (None,'string'))
-                    or (curve.get('type')=='bytearray' and checked.get('type') in (None,'string')))): return None
+                    or (curve.get('type')=='bytearray' and checked.get('type') in (None,'string'))
+                    or (curve.get('type') in (None,'string') and checked.get('type') in (None,'string')))): return None
     try: c,u=_qt_guard_text(checked),_qt_guard_text(curve)
     except ValueError: return None
     if c not in ('true','1','yes','no') or u not in ('true','false','1','0','yes','no'): return None
