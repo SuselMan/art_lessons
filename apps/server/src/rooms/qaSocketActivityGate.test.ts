@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import Fastify from 'fastify'
 import { Server } from 'socket.io'
 import { io as clientIo } from 'socket.io-client'
-import { once } from 'node:events'
 import { QaActivityGate, tryRunQaActivity } from './qaActivityGate.js'
 
 describe('QA gate with a real Socket.IO transport', () => {
@@ -23,7 +22,7 @@ describe('QA gate with a real Socket.IO transport', () => {
     if (!address || typeof address === 'string') throw Error('missing test port')
     const client = clientIo(`http://127.0.0.1:${address.port}`, { transports: ['websocket'] })
     try {
-      await once(client, 'connect')
+      await new Promise<void>(resolve => client.once('connect', () => resolve()))
       const joining = client.timeout(3000).emitWithAck('test_join')
       await didStart
       expect(gate.tryStartCollection()).toBeUndefined()
