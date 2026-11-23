@@ -2280,7 +2280,7 @@ def _qt_guard_text(node):
     if node is None: return None
     raw=node.text or ''
     if node.get('type') != 'bytearray': return raw
-    try: return base64.b64decode(raw,validate=True).decode('latin-1')
+    try: return base64.b64decode(''.join(raw.split()),validate=True).decode('latin-1')
     except (ValueError,UnicodeError): raise ValueError('Unsupported malformed typed '+(node.get('name') or 'property')) from None
 
 
