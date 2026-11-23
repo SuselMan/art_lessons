@@ -1,3 +1,4 @@
+import type { QaActivityGate } from './qaActivityGate.js'
 import { runQaTrackedBackground } from './qaBackgroundRuntime.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
@@ -241,7 +242,7 @@ export async function announceBoardThumbnail(
  *  having to. */
 const personalBoardsInFlight = new Set<string>()
 
-export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
+export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, qaGate?: QaActivityGate): void {
   // (#480) Один на процесс, как и io: состояние в нём — «о чём по этой
   // комнате уже отчитались», и оно должно переживать отдельное соединение.
   const lagWatch = createSnapshotLagWatch()
@@ -322,8 +323,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   })
 
   io.on('connection', (socket) => {
+    // Conservative QA policy: no collection while any socket is connected.
+    const qaSocketRelease = qaGate?.tryEnter()
+    if (qaGate && !qaSocketRelease) { socket.disconnect(true); return }
     let joinGeneration = 0
     const beginSeatIntent = (roomId: string, ack: (result: JoinResult) => void) => {
+      const qaIntentRelease = qaGate?.tryEnter()
+      if (qaGate && !qaIntentRelease) { ack({ ok: false, error: 'server_busy' }); return undefined }
       const generation = ++joinGeneration
       const loadIntent = retainRoomLoadIntent(roomId)
       const residency = retainRoomForJoin(roomId)
@@ -337,6 +343,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         finish: () => {
           loadIntent.release()
           residency.release()
+          qaIntentRelease?.()
         },
       }
     }
@@ -371,6 +378,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('create_room', async ({ room, password, name, accessMode, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
       const intent = beginSeatIntent(room.id, ack)
+      if (!intent) return
       try {
         // Same reload-safety as join_room below: the creator's own tab can
         // legitimately emit create_room again for a room that already exists
@@ -433,6 +441,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('join_room', async ({ roomId, name, password, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
       const intent = beginSeatIntent(roomId, ack)
+      if (!intent) return
       try {
         // (#415) Единственная проверка, стоящая *перед* загрузкой, а не после:
         // всё остальное решает, можно ли этому человеку в эту комнату, а это —
@@ -907,6 +916,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         reply({ ok: false, error: 'busy' })
         return
       }
+      const qaAssignmentRelease = qaGate?.tryEnter()
+      if (qaGate && !qaAssignmentRelease) { abortAssignmentStart(lessonId); reply({ ok: false, error: 'server_error' }); return }
       const title = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : '—'
       try {
         const students = getClassroom(lessonId)?.students ?? []
@@ -924,6 +935,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         log.error({ err, lessonId }, 'failed to start an assignment')
         reportException(err, { lessonId })
         reply({ ok: false, error: 'server_error' })
+      } finally {
+        qaAssignmentRelease?.()
       }
     })
 
@@ -976,33 +989,37 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     })
 
     socket.on('disconnect', (reason) => {
-      joinGeneration++
-      const { roomId, userId, lessonId } = socket.data
-      if (roomId && userId) {
-        // #164: leaveRoom returns false for a stale/superseded socket (a
-        // newer socket for this same room+userId already took over — see
-        // its own doc comment) — must not broadcast peer_left in that case,
-        // the user is still very much present via that newer socket.
-        cancelLiveStrokes(userId)
-        const previousBoardId = getParticipant(roomId, userId)?.boardId
-        const actuallyLeft = leaveRoom(roomId, userId, socket.id)
-        const participant = getParticipant(lessonId ?? roomId, userId)
-        if (participant?.boardId && participant.boardId !== previousBoardId) {
-          io.to(lessonChannel(lessonId ?? roomId)).emit('peer_board_changed', { userId, boardId: participant.boardId })
+      try {
+        joinGeneration++
+        const { roomId, userId, lessonId } = socket.data
+        if (roomId && userId) {
+          // #164: leaveRoom returns false for a stale/superseded socket (a
+          // newer socket for this same room+userId already took over — see
+          // its own doc comment) — must not broadcast peer_left in that case,
+          // the user is still very much present via that newer socket.
+          cancelLiveStrokes(userId)
+          const previousBoardId = getParticipant(roomId, userId)?.boardId
+          const actuallyLeft = leaveRoom(roomId, userId, socket.id)
+          const participant = getParticipant(lessonId ?? roomId, userId)
+          if (participant?.boardId && participant.boardId !== previousBoardId) {
+            io.to(lessonChannel(lessonId ?? roomId)).emit('peer_board_changed', { userId, boardId: participant.boardId })
+          }
+          if (actuallyLeft) socket.to(lessonChannel(lessonId ?? roomId)).emit('peer_left', userId)
+          // (#480) Только если комната действительно ушла из памяти. Забывать
+          // на каждом разрыве нельзя: урок 21.08 состоял из десяти
+          // переподключений, и дедуп сторожа сбрасывался бы каждым из них,
+          // превращая одно наблюдение в десять писем.
+          if (!isRoomResident(roomId)) lagWatch.forget(roomId)
         }
-        if (actuallyLeft) socket.to(lessonChannel(lessonId ?? roomId)).emit('peer_left', userId)
-        // (#480) Только если комната действительно ушла из памяти. Забывать
-        // на каждом разрыве нельзя: урок 21.08 состоял из десяти
-        // переподключений, и дедуп сторожа сбрасывался бы каждым из них,
-        // превращая одно наблюдение в десять писем.
-        if (!isRoomResident(roomId)) lagWatch.forget(roomId)
+        // (#480) Транспорт именно на разрыве: на подключении он всегда
+        // `polling` (апгрейд до вебсокета идёт следом), и только здесь видно,
+        // на чём соединение прожило свою жизнь. Сессия, целиком просидевшая на
+        // polling, — это заметно другой урок по отзывчивости, и до сих пор
+        // отличить её можно было только по ритму запросов в nginx.
+        log.info({ socketId: socket.id, reason, transport: socket.conn.transport.name }, 'socket disconnected')
+      } finally {
+        qaSocketRelease?.()
       }
-      // (#480) Транспорт именно на разрыве: на подключении он всегда
-      // `polling` (апгрейд до вебсокета идёт следом), и только здесь видно,
-      // на чём соединение прожило свою жизнь. Сессия, целиком просидевшая на
-      // polling, — это заметно другой урок по отзывчивости, и до сих пор
-      // отличить её можно было только по ритму запросов в nginx.
-      log.info({ socketId: socket.id, reason, transport: socket.conn.transport.name }, 'socket disconnected')
     })
   })
 }

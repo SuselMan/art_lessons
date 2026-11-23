@@ -1,3 +1,4 @@
+import { QaActivityGate } from './qaActivityGate.js'
 import {canonicalStrokeStorage,strokeEndSample,strokeDabs,packStrokeEndSample} from '@grafetto/shared'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -1373,4 +1374,56 @@ describe('#762 terminal rejection retires only unrecorded live ink', () => {
     expect(await new Promise(resolve => student.emit('operation', op, resolve))).toMatchObject({ ok: true })
     await noCancellation
   })
+})
+
+
+it('QA gate protects a real Grafetto socket through disconnect', async () => {
+  const server = createServer()
+  const qaIo = new Server(server)
+  const gate = new QaActivityGate()
+  registerRoomHandlers(qaIo as never, log, gate)
+  let disconnected!: () => void
+  const disconnectedPromise = new Promise<void>(resolve => { disconnected = resolve })
+  qaIo.on('connection', socket => socket.on('disconnect', () => disconnected()))
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address() as AddressInfo
+  const socket = connect(`http://127.0.0.1:${address.port}`, {
+    extraHeaders: { cookie: 'qa-user' }, transports: ['websocket'], forceNew: true,
+  })
+  try {
+    await new Promise<void>((resolve, reject) => { socket.once('connect', () => resolve()); socket.once('connect_error', reject) })
+    expect(gate.tryStartCollection()).toBeUndefined()
+    const roomId = fresh('qa-pending-join')
+    const lesson = row(roomId)
+    let resolveLookup!: (value: Row | null) => void
+    let markStarted!: () => void
+    const started = new Promise<void>(resolve => { markStarted = resolve })
+    mockPrisma.room.findUnique.mockImplementationOnce(() => {
+      markStarted()
+      return new Promise<Row | null>(resolve => { resolveLookup = resolve })
+    })
+    socket.emit('join_room', { roomId, name: 'QA' }, () => {})
+    await started
+    socket.disconnect()
+    await disconnectedPromise
+    // The connection is gone, but its cold load is still running.
+    expect(gate.tryStartCollection()).toBeUndefined()
+    resolveLookup(lesson)
+    let release: (() => void) | undefined
+    await vi.waitFor(() => {
+      release = gate.tryStartCollection()
+      expect(release).toBeDefined()
+    })
+    const denied = connect(`http://127.0.0.1:${address.port}`, {
+      extraHeaders: { cookie: 'qa-user-two' }, transports: ['websocket'], forceNew: true, reconnection: false,
+    })
+    try {
+      await new Promise<void>((resolve, reject) => { denied.once('disconnect', () => resolve()); denied.once('connect_error', reject) })
+      expect(denied.connected).toBe(false)
+    } finally { denied.disconnect() }
+    release?.()
+  } finally {
+    socket.disconnect()
+    await new Promise<void>(resolve => qaIo.close(() => resolve()))
+  }
 })
