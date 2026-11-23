@@ -118,9 +118,10 @@ class UseCurveYesPublic(unittest.TestCase):
                 else:self.assertNotIn('Unsupported noncanonical ScatterUseCurve',str(skipped))
         for value in (b'true',b'1',b'false',b'0',b''):
             raw=typed(authored({'OpacityUseCurve':'true'}),'OpacityUseCurve',value)
-            result=self.load(raw)[1]
-            if value in (b'true',b'1'):self.assertIn('Unsupported noncanonical OpacityUseCurve',str(result))
-            else:self.assertNotIn('Unsupported noncanonical OpacityUseCurve',str(result))
+            for bundle in (False,True):
+                brushes,result=self.load(raw,bundle=bundle)
+                self.assertEqual(result,[])
+                self.assertEqual(len(brushes),1+int(bundle))
         for action in ('1','2'):
             for value in ('no','false'):
                 raw=authored({**params132(),'PaintOpAction':action,
@@ -144,5 +145,13 @@ class UseCurveYesPublic(unittest.TestCase):
                             hit='Unsupported noncanonical SizeUseCurve' in str(skipped)
                             self.assertEqual(hit,checked=='true' and value in ('yes','no'))
                             if hit:self.assertEqual(len(brushes),int(bundle))
+
+    def test_canonical_typed_true_keeps_pressure_curve(self):
+        for option in ('Size','Opacity','Flow'):
+            raw=typed(authored({'Pressure'+option:'true',option+'UseCurve':'true'}),option+'UseCurve',b'true')
+            for bundle in (False,True):
+                brushes,skipped=self.load(raw,bundle=bundle)
+                self.assertEqual(skipped,[])
+                self.assertEqual(brushes[0]['descriptor'][option.lower()+'ByPressure'],[[0,0],[1,1]])
 
 if __name__=='__main__':unittest.main()

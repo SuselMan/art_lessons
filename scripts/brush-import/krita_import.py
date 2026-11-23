@@ -2271,11 +2271,10 @@ def _reject_active_noncanonical_usecurve(root):
         value=text(name)
         return value is not None and value.lower() not in ('','0','false')
     def unsupported_true(name):
-        node=nodes.get(name)
         value=text(name)
         if value is None or value.lower() in ('','0','false'):
             return False
-        return not enabled(node.text or '')
+        return value.lower() not in ('true','1')
     engine=root.get('paintopid')
     candidates=[]
     if engine=='paintbrush':
