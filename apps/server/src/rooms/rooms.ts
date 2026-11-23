@@ -393,7 +393,10 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   if (removed) lesson.handsRaised.delete(userId)
   // The lesson goes only when it is empty of people — and takes its boards
   // with it (see evictNow).
-  if (removed && lesson.participants.size === 0) noteQaLastDeparture(lesson.room.id)
+  // A cold join may have marked the lesson open but not seated its user yet.
+  // Never clear the durable marker while any request holds a residency pin:
+  // a rejected join can conservatively leave it open until the next restart.
+  if (removed && lesson.participants.size === 0 && !isRoomPinned(lesson.room.id)) noteQaLastDeparture(lesson.room.id)
   if (lesson.participants.size === 0) evictWhenIdle(lesson.room.id)
   return removed
 }

@@ -13,7 +13,7 @@ import { INITIAL_LAYER_ID, WATERCOLOR_WET_DRY_MS } from '@grafetto/shared'
 import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, flushAllRoomWrites, pendingWriteCount,
   getParticipant, getRoomGate, getRoomSnapshot, hashRoomPassword, isRoomResident, joinRoom, leaveRoom,
-  releaseRoomIfUnused, forgetDeletedLesson,
+  releaseRoomIfUnused, forgetDeletedLesson, retainRoomForJoin,
 } from './rooms.js'
 import { getResidentRoomStats } from './roomStats.js'
 import {
@@ -1868,4 +1868,23 @@ it('QA activity persists only the final departure through the common leave path'
     expect(release).toBeDefined()
     release?.()
   } finally { finish(); lifetime(); setQaRoomActivityRuntime(undefined) }
+})
+
+
+it('QA departure never clears an open marker while a join is in flight', async () => {
+  const gate = new QaActivityGate(), closed: string[] = []
+  const activity = new QaRoomActivity({
+    async recoverInterrupted() {}, async opened() {}, async touched() {}, async closed(id) { closed.push(id) },
+  })
+  await activity.start()
+  setQaRoomActivityRuntime({ gate, activity })
+  const roomId = freshRoomId(), lifetime = gate.tryEnter()!
+  try {
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const joining = retainRoomForJoin(roomId)
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+    await Promise.resolve()
+    expect(closed).toEqual([])
+    joining.release()
+  } finally { lifetime(); setQaRoomActivityRuntime(undefined) }
 })
