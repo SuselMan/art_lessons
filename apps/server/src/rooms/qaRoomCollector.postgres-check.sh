@@ -35,20 +35,30 @@ BEGIN
   IF (deleted IS NOT NULL) IS DISTINCT FROM expected THEN RAISE EXCEPTION 'collector mismatch for %', target; END IF;
 END $$;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
-INSERT INTO "Room" (id,"createdAt") SELECT x, CURRENT_TIMESTAMP - interval '31 days' FROM unnest(ARRAY['eligible','no-clock','exact','open','fork-parent','fork-child','recent-op','recent-user','recent-snapshot','recent-child','null-snapshot','pending-request','active-assignment','late-board']) x;
-INSERT INTO "Room" (id,"lessonId","createdAt") VALUES ('recent-child-board','recent-child',CURRENT_TIMESTAMP), ('late-board-child','late-board',CURRENT_TIMESTAMP - interval '31 days');
+INSERT INTO "Room" (id,"createdAt") SELECT x, CURRENT_TIMESTAMP - interval '31 days' FROM unnest(ARRAY['eligible','no-clock','exact','open','fork-parent','fork-child','recent-op','recent-user','recent-snapshot','recent-child','null-snapshot','pending-request','active-assignment','late-board','null-clock','future-clock','unknown-open','board-active-user','board-active-snapshot','fork-grandchild','cross-assign']) x;
+INSERT INTO "Room" (id,"lessonId","createdAt") VALUES ('recent-child-board','recent-child',CURRENT_TIMESTAMP), ('late-board-child','late-board',CURRENT_TIMESTAMP - interval '31 days'), ('board-user-child','board-active-user',CURRENT_TIMESTAMP - interval '31 days'), ('board-snapshot-child','board-active-snapshot',CURRENT_TIMESTAMP - interval '31 days');
 UPDATE "Room" SET "parentRoomId"='fork-parent' WHERE id='fork-child';
+UPDATE "Room" SET "parentRoomId"='fork-child' WHERE id='fork-grandchild';
 INSERT INTO "QaRoomActivity" SELECT id, CURRENT_TIMESTAMP - interval '31 days', false FROM "Room" WHERE "lessonId" IS NULL AND id <> 'no-clock';
 UPDATE "QaRoomActivity" SET "lastActiveAt"=CURRENT_TIMESTAMP - interval '30 days' WHERE "lessonId"='exact';
 UPDATE "QaRoomActivity" SET "wasOpen"=true WHERE "lessonId"='open';
+UPDATE "QaRoomActivity" SET "lastActiveAt"=NULL WHERE "lessonId"='null-clock';
+UPDATE "QaRoomActivity" SET "lastActiveAt"=CURRENT_TIMESTAMP + interval '1 day' WHERE "lessonId"='future-clock';
+UPDATE "QaRoomActivity" SET "wasOpen"=NULL WHERE "lessonId"='unknown-open';
 INSERT INTO "Operation" VALUES ('recent-op', CURRENT_TIMESTAMP);
 INSERT INTO "RoomParticipant" VALUES ('recent-user',CURRENT_TIMESTAMP - interval '31 days',CURRENT_TIMESTAMP);
 INSERT INTO "RoomLayerSnapshot" VALUES ('recent-snapshot',CURRENT_TIMESTAMP), ('null-snapshot',NULL);
 INSERT INTO "RoomJoinRequest" VALUES ('pending-request',CURRENT_TIMESTAMP - interval '31 days',NULL);
 INSERT INTO "Assignment" VALUES ('assignment-1','active-assignment',CURRENT_TIMESTAMP - interval '31 days',NULL);
 INSERT INTO "Operation" VALUES ('late-board-child',CURRENT_TIMESTAMP);
+INSERT INTO "RoomParticipant" VALUES ('board-user-child',CURRENT_TIMESTAMP - interval '31 days',CURRENT_TIMESTAMP);
+INSERT INTO "RoomLayerSnapshot" VALUES ('board-snapshot-child',CURRENT_TIMESTAMP);
+INSERT INTO "Assignment" VALUES ('assignment-cross','cross-assign',CURRENT_TIMESTAMP - interval '31 days',CURRENT_TIMESTAMP - interval '31 days');
+UPDATE "Room" SET "assignmentId"='assignment-cross' WHERE id='eligible';
+SELECT check_collect('cross-assign',false);
+UPDATE "Room" SET "assignmentId"=NULL WHERE id='eligible';
 SELECT check_collect('eligible',true);
-SELECT check_collect(x,false) FROM unnest(ARRAY['no-clock','exact','open','fork-parent','fork-child','recent-op','recent-user','recent-snapshot','recent-child','null-snapshot','pending-request','active-assignment','late-board']) x;
+SELECT check_collect(x,false) FROM unnest(ARRAY['no-clock','exact','open','fork-parent','fork-child','recent-op','recent-user','recent-snapshot','recent-child','null-snapshot','pending-request','active-assignment','late-board','null-clock','future-clock','unknown-open','board-active-user','board-active-snapshot','fork-grandchild']) x;
 ROLLBACK;
 DO $$ BEGIN IF EXISTS (SELECT FROM "Room") THEN RAISE EXCEPTION 'fixture transaction failed to roll back'; END IF; END $$;
 INSERT INTO "Room" VALUES ('read-committed',NULL,NULL,NULL,CURRENT_TIMESTAMP - interval '31 days');
@@ -72,3 +82,15 @@ wait "$collector_pid"
 present=$(docker exec "$qa_container" psql -U postgres -d qa_test -q -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM \"Room\" r JOIN \"Operation\" o ON o.\"roomId\" = r.id WHERE r.id='race-room'")
 test "$present" = 1
 printf 'concurrent write after rollback passed\n'
+# Adversarial non-cooperating writer: prove that SERIALIZABLE + advisory
+# lease alone are insufficient. This expected unsafe outcome is a deployment
+# blocker until database roles and the shared gate exclude such writers.
+docker exec "$qa_container" psql -U postgres -d qa_test -q -v ON_ERROR_STOP=1 -c "INSERT INTO \"Room\" VALUES ('foreign-race',NULL,NULL,NULL,CURRENT_TIMESTAMP - interval '31 days'); INSERT INTO \"QaRoomActivity\" VALUES ('foreign-race',CURRENT_TIMESTAMP - interval '31 days',false)" >/dev/null
+docker exec "$qa_container" psql -U postgres -d qa_test -q -v ON_ERROR_STOP=1 -c "BEGIN; UPDATE \"QaRoomActivity\" SET \"lastActiveAt\"=CURRENT_TIMESTAMP WHERE \"lessonId\"='foreign-race'; SELECT pg_sleep(2); COMMIT" >/dev/null &
+writer_pid=$!
+sleep 0.4
+docker exec "$qa_container" psql -U postgres -d qa_test -q -v ON_ERROR_STOP=1 -c "PREPARE collect(text) AS $collector_sql" -c "BEGIN ISOLATION LEVEL SERIALIZABLE; EXECUTE collect('foreign-race'); COMMIT" >/dev/null
+wait "$writer_pid"
+unsafe=$(docker exec "$qa_container" psql -U postgres -d qa_test -q -At -v ON_ERROR_STOP=1 -c "SELECT NOT EXISTS (SELECT FROM \"Room\" WHERE id='foreign-race') AND EXISTS (SELECT FROM \"QaRoomActivity\" WHERE \"lessonId\"='foreign-race' AND \"lastActiveAt\">CURRENT_TIMESTAMP - interval '1 minute')")
+test "$unsafe" = t
+printf 'EXPECTED SAFETY BLOCKER: a foreign DB writer can race the collector\n'
