@@ -59,7 +59,7 @@ def validate_payload195(d,dynamics,sizes,raw_assets):
         if r.get('blendMode')!='normal'or r.get('accumulation')not in(('directOver','alphaDarken')if family in('particle','bristle','grid','tangentNormal')else('directOver',)):raise ValueError('Invalid native195 family composite')
         v=d[family]
         if family=='particle':
-            obj(v,{'version':exact(1),'count':integer(1,500),'iterations':integer(1,200),'gravity':number(0,1),'weight':number(),'scaleX':number(0,2),'scaleY':number(0,2)})
+            obj(v,{'version':exact(1),'count':integer(1,500),'iterations':integer(1,300),'gravity':number(0,1),'weight':number(),'scaleX':number(0,2),'scaleY':number(0,2)})
             if v['count']*v['iterations']>16384:raise ValueError('Native195 Particle budget')
         elif family=='deform':obj(v,{'version':exact(1),'mode':integer(1,8),'amount':number(),'counter':boolean,'bilinear':boolean,'density':number(),'jitter':number(0,10),'baseScale':number(.01,10)},{'sourcePolicy':exact('canonical-begin-v1')})
         elif family=='curveTrace':

@@ -20,7 +20,10 @@ def particle_preset(data,root,params,name,catalog,external,*,timed_input=False):
         v=numeric(params.get('Particle/'+key),default)
         if not math.isfinite(v)or not lo<=v<=hi or integer and int(v)!=v:raise ValueError('Particle setting outside bounded range: '+key)
         return int(v)if integer else v
-    p={'version':1,'count':number('count',50,1,500,True),'iterations':number('iterations',10,1,200,True),'gravity':number('gravity',.989,0,1),'weight':number('weight',.2,0,1),'scaleX':number('scaleX',.3,0,2),'scaleY':number('scaleY',.3,0,2)}
+    # Krita uniform property Particle/iterations allows 1..300. The 16384 point
+    # budget (count*iterations) stays the load bound; only the uniform ceiling
+    # moves, so a large iteration count needs a proportionally small count.
+    p={'version':1,'count':number('count',50,1,500,True),'iterations':number('iterations',10,1,300,True),'gravity':number('gravity',.989,0,1),'weight':number('weight',.2,0,1),'scaleX':number('scaleX',.3,0,2),'scaleY':number('scaleY',.3,0,2)}
     if p['count']*p['iterations']>16384:raise ValueError('Particle request exceeds16384 point budget')
     d=descriptor(data,'');d.update(version=49,model='stamp',category='line',paperInteraction=0)
     d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}

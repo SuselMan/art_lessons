@@ -14,7 +14,7 @@ def particle_wash134_scope(d):
       and not any(k in d for k in('mixer','spray','bristle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx'))
       and t.get('kind')=='round'and num(t.get('aspect'),1,1)and num(t.get('hardness'),1,1) and t.get('rotation')=='fixed'and num(t.get('angle'),0,0) and not set(t)-{'kind','hardness','aspect','rotation','angle'}
       and b.get('version')==2 and not set(b)-{'version','rendering'}and isinstance(r,dict)and r.get('mode')=='buildUp'and r.get('blendMode')=='normal'and r.get('accumulation')=='alphaDarken'and num(r.get('wetEdges',0),0,0)and num(r.get('burntEdges',0),0,0) and not r.get('gammaCorrect')and not r.get('luminance')
-      and type(p.get('version'))is int and p.get('version')==1 and type(p.get('count'))is int and 1<=p['count']<=500 and type(p.get('iterations'))is int and 1<=p['iterations']<=200 and p['count']*p['iterations']<=16384 and num(p.get('gravity'),0,1)and num(p.get('weight'),0,1)and num(p.get('scaleX'),0,2)and num(p.get('scaleY'),0,2)and not set(p)-{'version','count','iterations','gravity','weight','scaleX','scaleY'})
+      and type(p.get('version'))is int and p.get('version')==1 and type(p.get('count'))is int and 1<=p['count']<=500 and type(p.get('iterations'))is int and 1<=p['iterations']<=300 and p['count']*p['iterations']<=16384 and num(p.get('gravity'),0,1)and num(p.get('weight'),0,1)and num(p.get('scaleX'),0,2)and num(p.get('scaleY'),0,2)and not set(p)-{'version','count','iterations','gravity','weight','scaleX','scaleY'})
 def validate_particle_wash134(d,parent=None):
     if isinstance(d,dict)and 'particle'in d:
         b=d.get('behavior');r=b.get('rendering')if isinstance(b,dict)else None
