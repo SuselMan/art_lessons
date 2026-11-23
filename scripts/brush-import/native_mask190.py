@@ -1,7 +1,7 @@
 """Original KPP190 assembly. Components reuse the existing Pixel parser, while
 original KPP bytes (not synthetic bridges) remain the final identity authority.
 """
-import io,math,struct,hashlib,copy,subprocess
+import base64,io,math,struct,hashlib,copy,subprocess
 from collections import ChainMap
 from pathlib import Path
 from PIL import Image,ImageFont,ImageDraw,PngImagePlugin
@@ -89,6 +89,18 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             original=next((p for p in root.findall('param') if p.get('name')==(prefix+key if child else key)),None)
             attributes=dict(original.attrib) if original is not None else {}
             attributes['name']=key
+            # Qt5 converts QByteArray "yes" and "no" to true.  Normalize
+            # only these two child Wash options in the private bridge; keep
+            # the captured KPP and its identity unchanged.
+            if (child and params.get('PaintOpAction','1')=='2'
+                    and key in ('OpacityUseCurve','FlowUseCurve')
+                    and attributes.get('type')=='bytearray'):
+                try:
+                    decoded=base64.b64decode(''.join(value.split()),validate=True)
+                except ValueError:
+                    decoded=b''
+                if decoded in (b'yes',b'no'):
+                    value=base64.b64encode(b'true').decode('ascii')
             ET.SubElement(node,'param',attributes).text=value
         for record in root:
             if record.tag!='param':node.append(copy.deepcopy(record))
