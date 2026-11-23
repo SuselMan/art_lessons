@@ -94,7 +94,7 @@ def _canonical_not_checkable(params, option):
     engine, action=scope
     if engine=='paintbrush': return option in ('Opacity','Flow')
     if option=='Opacity':
-        return engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal')
+        return engine in ('sketchbrush','spraybrush','deformbrush','colorsmudge','duplicate','tangentnormal','curvebrush')
     return option=='Flow' and engine=='tangentnormal' and action in (None,'1')
 
 
@@ -2288,6 +2288,11 @@ def _reject_active_usecurve_yes(root):
             wash=action is not None and re.fullmatch(r'\+?0*1',action.strip()) is None
             if wash and not typed_unknown:
                 candidates.append(child_option)
+    elif engine=='curvebrush':
+        value=text('OpacityUseCurve')
+        node=nodes.get('OpacityUseCurve')
+        if value is not None and value.lower() not in ('','0','false') and not enabled(node.text or ''):
+            raise ValueError('Unsupported noncanonical OpacityUseCurve')
     elif engine=='sketchbrush' and yes('Line widthUseCurve') and qt_true('PressureLine width'):
         candidates.append('Line width')
     for option in candidates:
