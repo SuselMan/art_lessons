@@ -7,14 +7,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/web",
-    "dev:server": "npm run dev --workspace=apps/server",
-    "build": "npm run build --workspace=packages/shared && npm run build --workspace=apps/web",
-    "typecheck": "npm run typecheck --workspaces && npm run typecheck:e2e && npm run typecheck:scripts && npm run typecheck:storybook --workspace=apps/web",
+    "dev": "pnpm --filter @grafetto/web dev",
+    "dev:server": "pnpm --filter @grafetto/server dev",
+    "build": "pnpm --filter @grafetto/shared build && pnpm --filter @grafetto/web build",
+    "typecheck": "pnpm -r --workspace-concurrency=1 --if-present run typecheck && pnpm run typecheck:e2e && pnpm run typecheck:scripts && pnpm --filter @grafetto/web run typecheck:storybook",
     "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
-    "lint": "npm run lint --workspace=apps/web",
-    "lint:fix": "npm run lint:fix --workspace=apps/web",
+    "lint": "pnpm --filter @grafetto/web lint",
+    "lint:fix": "pnpm --filter @grafetto/web lint:fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -22,15 +22,31 @@
     "map": "tsx scripts/archmap/build.ts",
     "map:check": "tsx scripts/archmap/check.ts",
     "map:rules": "depcruise apps packages --ignore-known --output-type err-long",
-    "postinstall": "npm run build --workspace=packages/shared",
-    "storybook": "npm run storybook --workspace=apps/web",
-    "build-storybook": "npm run build-storybook --workspace=apps/web"
+    "postinstall": "pnpm --filter @grafetto/shared build",
+    "storybook": "pnpm --filter @grafetto/web storybook",
+    "build-storybook": "pnpm --filter @grafetto/web build-storybook"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "dependency-cruiser": "^17.4.3",
     "jscpd": "^5.1.2",
     "vitest": "^4.1.9",
-    "yaml": "^2.9.0"
-  }
+    "yaml": "^2.9.0",
+    "esbuild": "0.28.1",
+    "tsx": "^4.20.3",
+    "typescript": "~6.0.2",
+    "@types/node": "^24.13.2",
+    "vite": "^8.1.0",
+    "@grafetto/shared": "workspace:*",
+    "@types/ws": "^8.18.1",
+    "fflate": "^0.8.3",
+    "sharp": "0.35.3",
+    "socket.io-client": "^4.8.3",
+    "ws": "^8.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3"
+  },
+  "packageManager": "pnpm@10.28.2"
 }

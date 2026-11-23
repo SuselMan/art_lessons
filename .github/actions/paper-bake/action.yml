@@ -1,7 +1,7 @@
 name: Baked paper textures
 description: >-
   Restores apps/web/public/paper from cache, baking it only when the cache
-  misses. Assumes `npm ci` has already run.
+  misses. Assumes `pnpm install --frozen-lockfile` has already run.
 
 # (#322) Extracted into a composite action because three jobs need the baked
 # paper now — ci.yml's `test`, deploy.yml's `test`, and deploy.yml's `build` —
@@ -33,7 +33,7 @@ runs:
     # stale-restore case the key cannot cover, since those commits hash to
     # something this key will never produce again.
     #
-    # package-lock.json is in the key on purpose, despite busting the cache on
+    # pnpm-lock.yaml is in the key on purpose, despite busting the cache on
     # every unrelated dependency bump. The bake resamples through sharp, and
     # paperAssetIO.ts's own comment concedes it is "only reproducible for a
     # fixed sharp/libvips build" — so without the lockfile a sharp upgrade
@@ -51,11 +51,11 @@ runs:
         # planes* come out byte-identical — so without this the cache hits,
         # the old manifest is restored with it, and every client rebuilds the
         # paper's tooth from the table this bake was meant to replace.
-        key: paper-${{ hashFiles('apps/web/scripts/bakePaperTextures.ts', 'apps/web/scripts/paperAssetIO.ts', 'apps/web/src/engine/src/paper/paperCatch.ts', 'apps/web/src/engine/src/paper/paperConstants.ts', 'apps/web/src/engine/src/paper/paperManifest.ts', 'apps/web/src/engine/paperBake.ts', 'assets/paper-sources/**', 'packages/shared/src/paper.ts', 'package-lock.json') }}
+        key: paper-${{ hashFiles('apps/web/scripts/bakePaperTextures.ts', 'apps/web/scripts/paperAssetIO.ts', 'apps/web/src/engine/src/paper/paperCatch.ts', 'apps/web/src/engine/src/paper/paperConstants.ts', 'apps/web/src/engine/src/paper/paperManifest.ts', 'apps/web/src/engine/paperBake.ts', 'assets/paper-sources/**', 'packages/shared/src/paper.ts', 'pnpm-lock.yaml') }}
 
     # No-op on a cache hit (bakeIsComplete verifies the manifest parses, names
     # every grain type, and that every file it names is present at the recorded
     # size — so a half-restored cache re-bakes rather than passing).
     - name: Bake if the cache missed
       shell: bash
-      run: npm run prebuild --workspace=apps/web
+      run: pnpm --filter @grafetto/web run prebuild

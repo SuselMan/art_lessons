@@ -169,7 +169,7 @@ for _ in $(seq 1 30); do
 done
 
 echo "==> Applying Prisma migrations (new image, before the swap)"
-docker compose -f docker-compose.prod.yml run --rm --no-deps -T server npx prisma migrate deploy
+docker compose -f docker-compose.prod.yml run --rm --no-deps -T server ./node_modules/.bin/prisma migrate deploy
 
 # (#499) Stop the outgoing server *before* `up -d`, and read what it said on
 # the way out.

@@ -21,14 +21,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # (#322) Without this the 13 paperAssets tests skip silently — the bake
       # output is gitignored, so a fresh checkout has nothing for them to
@@ -37,13 +40,13 @@ jobs:
         uses: ./.github/actions/paper-bake
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Test
-        run: npm run test
+        run: pnpm run test
 
       # The architecture map is only worth having if it cannot quietly fall behind.
       # `map:check` fails when a source file lies in no module (a module is a
@@ -53,8 +56,8 @@ jobs:
       # and shown on the map's "Здоровье" tab instead of blocking).
       - name: Architecture map
         run: |
-          npm run map:check
-          npm run map:rules
+          pnpm run map:check
+          pnpm run map:rules
 
   # (#616, трек #314 §12) The browser harness (#491) on every PR. A separate job
   # so a red e2e run never hides a red unit run, and so they run side by side.
@@ -89,14 +92,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # The rooms in these tests draw on real paper; without the bake every
       # paper fetch 404s and the canvas never opens.
@@ -104,7 +110,7 @@ jobs:
         uses: ./.github/actions/paper-bake
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       # No GPU on the runner: the software rasteriser, asked for by name — see
       # the launchOptions comment in playwright.config.ts. Postgres is the
@@ -112,7 +118,7 @@ jobs:
       - name: End-to-end tests
         env:
           E2E_GL: swiftshader
-        run: npx playwright test --project=chromium ${{ matrix.part == 'single' && '--grep-invert @two-browsers' || '--grep @two-browsers' }}
+        run: pnpm exec playwright test --project=chromium ${{ matrix.part == 'single' && '--grep-invert @two-browsers' || '--grep @two-browsers' }}
 
       - name: Upload report and failure traces
         if: failure()

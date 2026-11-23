@@ -74,7 +74,7 @@ closes and completed before release. Closing the track does not authorize a depl
 
 ## Quality gates
 
-- Before finishing a task run `npm run typecheck` and `npm run lint:fix` (not `lint`) — it auto-fixes what it can and reports the rest, saving a manual fix-and-rerun round trip. Fix whatever it still flags.
+- Before finishing a task run `pnpm run typecheck` and `pnpm run lint:fix` (not `lint`) — it auto-fixes what it can and reports the rest, saving a manual fix-and-rerun round trip. Fix whatever it still flags.
 
 ## Cross-device pixel determinism
 
@@ -97,9 +97,9 @@ When Ilya asks to "start"/"run"/"spin up" the project (start it, "запусти
 
 2. Backend needs Postgres first (see `project_backend_dev_setup` memory):
    `docker start art_lessons_pg`
-   then from repo root, in the background: `npm run dev:server` — Fastify listens on `0.0.0.0:4000`.
+   then from repo root, in the background: `ppnpm run dev:server` — Fastify listens on `0.0.0.0:4000`.
 
-3. Frontend, from repo root, in the background: `npm run dev` — Vite already runs with `--host` + HTTPS (mkcert) on port 5173 (see `apps/web/vite.config.ts`).
+3. Frontend, from repo root, in the background: `pnpm run dev` — Vite already runs with `--host` + HTTPS (mkcert) on port 5173 (see `apps/web/vite.config.ts`).
 
 4. Report both links to Ilya:
    - Frontend (open this on the tablet): `https://<LAN-IP>:5173`
@@ -121,7 +121,7 @@ tablet.
 
 ## Dev server hygiene
 
-- Before starting `npm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one. If one's already listening, check for active/ESTABLISHED connections to it (not just LISTEN) before assuming it's a stray leftover — an established connection means someone (Ilya, on a device on the LAN) is actively using it right now.
+- Before starting `pnpm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one. If one's already listening, check for active/ESTABLISHED connections to it (not just LISTEN) before assuming it's a stray leftover — an established connection means someone (Ilya, on a device on the LAN) is actively using it right now.
 - **Never kill a dev server (yours or one you find already running) unless Ilya explicitly asks.** Previously this rule said to always clean up after yourself once done testing — that was wrong: a "kill whatever's listening on the port" cleanup can (and did) kill a session Ilya was actively relying on, e.g. testing from a tablet mid-conversation, not just an agent's own temporary instance. If you started a background dev server purely for your own verification, leave it running when you're done and mention in your response that it's still up (with the port) — let Ilya decide whether to stop it, don't decide for him.
 - If you must positively identify "is this listening process mine," track the exact PID you started (never kill by re-deriving "whatever's on the port" later — that's exactly the mechanism that killed an active session once already).
 - If you start a dev server for one worktree/branch and genuinely need a different one for a different branch on the *same port*, ask before killing the first — don't assume it's safe to stop.
@@ -150,6 +150,13 @@ code lives, and it silently mis-bases any agent branched from it. If a staging b
 wanted again, it gets re-introduced on purpose, with a reason, not restored from habit.
 
 ## Worktree-first: every task gets its own checkout
+
+When an existing task branch predates the pnpm migration and `origin/main` already
+contains it, fetch and merge the current `origin/main` into that task branch before
+installing dependencies. Preserve uncommitted work, inspect and resolve conflicts,
+and keep that worktree’s own workspace links. Do not merge into main or deploy
+without the owner’s explicit instruction. If the migration is not yet in main,
+continue with the branch’s existing package manager instead.
 
 **Work never happens in `C:\projects\pencil` itself.** That path is the shared main checkout —
 Ilya has editors, dev servers and other live Claude sessions pointed at it, so editing there is
@@ -198,7 +205,7 @@ We parallelize work across isolated Claude Code sessions ("agents"), coordinated
 - An agent must stop and report to the manager if a task requires touching files outside its declared area, instead of proceeding.
 - Agents commit atomically after each logical step, with a clear commit message — not only once at the end. This makes interrupted work resumable (see below).
 - If an agent session is interrupted (rate limit, crash, closed terminal), work is not restarted from scratch: a new session on the same branch reads the issue plus `git log`/`git diff` since the last commit and continues from there.
-- Before an agent branch goes to Ilya, the manager runs `npm run typecheck` and `npm run lint:fix` on it and fixes what it can, plus the QA pass described below.
+- Before an agent branch goes to Ilya, the manager runs `pnpm run typecheck` and `pnpm run lint:fix` on it and fixes what it can, plus the QA pass described below.
 - Merging an agent branch into `main` requires Ilya's explicit go-ahead each time — `main` auto-deploys to production, so there is no longer an intermediate branch where a merge is the manager's own call. The manager's job is to hand over a branch that is already QA'd and ready, not to merge it.
 - After a branch is merged into `main`, its worktree and branch are deleted.
 
@@ -239,7 +246,7 @@ The manager cannot assume it remembers a prior conversation — a new session ma
 
 Before a frontend/backend agent branch goes to Ilya for review, the manager (or a dedicated tester agent) runs a browser-driven QA pass so Ilya reviews working software, not something to debug:
 
-1. Start the dev server for that worktree (`npm run dev`, LAN host already on per project config).
+1. Start the dev server for that worktree (`pnpm run dev`, LAN host already on per project config).
 2. At the start of any session that will do browser testing, do one `navigate` to the local dev URL to confirm the claude-in-chrome extension has site access for that origin. If it's blocked asking for a one-time site permission, stop and ask Ilya to grant it in the extension once — this is a Chrome-extension-level permission, separate from Claude Code's own tool permissions, and it should persist after being granted once, so this should rarely trigger.
 3. Drive the feature described in the issue end-to-end (happy path + one realistic edge case) using the `run`/`verify` skills rather than ad-hoc scripts. Check console messages for errors.
 4. If a bug turns up, fix it on the agent branch before handing off — don't hand Ilya a broken build to discover.
