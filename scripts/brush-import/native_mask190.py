@@ -65,7 +65,7 @@ def text_resource(definition,external):
 
 def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=independent_mask190_scope):
     import xml.etree.ElementTree as ET
-    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE,_child_curve_bytearray_wash,_child_mixed_qt_wash,_pixel_action_wash
+    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE,_child_curve_bytearray_wash,_child_mixed_qt_wash,_pixel_action_wash,_child_notcheckable_string
     from brush_contract import finalize_identity
     from curve_transfer import scaled_curve
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
@@ -90,6 +90,9 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             attributes=dict(original.attrib) if original is not None else {}
             attributes['name']=key
             if child and _SOURCE_SCOPE.get()==('paintbrush','2'):
+                for role in ('Opacity','Flow'):
+                    canonical=_child_notcheckable_string(root,role).get(key)
+                    if canonical is not None:value=canonical
                 for role in ('Rotation','Ratio','Mirror','Scatter'):
                     if key in ('Pressure'+role,role+'UseCurve'):
                         mixed=_child_mixed_qt_wash(root,role)
