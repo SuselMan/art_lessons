@@ -93,7 +93,7 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             # only these child Wash options in the private bridge; keep
             # the captured KPP and its identity unchanged.
             if (child and params.get('PaintOpAction','1')=='2'
-                    and key in ('OpacityUseCurve','FlowUseCurve',
+                    and key in ('OpacityUseCurve','FlowUseCurve','SizeUseCurve',
                                 'PressureMirror','PressureScatter','PressureRotation','PressureRatio')
                     and attributes.get('type')=='bytearray'):
                 try:
