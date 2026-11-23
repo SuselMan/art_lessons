@@ -38,6 +38,7 @@ def convert(raw,root):
 class ChildSizeQtBoolTests(unittest.TestCase):
     def test_active_yes_no_true_false_190_195(self):
         for timer in (False,True):
+            accepted={}
             for value in ('true','false','yes','no'):
                 with self.subTest(timer=timer,value=value),tempfile.TemporaryDirectory() as tmp:
                     raw=fixture(value,timer=timer);c=convert(raw,Path(tmp))
@@ -46,8 +47,13 @@ class ChildSizeQtBoolTests(unittest.TestCase):
                     curve=d['behavior']['dual']['brush']['sizeByPressure']
                     self.assertEqual(curve,[[0,1],[1,1]] if value=='false' else [[0,0],[1,1]])
                     self.assertEqual(d['id'],finalize_identity(copy.deepcopy(d),raw)['id'])
+                    normal=copy.deepcopy(d);normal.pop('id');normal['behavior']['dual']['brush'].pop('id')
+                    accepted[value]=normal
+            self.assertEqual(accepted['yes'],accepted['true'])
+            self.assertEqual(accepted['no'],accepted['true'])
 
-    def test_simple_legacy_candidate_is_routed_to_190(self):
+    def test_simple_legacy_keeps_canonical_child_accumulation(self):
+        results={}
         for value in ('true','yes','no'):
             with self.subTest(value=value),tempfile.TemporaryDirectory() as tmp:
                 fields=('<param name="PaintOpAction">2</param>'
@@ -59,8 +65,14 @@ class ChildSizeQtBoolTests(unittest.TestCase):
                         '<param name="MaskingBrush/Preset/SizeSensor"><![CDATA[<params id="pressure"/>]]></param>')
                 c=convert(kpp(resources=fields),Path(tmp))
                 self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor']
-                self.assertEqual(d['version'],27 if value=='true' else 190)
+                self.assertEqual(d['version'],27)
                 self.assertEqual(d['behavior']['dual']['brush']['sizeByPressure'],[[0,0],[1,1]])
+                result=copy.deepcopy(d);result.pop('id')
+                result['behavior']['dual']['brush'].pop('id')
+                results[value]=result
+        self.assertEqual(results['yes'],results['true'])
+        self.assertEqual(results['no'],results['true'])
+        self.assertEqual(results['true']['behavior']['dual']['brush']['behavior']['rendering']['accumulation'],'alphaDarken')
 
     def test_inactive_mask_checked_false_and_malformed(self):
         for value in ('true','false','yes','no'):

@@ -65,7 +65,7 @@ def text_resource(definition,external):
 
 def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=independent_mask190_scope):
     import xml.etree.ElementTree as ET
-    from krita_import import xml,enabled,numeric,compatibility
+    from krita_import import xml,enabled,numeric,compatibility,_SOURCE_SCOPE
     from brush_contract import finalize_identity
     from curve_transfer import scaled_curve
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
@@ -95,6 +95,7 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
             if (child and params.get('PaintOpAction','1')=='2'
                     and key in ('OpacityUseCurve','FlowUseCurve','SizeUseCurve',
                                 'PressureMirror','PressureScatter','PressureRotation','PressureRatio')
+                    and (key!='SizeUseCurve' or _SOURCE_SCOPE.get()==('paintbrush','2'))
                     and attributes.get('type')=='bytearray'):
                 try:
                     decoded=base64.b64decode(''.join(value.split()),validate=True)
