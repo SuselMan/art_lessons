@@ -2360,7 +2360,8 @@ def _child_mixed_qt_wash(root,role):
     if (not _pixel_action_wash(root)
             or mask is None or mask.get('type') is not None or not enabled(mask.text)
             or checked is None or curve is None
-            or {checked.get('type'),curve.get('type')}!={None,'bytearray'}): return None
+            or not ((checked.get('type')=='bytearray' and curve.get('type') in (None,'string'))
+                    or (curve.get('type')=='bytearray' and checked.get('type') in (None,'string')))): return None
     try: c,u=_qt_guard_text(checked),_qt_guard_text(curve)
     except ValueError: return None
     if c not in ('true','1','yes','no') or u not in ('true','false','1','0','yes','no'): return None
