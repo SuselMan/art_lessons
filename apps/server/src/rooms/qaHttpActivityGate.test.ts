@@ -111,3 +111,23 @@ it('fails closed when HTTP room classification fails', async () => {
     expect(await activity.readyForCollection()).toBe(false)
   } finally { await app.close() }
 })
+
+it('classifies room activity after Fastify has parsed request bodies', async () => {
+  const { default: Fastify } = await import('fastify')
+  const { QaRoomActivity } = await import('./qaRoomActivity.js')
+  const app = Fastify(), gate = new QaActivityGate(), touched: string[] = []
+  const activity = new QaRoomActivity({
+    async recoverInterrupted() {}, async opened() {}, async closed() {},
+    async touched(id) { touched.push(id) },
+  })
+  await activity.start()
+  registerQaHttpActivityGate(app, gate, {
+    activity,
+    async resolveLesson(request) { return (request.body as { roomId: string }).roomId },
+  })
+  app.post('/room-open', async () => ({ ok: true }))
+  try {
+    expect((await app.inject({ method: 'POST', url: '/room-open', payload: { roomId: 'lesson' } })).statusCode).toBe(200)
+    expect(touched).toEqual(['lesson'])
+  } finally { await app.close() }
+})

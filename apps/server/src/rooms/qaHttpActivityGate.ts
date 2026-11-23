@@ -22,6 +22,9 @@ export function registerQaHttpActivityGate(app: FastifyInstance, gate: QaActivit
       return reply.code(503).send({ error: 'qa_maintenance_retry' })
     }
     leases.set(request, release)
+  })
+  // Body-dependent room IDs (e.g. room-open metrics) exist only after parsing.
+  app.addHook('preHandler', async (request, reply) => {
     if (roomActivity) {
       try {
         const lessonId = await roomActivity.resolveLesson(request)
