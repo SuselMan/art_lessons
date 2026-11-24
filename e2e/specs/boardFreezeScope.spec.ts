@@ -19,7 +19,8 @@ test('a frozen teacher board leaves personal work usable; personal freeze still 
     await waitForRoomReady(student)
     expect(await student.evaluate(() => window.__roomStore!.getState().roomFrozen)).toBe(false)
     const personal = await student.evaluate(() => window.__roomStore!.getState().boardId)
-    await drawStroke(student, [[420, 320], [720, 340]])
+    // The floating teacher-board preview covers the upper-left canvas after handout.
+    await drawStroke(student, [[550, 420], [800, 440]])
     await waitForOperations(student, 'stroke', 1)
     await teacher.getByRole('button', { name: 'More actions', exact: true }).click()
     await teacher.getByRole('menuitem', { name: 'Freeze drawing', exact: true }).click()
