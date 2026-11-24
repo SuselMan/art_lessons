@@ -172,9 +172,9 @@ test('confirmed Freeze has a visible state and a clear toast', async ({ page }) 
   const unfreeze = page.getByRole('button', { name: 'Unfreeze board', exact: true })
   await expect(unfreeze).toHaveAttribute('aria-pressed', 'true')
   await expect(unfreeze).toContainText('Frozen')
-  await expect(page.getByText('Drawing frozen for students. The teacher can continue drawing.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Drawing on this board is frozen for students. The teacher can continue drawing.', { exact: true })).toBeVisible()
   await unfreeze.click()
-  await expect(page.getByText('Drawing unfrozen for students.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Students can draw on this board again.', { exact: true })).toBeVisible()
 })
 
 test('left-handed minimal UI animates its right edge and offers Fit after a pinch', async ({ page, context }) => {
