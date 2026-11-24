@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createRoom, drawStroke, waitForRoomReady, waitForOperations } from '../support/room'
 
-declare global { interface Window { __boardSwitchPreviousEngine?: Window['__engine'] } }
+declare global { interface Window { __boardSwitchPreviousEngine?: Window['__engine']; __finishPaperLoading?: () => void } }
 async function imageHash(page: Page) {
   return page.evaluate(async () => {
     const image = await window.__engine!.exportPNG()
@@ -67,36 +67,40 @@ test('page turns retain one connection, board pixels and restored history', asyn
   if (process.env.QA_BOARD_BASELINE !== '1') expect(connections).toBe(initialConnections)
 })
 
-test('loading overview follows its target, falls back on image failure', async ({ page }, info) => {
+test('loading overlay covers the viewport and reports paper progress', async ({ page }) => {
   await page.goto('/')
-  await page.route('**/api/rooms/preview-*/thumbnail?*', route => route.request().url().includes('preview-broken')
-    ? route.fulfill({ status: 404 })
-    : route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="#faf8f0"/><path d="M80 280 Q320 30 560 280" fill="none" stroke="#b8473f" stroke-width="24"/></svg>' }))
   await page.evaluate(async () => {
     const reactPath = '/node_modules/.vite/deps/react.js'
     const domPath = '/node_modules/.vite/deps/react-dom_client.js'
     const overlayPath = '/src/pages/Room/status/RoomLoadingOverlay.tsx'
-    const storePath = '/src/stores/roomStore.ts'
     const { default: React } = await import(/* @vite-ignore */ reactPath) as { default: typeof import('react') }
     const { default: { createRoot } } = await import(/* @vite-ignore */ domPath) as { default: typeof import('react-dom/client') }
     const { RoomLoadingOverlay } = await import(/* @vite-ignore */ overlayPath) as typeof import('../../apps/web/src/pages/Room/status/RoomLoadingOverlay')
-    const { useRoomStore } = await import(/* @vite-ignore */ storePath) as typeof import('../../apps/web/src/stores/roomStore')
-    window.__roomStore = useRoomStore
-    const root = document.createElement('div')
-    root.style.cssText = 'position:fixed;inset:0;z-index:1000'
-    document.body.append(root)
-    useRoomStore.setState({ boardId: 'preview-first', boards: [
-      { id: 'preview-first', thumbnailUpdatedAt: '2026-11-20T18:00:00Z' },
-      { id: 'preview-broken', thumbnailUpdatedAt: '2026-11-20T18:00:00Z' },
-    ] as ReturnType<typeof useRoomStore.getState>['boards'] })
-    createRoot(root).render(React.createElement(RoomLoadingOverlay))
+    const container = document.createElement('div')
+    container.id = 'loading-overlay-test'
+    document.body.append(container)
+    const root = createRoot(container)
+    const render = (done: boolean) => root.render(React.createElement(RoomLoadingOverlay, {
+      fullscreen: true,
+      paper: { type: 'fine', loaded: 1024 * 1024, total: 2 * 1024 * 1024, done },
+    }))
+    window.__finishPaperLoading = () => render(true)
+    render(false)
   })
-  const overview = page.locator('img[src*="/api/rooms/preview-"]')
-  await expect(overview).toBeVisible()
-  await info.attach('target-board-loading-overview', { body: await page.screenshot({ path: process.env.QA_BOARD_PREVIEW_SCREENSHOT }), contentType: 'image/png' })
-  await page.evaluate(() => window.__roomStore!.setState({ boardId: 'preview-broken' }))
-  await expect(overview).toHaveAttribute('src', /preview-broken/)
-  await expect(overview).toBeHidden()
-  await page.evaluate(() => window.__roomStore!.setState({ boardId: 'without-thumbnail' }))
-  await expect(overview).toHaveCount(0)
+  const overlay = page.locator('#loading-overlay-test > div')
+  await expect(overlay).toBeVisible()
+  await expect(overlay.locator('picture')).toBeVisible()
+  await expect(overlay.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50')
+  await expect(overlay).toContainText('1.0 / 2.0 MB')
+  const dimensions = await overlay.evaluate(element => {
+    const rect = element.getBoundingClientRect()
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+      viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
+      background: getComputedStyle(element).backgroundColor }
+  })
+  expect(dimensions).toMatchObject({ x: 0, y: 0, width: dimensions.viewportWidth, height: dimensions.viewportHeight })
+  expect(dimensions.background).not.toBe('rgba(0, 0, 0, 0)')
+  await page.evaluate(() => window.__finishPaperLoading!())
+  await expect(overlay.getByRole('progressbar')).toHaveCount(0)
+  await expect(overlay.locator('picture')).toBeVisible()
 })

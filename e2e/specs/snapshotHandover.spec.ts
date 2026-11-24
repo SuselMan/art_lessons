@@ -103,16 +103,17 @@ test('empty and sparse snapshots replace old tiles, including the baseline used 
   await drawStroke(page, [[750, 250], [800, 280]])
   await waitForOperations(page, 'stroke', 2)
   await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
-  const removed = await page.evaluate(async id => {
+  // Saving operations does not mean rendering has settled enough to bake.
+  // Retry until the actual snapshot contains both tiles, then restore atomically.
+  await expect.poll(() => page.evaluate(async id => {
     const url = '/src/engine/snapshots.ts'
     const { decodeLayerTiles } = await import(url) as typeof import('../../apps/web/src/engine/snapshots')
-    const e = window.__engine!, raw = e.bakeNetworkSnapshot(id)!
+    const e = window.__engine!, raw = e.bakeNetworkSnapshot(id)
+    if (!raw) return 0
     const tiles = decodeLayerTiles(raw, 0).tiles
-    if (tiles.length < 2) throw new Error('fixture must paint at least two tiles')
-    e.restoreLayerFromSnapshot(id, [tiles[0]], 2)
+    if (tiles.length > 1) e.restoreLayerFromSnapshot(id, [tiles[0]], 2)
     return tiles.length
-  }, layer)
-  expect(removed).toBeGreaterThan(1)
+  }, layer), { message: 'waiting for a settled snapshot with at least two tiles' }).toBeGreaterThan(1)
   expect(await baked(page, layer)).toHaveLength(1)
   await page.evaluate(id => window.__engine!.restoreLayerFromSnapshot(id, [], 2), layer)
   expect(await baked(page, layer)).toBeNull()

@@ -64,7 +64,7 @@ export function requireBakedPaper(): void {
   throw new Error(
     'e2e: paper textures are not baked, so every room would open on the "paper failed" '
     + 'overlay instead of a canvas.\n'
-    + '     Run `npm run bake:paper --workspace=apps/web` once (~3.5 min) and try again.',
+    + '     Run `pnpm --filter @grafetto/web bake:paper` once (~3.5 min) and try again.',
   )
 }
 

@@ -43,14 +43,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # (#322) Same reason as ci.yml's copy: the paper assertions are only
       # real if something baked. See .github/actions/paper-bake.
@@ -58,13 +61,13 @@ jobs:
         uses: ./.github/actions/paper-bake
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Test
-        run: npm run test
+        run: pnpm run test
 
       # The architecture map is only worth having if it cannot quietly fall behind.
       # `map:check` fails when a source file lies in no module (a module is a
@@ -74,8 +77,8 @@ jobs:
       # and shown on the map's "Здоровье" tab instead of blocking).
       - name: Architecture map
         run: |
-          npm run map:check
-          npm run map:rules
+          pnpm run map:check
+          pnpm run map:rules
 
   # (#199) Builds happen here, on a runner with real RAM/CPU to spare — the
   # VPS (1 vCPU, 1GB RAM, no swap) was getting OOM-killed running `npm ci` +
@@ -96,14 +99,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # (#300) Baked paper textures are no longer committed — the bake is
       # byte-reproducible, so keeping ~60 MB of binary blobs in git history
@@ -117,7 +123,7 @@ jobs:
       # two copies that will not get updated. The reasoning for what belongs in
       # it lives with it.
       #
-      # `npm run build` below runs `prebuild` again; it is a no-op by then.
+      # `pnpm --filter @grafetto/web run build` below runs `prebuild` again; it is a no-op by then.
       - name: Baked paper textures
         uses: ./.github/actions/paper-bake
 
@@ -147,7 +153,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_WEB_PROJECT }}
-        run: npm run build --workspace=apps/web
+        run: pnpm --filter @grafetto/web run build
 
       # (#515) The same string, reachable without a browser: `curl
       # https://grafetto.com/version.json` answers "what is actually on prod

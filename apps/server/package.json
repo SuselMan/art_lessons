@@ -14,7 +14,7 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^11.1.0",
-    "@grafetto/shared": "*",
+    "@grafetto/shared": "workspace:*",
     "@prisma/client": "^6.19.3",
     "@sentry/node": "^10.68.0",
     "bcryptjs": "^3.0.3",
@@ -30,6 +30,7 @@
     "@types/node": "^24.13.2",
     "socket.io-client": "^4.8.3",
     "tsx": "^4.20.3",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "light-my-request": "6.6.0"
   }
 }

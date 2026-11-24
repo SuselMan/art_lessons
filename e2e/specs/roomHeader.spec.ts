@@ -26,8 +26,12 @@ test.describe('the room header', () => {
     })
     await page.getByRole('button', { name: 'Menu', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Share for review', exact: true }).click()
-    let expected = new URL(`/room/${roomId}?preview`, page.url()).href
-    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('review-link'))).toBe(expected)
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('review-link'))).toBeTruthy()
+    const firstUrl = new URL((await page.evaluate(() => sessionStorage.getItem('review-link')))!)
+    expect(firstUrl.origin).toBe(new URL(page.url()).origin)
+    expect(firstUrl.pathname).toBe(`/room/${roomId}`)
+    expect(firstUrl.searchParams.has('preview')).toBe(true)
+    expect(firstUrl.searchParams.get('reviewToken')).toBeTruthy()
     await expect(page.getByText('Link copied', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Boards', exact: true }).click()
     await page.getByRole('button', { name: 'New board', exact: true }).click()
@@ -36,9 +40,15 @@ test.describe('the room header', () => {
     const boardId = await page.evaluate(() => window.__roomStore!.getState().boardId)
     await page.getByRole('button', { name: 'Menu', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Share for review', exact: true }).click()
-    expected = new URL(`/room/${boardId}?preview`, page.url()).href
-    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('review-link'))).toBe(expected)
-    await page.goto(expected)
+    await expect.poll(async () => {
+      const link = await page.evaluate(() => sessionStorage.getItem('review-link'))
+      return link ? new URL(link).pathname : null
+    }).toBe(`/room/${boardId}`)
+    const boardUrl = new URL((await page.evaluate(() => sessionStorage.getItem('review-link')))!)
+    expect(boardUrl.origin).toBe(new URL(page.url()).origin)
+    expect(boardUrl.searchParams.has('preview')).toBe(true)
+    expect(boardUrl.searchParams.get('reviewToken')).toBeTruthy()
+    await page.goto(boardUrl.href)
     await page.locator('form button[type="submit"]').click()
     await waitForRoomReady(page)
     await expect(page.getByRole('button', { name: 'Annotations', exact: true })).toHaveAttribute('aria-pressed', 'true')

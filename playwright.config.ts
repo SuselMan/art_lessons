@@ -103,7 +103,7 @@ export default defineConfig({
       // long after the health check had given up waiting for it. serveApi.ts
       // owns both steps in the only order that works, and keeps the server out
       // of the developer's own .env while it is at it — see its own comment.
-      command: 'npx tsx e2e/serveApi.ts',
+      command: 'pnpm exec tsx e2e/serveApi.ts',
       url: SERVER_HEALTH_URL,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -114,13 +114,13 @@ export default defineConfig({
       // `--strictPort` on purpose: Vite's default is to hop to the next free
       // port, which would leave the tests pointed at nothing while the app ran
       // happily somewhere else. A clash should be a loud failure.
-      command: `npm run dev:http --workspace=apps/web -- --port ${WEB_PORT} --strictPort`,
+      command: `pnpm --filter @grafetto/web dev:http --port ${WEB_PORT} --strictPort`,
       url: WEB_URL,
       // (#515) A realistic version string, so the Settings row can be asserted
       // as the thing a person actually reads rather than as the `dev` fallback.
       // Vite picks VITE_-prefixed variables out of the environment in dev the
       // same way it does in a build, so this needs no config of its own.
-      env: { SERVER_PORT: String(SERVER_PORT), VITE_APP_VERSION: E2E_APP_VERSION },
+      env: { SERVER_PORT: String(SERVER_PORT), VITE_APP_VERSION: E2E_APP_VERSION, GRAFETTO_E2E_DEVICE_IP: '1' },
       reuseExistingServer: false,
       timeout: 120_000,
       stdout: 'pipe',
