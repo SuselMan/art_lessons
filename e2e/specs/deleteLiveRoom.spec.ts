@@ -5,6 +5,7 @@ test('deleting a live lesson revokes owner and board viewers while preserving th
   test.setTimeout(180_000)
   const errors: string[] = []
   let deleting = false
+  const revokedBoards = new Set<string>()
   let creatorReady = false
   const watch = (target: Page) => {
     target.on('pageerror', error => errors.push(error.message))
@@ -14,7 +15,11 @@ test('deleting a live lesson revokes owner and board viewers while preserving th
       // The initial empty thumbnail can race create_room before an owner
       // exists. Deliberate throttle and revoked in-flight uploads are also
       // expected HTTP refusals; JS errors and HTTP5xx remain fatal.
-      const expected = /\/thumbnail$/.test(message.location().url) && (/status of 429/.test(message.text())
+      const location = message.location().url
+      const brushRequest = deleting && location.includes('/api/brush-library?') ? new URL(location) : null
+      const revokedBrushRequest = deleting && brushRequest?.pathname === '/api/brush-library'
+        && revokedBoards.has(brushRequest.searchParams.get('roomId') ?? '') && /status of 403/.test(message.text())
+      const expected = revokedBrushRequest || /\/thumbnail$/.test(message.location().url) && (/status of 429/.test(message.text())
         || !creatorReady && /status of 403/.test(message.text()))
         || deleting && /\/api\/rooms\/[^/]+\/(snapshots|thumbnail)/.test(message.location().url) && /status of 403/.test(message.text())
       if (expected) test.info().annotations.push({ type: 'expected-http-refusal', description: message.text() })
@@ -28,6 +33,8 @@ test('deleting a live lesson revokes owner and board viewers while preserving th
   const created = await page.request.post(`/api/rooms/${room}/boards`, { data: { name: 'Student board' } })
   expect(created.status()).toBe(201)
   const board = await created.json() as { id: string }
+  revokedBoards.add(room)
+  revokedBoards.add(board.id)
   const context = await browser.newContext({ viewport: { width: 1400, height: 900 } })
   try {
     const peer = await context.newPage()

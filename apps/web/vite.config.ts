@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { defineConfig } from 'vite'
+import { defineConfig, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 import mkcert from 'vite-plugin-mkcert'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -13,6 +13,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin'
 // one is caught by `tsc -b` in the build.
 import { precacheConfig } from './src/pwa/swConfig.ts'
 import { devBridge } from './scripts/devBridgePlugin.ts'
+import { createE2eEnvironmentAddress } from './scripts/e2eEnvironmentProxy.ts'
 
 // Dev-server HTTPS (mkcert-signed, LAN-trusted once its CA is installed on a
 // tablet — see apps/web's README/CLAUDE.md) — needed for AudioWorklet (pencil
@@ -103,9 +104,18 @@ const pwa = VitePWA({
 
 /** Shared by the dev server and `preview`: both have to reach the same local
  *  backend, and a copy would be one more thing to keep in step. */
-function apiProxy() {
+function apiProxy(e2e = false) {
+  const address = createE2eEnvironmentAddress(e2e)
   return {
-    '/api': `http://localhost:${SERVER_PORT}`,
+    '/api': {
+      target: `http://localhost:${SERVER_PORT}`,
+      configure(proxy) {
+        proxy.on('proxyReq', (proxyReq, req) => {
+          const ip = address(req.method, req.url, req.headers.cookie)
+          if (ip) proxyReq.setHeader('x-forwarded-for', ip)
+        })
+      },
+    } satisfies ProxyOptions,
     '/socket.io': { target: `http://localhost:${SERVER_PORT}`, ws: true },
   }
 }
@@ -175,7 +185,7 @@ export default defineConfig(({ mode }) => {
       // mkcert plugin patches in its own cert/key onto this at config-resolve
       // time, so there's nothing to supply here beyond "on".
       https: useHttps ? {} : undefined,
-      proxy: apiProxy(),
+      proxy: apiProxy(process.env.GRAFETTO_E2E_DEVICE_IP === '1'),
     },
     // (#400) The same proxy for `npm run preview`, which does *not* inherit
     // `server.proxy`. The PWA block above tells the next reader to test the

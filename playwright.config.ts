@@ -120,7 +120,7 @@ export default defineConfig({
       // as the thing a person actually reads rather than as the `dev` fallback.
       // Vite picks VITE_-prefixed variables out of the environment in dev the
       // same way it does in a build, so this needs no config of its own.
-      env: { SERVER_PORT: String(SERVER_PORT), VITE_APP_VERSION: E2E_APP_VERSION },
+      env: { SERVER_PORT: String(SERVER_PORT), VITE_APP_VERSION: E2E_APP_VERSION, GRAFETTO_E2E_DEVICE_IP: '1' },
       reuseExistingServer: false,
       timeout: 120_000,
       stdout: 'pipe',
